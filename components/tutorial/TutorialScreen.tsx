@@ -77,19 +77,19 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
       ]}>
       <View style={[styles.topBar, { width: contentWidth }]}>
         <View style={styles.topLeft}>
-          {!isFirst ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="이전 페이지"
-              hitSlop={12}
-              onPress={goPrev}>
-              <Text style={[styles.back, { color: colors.mutedLight }]}>
-                이전
-              </Text>
-            </Pressable>
-          ) : (
-            <View style={styles.backPlaceholder} />
-          )}
+          <View style={styles.backSlot}>
+            {!isFirst ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="이전 페이지"
+                hitSlop={12}
+                onPress={goPrev}>
+                <Text style={[styles.back, { color: colors.mutedLight }]}>
+                  이전
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
           <View style={styles.dots}>
             {TUTORIAL_PAGES.map((_, i) => (
               <View
@@ -176,12 +176,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  backSlot: {
+    width: 32,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
   back: {
     fontFamily: fonts.nexonRegular,
     fontSize: 13,
-  },
-  backPlaceholder: {
-    width: 28,
   },
   dots: {
     flexDirection: 'row',
