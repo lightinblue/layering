@@ -15,6 +15,7 @@ export const colors = {
   accentText: '#708aa2',
   chipBlue: '#62b3f6',
   chipGreen: '#45c775',
+  chipYellow: '#f5c542',
   chipGray: '#a0a0a0',
   fabShadow: 'rgba(52, 61, 75, 0.16)',
 } as const;
@@ -68,20 +69,17 @@ export const SUBJECT_COLORS: Record<string, string> = {
 };
 
 /**
- * Palette for new subject chips: existing Figma solids + settings accents.
- * Deduped so blue/green aren't listed twice.
+ * Palette for new subject chips (rainbow ROYGBIV-ish).
+ * Deep primary blue (`#1991ff`) replaced with yellow; gray last.
  */
 export const SUBJECT_COLOR_OPTIONS: readonly string[] = [
-  ...new Set<string>([
-    colors.chipBlue,
-    colors.chipGreen,
-    colors.chipGray,
-    '#1991ff',
-    '#45c775',
-    '#ff7a45',
-    '#ef5b7a',
-    '#2bb8a8',
-  ]),
+  '#ef5b7a', // red / pink
+  '#ff7a45', // orange
+  colors.chipYellow,
+  colors.chipGreen,
+  '#2bb8a8', // teal (green→blue)
+  colors.chipBlue,
+  colors.chipGray,
 ];
 
 /** Resolve chip fill: explicit override → name map → gray. */

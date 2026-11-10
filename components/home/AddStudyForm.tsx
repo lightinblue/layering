@@ -432,6 +432,13 @@ export function AddStudyForm({
         <View style={styles.actionRow}>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="삭제"
+            onPress={requestDelete}
+            style={[styles.deleteBtn, styles.actionBtn]}>
+            <Text style={styles.deleteBtnText}>삭제</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel="수정"
             accessibilityState={{ disabled: !canSave }}
             disabled={!canSave}
@@ -443,13 +450,6 @@ export function AddStudyForm({
               !canSave && { backgroundColor: colors.mutedLight },
             ]}>
             <Text style={styles.saveBtnText}>수정</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="삭제"
-            onPress={requestDelete}
-            style={[styles.deleteBtn, styles.actionBtn]}>
-            <Text style={styles.deleteBtnText}>삭제</Text>
           </Pressable>
         </View>
       ) : (
@@ -620,13 +620,11 @@ const styles = StyleSheet.create({
     borderRadius: radii.chip,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#e5484d',
-    backgroundColor: 'transparent',
+    backgroundColor: '#e5484d',
   },
   deleteBtnText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 16,
-    color: '#e5484d',
+    color: '#ffffff',
   },
 });
