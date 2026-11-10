@@ -1,36 +1,22 @@
-import { StyleSheet } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 
-import { Text, View } from '@/components/Themed';
+import HomeScreen from '@/components/home/HomeScreen';
+import {
+  HOME_DEMO_STATES,
+  type HomeDemoState,
+} from '@/constants/home-mock';
 
-/** FR-B stub — 오늘 복습 목록·완료 체크. */
-export default function TodayScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>오늘</Text>
-      <Text style={styles.body}>오늘 복습할 내용이 없어요</Text>
-      <Text style={styles.hint}>학습 기록을 추가하면 오늘 복습 항목이 여기에 모입니다.</Text>
-    </View>
-  );
+function parseDemo(value: string | string[] | undefined): HomeDemoState {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (raw && (HOME_DEMO_STATES as string[]).includes(raw)) {
+    return raw as HomeDemoState;
+  }
+  return 'full';
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    backgroundColor: '#FFFFFF',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  body: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  hint: {
-    fontSize: 14,
-    opacity: 0.55,
-  },
-});
+/** FR-B — 오늘 홈 (공부 · 복습). Figma: 홈 full / few / empty. */
+export default function TodayScreen() {
+  const { demo } = useLocalSearchParams<{ demo?: string }>();
+  const demoState = parseDemo(demo);
+  return <HomeScreen key={demoState} initialDemoState={demoState} />;
+}

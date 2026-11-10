@@ -2,6 +2,7 @@ import { SymbolView } from 'expo-symbols';
 import { Tabs } from 'expo-router';
 
 import Colors from '@/constants/Colors';
+import { colors } from '@/constants/tokens';
 import { useColorScheme } from '@/components/useColorScheme';
 
 export default function TabLayout() {
@@ -11,17 +12,18 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: palette.tint,
+        tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: palette.tabIconDefault,
         headerShown: true,
-        headerStyle: { backgroundColor: palette.background },
+        headerStyle: { backgroundColor: colors.mainWhite },
         headerTitleStyle: { color: palette.text },
-        tabBarStyle: { backgroundColor: palette.background },
+        tabBarStyle: { backgroundColor: colors.white },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: '오늘',
+          headerShown: false,
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{ ios: 'sun.max', android: 'wb_sunny', web: 'sunny' }}

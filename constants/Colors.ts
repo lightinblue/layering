@@ -1,15 +1,15 @@
-/** White-tone minimal palette (세부 색은 피그마 반영 예정). */
-const tint = '#2B6CB0';
+/** App chrome palette; Home screen tokens live in `constants/tokens.ts`. */
+const tint = '#1991ff';
 
 export default {
   light: {
     text: '#1A1A1A',
-    background: '#FFFFFF',
+    background: '#fafafa',
     tint,
-    tabIconDefault: '#A0AEC0',
+    tabIconDefault: '#9fb1c1',
     tabIconSelected: tint,
-    muted: '#718096',
-    border: '#E2E8F0',
+    muted: '#708aa2',
+    border: '#ced7e0',
   },
   dark: {
     text: '#FFFFFF',

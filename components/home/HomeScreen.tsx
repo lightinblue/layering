@@ -1,0 +1,643 @@
+import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import {
+  ArrowRightIcon,
+  CalendarIcon,
+  CheckIcon,
+  EllipseIcon,
+  PlusIcon,
+} from '@/components/icons/HomeIcons';
+import {
+  HOME_DEMO_STATES,
+  HOME_MOCK,
+  intervalLabel,
+  type HomeDemoState,
+  type HomeReviewCard,
+  type HomeScreenData,
+  type HomeStudyRow,
+  type HomeWeekDay,
+} from '@/constants/home-mock';
+import {
+  colors,
+  radii,
+  sizes,
+  spacing,
+  subjectColor,
+} from '@/constants/tokens';
+
+/** Clears default tab bar (+ safe area handled by tab bar itself). */
+const FAB_BOTTOM_GAP = 72;
+const REVIEW_COLS = 3;
+
+type HomeScreenProps = {
+  /** Override mock; when omitted, uses demo state data. */
+  data?: HomeScreenData;
+  /** Initial demo fixture (dev toggle cycles full → few → empty). */
+  initialDemoState?: HomeDemoState;
+};
+
+export default function HomeScreen({
+  data: dataProp,
+  initialDemoState = 'full',
+}: HomeScreenProps) {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const [demoState, setDemoState] = useState<HomeDemoState>(initialDemoState);
+  const [completedOverrides, setCompletedOverrides] = useState<
+    Record<string, boolean>
+  >({});
+
+  const base = dataProp ?? HOME_MOCK[demoState];
+  const reviews = useMemo(
+    () =>
+      base.reviews.map((item) => ({
+        ...item,
+        completed: completedOverrides[item.id] ?? item.completed,
+      })),
+    [base.reviews, completedOverrides],
+  );
+
+  const data: HomeScreenData = { ...base, reviews };
+
+  const frameWidth = Math.min(windowWidth - 16, spacing.frameWidth);
+  const contentWidth = Math.min(frameWidth, spacing.contentWidth);
+  const reviewCardWidth = useMemo(() => {
+    const gaps = spacing.reviewGap * (REVIEW_COLS - 1);
+    return (contentWidth - gaps) / REVIEW_COLS;
+  }, [contentWidth]);
+
+  const toggleReview = useCallback(
+    (id: string) => {
+      const current =
+        completedOverrides[id] ??
+        base.reviews.find((item) => item.id === id)?.completed ??
+        false;
+      setCompletedOverrides((prev) => ({ ...prev, [id]: !current }));
+    },
+    [base.reviews, completedOverrides],
+  );
+
+  const goAdd = useCallback(() => {
+    router.push('/(tabs)/add');
+  }, [router]);
+
+  const goCalendar = useCallback(() => {
+    router.push('/(tabs)/calendar');
+  }, [router]);
+
+  const onDetail = useCallback((_id: string) => {
+    // Stub: detail flow not in MVP scope for this PR.
+    router.push('/(tabs)/add');
+  }, [router]);
+
+  const cycleDemo = useCallback(() => {
+    if (dataProp) return;
+    setCompletedOverrides({});
+    setDemoState((prev) => {
+      const i = HOME_DEMO_STATES.indexOf(prev);
+      return HOME_DEMO_STATES[(i + 1) % HOME_DEMO_STATES.length];
+    });
+  }, [dataProp]);
+
+  return (
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      <StatusBar style="dark" />
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: sizes.fab + 40 },
+        ]}
+        showsVerticalScrollIndicator={false}>
+        <View style={[styles.frame, { maxWidth: frameWidth }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="데모 상태 전환"
+            onLongPress={cycleDemo}
+            delayLongPress={400}
+            style={styles.headerRow}>
+            <View style={styles.dayRow}>
+              <Text style={styles.dayNumber} numberOfLines={1}>
+                {data.dayNumber}
+              </Text>
+              <EllipseIcon />
+            </View>
+            <View style={styles.dateMeta}>
+              <Text style={styles.weekday}>{data.weekdayLabel}</Text>
+              <Text style={styles.dateLabel}>{data.dateLabel}</Text>
+            </View>
+          </Pressable>
+
+          <WeekStrip days={data.weekDays} />
+
+          <View style={[styles.sections, { maxWidth: contentWidth }]}>
+            <StudySection studies={data.studies} onAdd={goAdd} />
+            <ReviewSection
+              reviews={data.reviews}
+              cardWidth={reviewCardWidth}
+              onToggle={toggleReview}
+              onDetail={onDetail}
+            />
+          </View>
+
+          {__DEV__ && !dataProp ? (
+            <Text style={styles.devHint}>
+              길게 눌러 상태 전환 · 현재: {demoState}
+            </Text>
+          ) : null}
+        </View>
+      </ScrollView>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="캘린더"
+        onPress={goCalendar}
+        style={[
+          styles.fab,
+          {
+            right: Math.max(16, (windowWidth - contentWidth) / 2),
+            bottom: FAB_BOTTOM_GAP,
+          },
+        ]}>
+        <CalendarIcon />
+      </Pressable>
+    </View>
+  );
+}
+
+function WeekStrip({ days }: { days: HomeWeekDay[] }) {
+  return (
+    <View style={styles.weekStrip}>
+      {days.map((d) => (
+        <View
+          key={`${d.day}-${d.dow}`}
+          style={[styles.weekCell, d.selected && styles.weekCellSelected]}>
+          <Text style={[styles.weekDayNum, d.selected && styles.weekDayNumSelected]}>
+            {d.day}
+          </Text>
+          <Text style={[styles.weekDow, d.selected && styles.weekDowSelected]}>
+            {d.dow}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function StudySection({
+  studies,
+  onAdd,
+}: {
+  studies: HomeStudyRow[];
+  onAdd: () => void;
+}) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionLabelWrap}>
+        <Text style={styles.sectionLabel}>오늘 한 공부</Text>
+      </View>
+      <View style={styles.studyList}>
+        {studies.length === 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="공부 기록 추가"
+            onPress={onAdd}
+            style={styles.addStudyBtn}>
+            <PlusIcon />
+            <Text style={styles.addStudyText}>공부 기록 추가</Text>
+          </Pressable>
+        ) : (
+          studies.map((row) => <StudyRow key={row.id} row={row} />)
+        )}
+      </View>
+    </View>
+  );
+}
+
+function StudyRow({ row }: { row: HomeStudyRow }) {
+  return (
+    <View style={styles.studyRow}>
+      <View
+        style={[
+          styles.studyChip,
+          { backgroundColor: subjectColor(row.subjectName) },
+        ]}>
+        <Text style={styles.studyChipText}>{row.subjectName}</Text>
+      </View>
+      <View style={styles.studyBody}>
+        <Text style={styles.studyBodyText} numberOfLines={1}>
+          {row.content}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function ReviewSection({
+  reviews,
+  cardWidth,
+  onToggle,
+  onDetail,
+}: {
+  reviews: HomeReviewCard[];
+  cardWidth: number;
+  onToggle: (id: string) => void;
+  onDetail: (id: string) => void;
+}) {
+  const empty = reviews.length === 0;
+  return (
+    <View style={[styles.section, styles.reviewSection]}>
+      <View style={styles.sectionLabelWrap}>
+        <Text style={styles.sectionLabel}>오늘 할 복습</Text>
+      </View>
+      {empty ? (
+        <View style={styles.reviewEmpty}>
+          <Text style={styles.reviewEmptyText}>아직 복습할 내용이 없어요</Text>
+        </View>
+      ) : (
+        <View
+          style={[
+            styles.reviewGrid,
+            reviews.length <= 3 && styles.reviewGridSingleRow,
+          ]}>
+          {reviews.map((card) => (
+            <ReviewCard
+              key={card.id}
+              card={card}
+              width={cardWidth}
+              onToggle={() => onToggle(card.id)}
+              onDetail={() => onDetail(card.id)}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function ReviewCard({
+  card,
+  width,
+  onToggle,
+  onDetail,
+}: {
+  card: HomeReviewCard;
+  width: number;
+  onToggle: () => void;
+  onDetail: () => void;
+}) {
+  return (
+    <View
+      style={[
+        styles.reviewCard,
+        { width },
+        card.completed && styles.reviewCardSelected,
+      ]}>
+      <View style={styles.reviewCardInner}>
+        <View style={styles.reviewTopBlock}>
+          <View style={styles.reviewTop}>
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: card.completed }}
+              onPress={onToggle}
+              style={[
+                styles.checkbox,
+                card.completed ? styles.checkboxOn : styles.checkboxOff,
+              ]}>
+              <CheckIcon />
+            </Pressable>
+            <Text style={styles.intervalText}>
+              {intervalLabel(card.intervalDays)}
+            </Text>
+          </View>
+          <View style={styles.reviewChips}>
+            {card.subjectNames.map((name) => (
+              <View
+                key={name}
+                style={[
+                  styles.reviewChip,
+                  { backgroundColor: subjectColor(name) },
+                ]}>
+                <Text style={styles.reviewChipText}>{name}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="자세히"
+          onPress={onDetail}
+          style={styles.detailRow}>
+          <Text style={styles.detailText}>자세히</Text>
+          <ArrowRightIcon />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.mainWhite,
+  },
+  scrollContent: {
+    alignItems: 'center',
+    paddingBottom: 24,
+  },
+  frame: {
+    width: '100%',
+    maxWidth: spacing.frameWidth,
+    gap: spacing.blockGap,
+    alignItems: 'center',
+    paddingTop: 8,
+  },
+  headerRow: {
+    width: '100%',
+    maxWidth: spacing.headerWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+  },
+  dayNumber: {
+    fontFamily: 'Oswald_700Bold',
+    fontSize: sizes.dayNumber,
+    color: colors.black,
+    lineHeight: 102,
+    letterSpacing: -2,
+    minWidth: 91,
+    flexShrink: 0,
+    includeFontPadding: false,
+  },
+  dateMeta: {
+    minWidth: 85,
+    alignItems: 'flex-end',
+    gap: 7,
+  },
+  weekday: {
+    fontFamily: 'NotoSansKR_500Medium',
+    fontSize: 24,
+    color: colors.muted,
+    textAlign: 'right',
+    width: '100%',
+  },
+  dateLabel: {
+    fontFamily: 'NotoSansKR_500Medium',
+    fontSize: 22,
+    color: colors.mutedLight,
+    textAlign: 'right',
+    width: '100%',
+  },
+  weekStrip: {
+    width: '100%',
+    maxWidth: spacing.frameWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weekCell: {
+    width: sizes.weekCell.width,
+    height: sizes.weekCell.height,
+    borderRadius: radii.weekDay,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekCellSelected: {
+    backgroundColor: colors.surface,
+  },
+  weekDayNum: {
+    fontFamily: 'Oswald_700Bold',
+    fontSize: 24,
+    color: colors.muted,
+    textAlign: 'center',
+    width: 26,
+  },
+  weekDayNumSelected: {
+    color: colors.black,
+  },
+  weekDow: {
+    fontFamily: 'Oswald_500Medium',
+    fontSize: 14,
+    color: colors.mutedLight,
+    textAlign: 'center',
+    width: 26,
+  },
+  weekDowSelected: {
+    color: colors.primary,
+  },
+  sections: {
+    width: '100%',
+    maxWidth: spacing.contentWidth,
+    gap: spacing.sectionGap,
+    marginTop: spacing.sectionGap - spacing.blockGap,
+  },
+  section: {
+    width: '100%',
+    gap: 8,
+  },
+  reviewSection: {
+    gap: 7,
+  },
+  sectionLabelWrap: {
+    padding: spacing.labelPad,
+    alignSelf: 'flex-start',
+  },
+  sectionLabel: {
+    fontFamily: 'NotoSansKR_500Medium',
+    fontSize: 16,
+    color: colors.sectionLabel,
+  },
+  studyList: {
+    width: '100%',
+    paddingHorizontal: spacing.labelPad,
+    gap: spacing.studyRowGap,
+    minHeight: 105,
+  },
+  studyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+  },
+  studyChip: {
+    width: sizes.studyChip.width,
+    height: sizes.studyChip.height,
+    borderRadius: radii.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  studyChipText: {
+    fontFamily: 'NotoSansKR_500Medium',
+    fontSize: 17,
+    color: colors.white,
+  },
+  studyBody: {
+    flex: 1,
+    height: sizes.studyBodyHeight,
+    backgroundColor: colors.surface,
+    borderRadius: radii.chip,
+    justifyContent: 'center',
+    paddingLeft: 14,
+    paddingRight: 14,
+  },
+  studyBodyText: {
+    fontFamily: 'NotoSansKR_500Medium',
+    fontSize: 15,
+    color: colors.body,
+  },
+  addStudyBtn: {
+    height: sizes.addStudyHeight,
+    borderRadius: radii.chip,
+    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+  },
+  addStudyText: {
+    fontFamily: 'NotoSansKR_500Medium',
+    fontSize: 14,
+    color: colors.accentText,
+  },
+  reviewGrid: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.reviewGap,
+  },
+  reviewGridSingleRow: {
+    minHeight: 120,
+  },
+  reviewCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.reviewCard,
+    paddingTop: 12,
+    paddingBottom: 11,
+    paddingLeft: 12,
+    paddingRight: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    minHeight: 120,
+  },
+  reviewCardSelected: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  reviewCardInner: {
+    flex: 1,
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  reviewTopBlock: {
+    gap: 9,
+  },
+  reviewTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
+  checkbox: {
+    width: sizes.reviewCheckbox,
+    height: sizes.reviewCheckbox,
+    borderRadius: radii.checkbox,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxOff: {
+    backgroundColor: colors.mutedLight,
+  },
+  checkboxOn: {
+    backgroundColor: colors.primary,
+  },
+  intervalText: {
+    fontFamily: 'NotoSansKR_500Medium',
+    fontSize: 11,
+    color: colors.accentText,
+    letterSpacing: -0.44,
+  },
+  reviewChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  reviewChip: {
+    width: sizes.reviewChip.width,
+    height: sizes.reviewChip.height,
+    borderRadius: radii.reviewChip,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewChipText: {
+    fontFamily: 'NotoSansKR_500Medium',
+    fontSize: 9,
+    color: colors.white,
+    textAlign: 'center',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 1,
+    alignSelf: 'stretch',
+    flexShrink: 0,
+  },
+  detailText: {
+    fontFamily: 'NotoSansKR_500Medium',
+    fontSize: 10,
+    color: colors.muted,
+    letterSpacing: -0.4,
+    textAlign: 'right',
+    lineHeight: 12,
+    flexShrink: 0,
+  },
+  reviewEmpty: {
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  reviewEmptyText: {
+    fontFamily: 'NotoSansKR_500Medium',
+    fontSize: 14,
+    color: colors.muted,
+  },
+  fab: {
+    position: 'absolute',
+    width: sizes.fab,
+    height: sizes.fab,
+    borderRadius: radii.fab,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#343D4B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 10,
+  },
+  devHint: {
+    fontFamily: 'NotoSansKR_500Medium',
+    fontSize: 11,
+    color: colors.mutedLight,
+    marginTop: 8,
+    alignSelf: 'center',
+  },
+});
