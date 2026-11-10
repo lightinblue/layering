@@ -1,6 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -11,7 +18,18 @@ import {
   Text,
   useWindowDimensions,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
+import Animated, {
+  Easing,
+  FadeIn,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -50,6 +68,11 @@ import {
   type HomeWeekDay,
 } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
+import {
+  JUMP_ANIMATE_MAX_DELTA,
+  durations,
+  springs,
+} from '@/constants/motion';
 import {
   SUBJECT_COLORS,
   colors,
@@ -114,6 +137,130 @@ function seedSubjectOptions(): SubjectOption[] {
     name,
     color: SUBJECT_COLORS[name] ?? subjectColor(name),
   }));
+}
+
+/** Big day number — scale / fade / slide with direction when the date changes. */
+function AnimatedDayNumber({
+  dateKey,
+  dayNumber,
+}: {
+  dateKey: string;
+  dayNumber: string;
+}) {
+  const prevKeyRef = useRef(dateKey);
+  const [shown, setShown] = useState(dayNumber);
+  const opacity = useSharedValue(1);
+  const scale = useSharedValue(1);
+  const translateY = useSharedValue(0);
+
+  useEffect(() => {
+    if (dateKey === prevKeyRef.current) {
+      setShown(dayNumber);
+      return;
+    }
+    const goingForward = dateKey > prevKeyRef.current;
+    prevKeyRef.current = dateKey;
+    const dir = goingForward ? 1 : -1;
+
+    opacity.value = withTiming(0, {
+      duration: durations.fadeQuick,
+      easing: Easing.in(Easing.cubic),
+    });
+    scale.value = withTiming(0.9, { duration: durations.fadeQuick });
+    translateY.value = withTiming(
+      -12 * dir,
+      {
+        duration: durations.fadeQuick,
+        easing: Easing.in(Easing.cubic),
+      },
+      (finished) => {
+        if (!finished) return;
+        runOnJS(setShown)(dayNumber);
+        opacity.value = 0;
+        scale.value = 0.88;
+        translateY.value = 14 * dir;
+        opacity.value = withSpring(1, springs.snappy);
+        scale.value = withSpring(1, springs.snappy);
+        translateY.value = withSpring(0, springs.snappy);
+      },
+    );
+  }, [dateKey, dayNumber, opacity, scale, translateY]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }, { scale: scale.value }],
+  }));
+
+  return (
+    <Animated.Text style={[styles.dayNumber, style]} numberOfLines={1}>
+      {shown}
+    </Animated.Text>
+  );
+}
+
+function AnimatedDateMeta({
+  dateKey,
+  weekdayLabel,
+  dateLabel,
+}: {
+  dateKey: string;
+  weekdayLabel: string;
+  dateLabel: string;
+}) {
+  return (
+    <View style={styles.dateMeta}>
+      <Animated.Text
+        key={`wd-${dateKey}`}
+        entering={FadeIn.duration(durations.fadeIn).easing(
+          Easing.out(Easing.cubic),
+        )}
+        style={styles.weekday}>
+        {weekdayLabel}
+      </Animated.Text>
+      <Animated.Text
+        key={`dl-${dateKey}`}
+        entering={FadeIn.duration(durations.fadeIn)
+          .delay(30)
+          .easing(Easing.out(Easing.cubic))}
+        style={styles.dateLabel}>
+        {dateLabel}
+      </Animated.Text>
+    </View>
+  );
+}
+
+/** Light press spring for FABs. */
+function SpringFab({
+  onPress,
+  accessibilityLabel,
+  style,
+  children,
+}: {
+  onPress: () => void;
+  accessibilityLabel: string;
+  style: StyleProp<ViewStyle>;
+  children: ReactNode;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPressIn={() => {
+        scale.value = withSpring(0.92, springs.snappy);
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1, springs.soft);
+      }}
+      onPress={onPress}
+      style={style}>
+      <Animated.View style={[styles.fabInner, animStyle]}>{children}</Animated.View>
+    </Pressable>
+  );
 }
 
 export default function HomeScreen({
@@ -621,15 +768,25 @@ export default function HomeScreen({
           <View style={styles.topBlock}>
             <View style={styles.headerRow}>
               <View style={styles.dayRow}>
-                <Text style={styles.dayNumber} numberOfLines={1}>
-                  {selected.dayNumber}
-                </Text>
-                {isToday ? <EllipseIcon /> : null}
+                <AnimatedDayNumber
+                  dateKey={selected.dateKey}
+                  dayNumber={selected.dayNumber}
+                />
+                {isToday ? (
+                  <Animated.View
+                    key="today-ellipse"
+                    entering={FadeIn.duration(durations.fadeIn).springify()
+                      .damping(springs.soft.damping)
+                      .stiffness(springs.soft.stiffness)}>
+                    <EllipseIcon />
+                  </Animated.View>
+                ) : null}
               </View>
-              <View style={styles.dateMeta}>
-                <Text style={styles.weekday}>{selected.weekdayLabel}</Text>
-                <Text style={styles.dateLabel}>{selected.dateLabel}</Text>
-              </View>
+              <AnimatedDateMeta
+                dateKey={selected.dateKey}
+                weekdayLabel={selected.weekdayLabel}
+                dateLabel={selected.dateLabel}
+              />
             </View>
 
             <WeekStripPager
@@ -673,8 +830,7 @@ export default function HomeScreen({
         </View>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
+      <SpringFab
         accessibilityLabel="설정"
         onPress={openSettings}
         style={[
@@ -685,10 +841,9 @@ export default function HomeScreen({
           },
         ]}>
         <SettingsIcon />
-      </Pressable>
+      </SpringFab>
 
-      <Pressable
-        accessibilityRole="button"
+      <SpringFab
         accessibilityLabel={isToday ? '캘린더' : '오늘로 이동'}
         onPress={isToday ? goCalendar : goToday}
         style={[
@@ -705,7 +860,7 @@ export default function HomeScreen({
             <ArrowRightIcon size={sizes.fabIcon} color={colors.accentText} />
           </View>
         )}
-      </Pressable>
+      </SpringFab>
 
       <BottomSheetModal visible={addOpen} onClose={closeAdd}>
         <AddStudyForm
@@ -825,8 +980,10 @@ function WeekStripPager({
   useEffect(() => {
     if (width <= 0) return;
     if (settledIndexRef.current === weekIndex) return;
+    const delta = Math.abs(weekIndex - settledIndexRef.current);
+    const animate = delta > 0 && delta <= JUMP_ANIMATE_MAX_DELTA;
     settledIndexRef.current = weekIndex;
-    listRef.current?.scrollToIndex({ index: weekIndex, animated: true });
+    listRef.current?.scrollToIndex({ index: weekIndex, animated: animate });
   }, [weekIndex, width]);
 
   const onMomentumScrollEnd = useCallback(
@@ -854,33 +1011,15 @@ function WeekStripPager({
   const renderWeek = useCallback(
     ({ item: days }: { item: HomeWeekDay[] }) => (
       <View style={[styles.weekPage, { width }]}>
-        {days.map((d) => {
-          const selected = d.dateKey === selectedKey;
-          return (
-            <Pressable
-              key={d.dateKey}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              accessibilityLabel={`${d.weekdayLabel} ${d.dateLabel}`}
-              onPress={() => onSelectDay(d.dateKey)}
-              style={[styles.weekCell, selected && styles.weekCellSelected]}>
-              <Text
-                style={[
-                  styles.weekDayNum,
-                  selected && styles.weekDayNumSelected,
-                ]}>
-                {d.day}
-              </Text>
-              <Text
-                style={[
-                  styles.weekDow,
-                  selected && { color: accentColor },
-                ]}>
-                {d.dow}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {days.map((d) => (
+          <WeekDayCell
+            key={d.dateKey}
+            day={d}
+            selected={d.dateKey === selectedKey}
+            accentColor={accentColor}
+            onSelectDay={onSelectDay}
+          />
+        ))}
       </View>
     ),
     [accentColor, onSelectDay, selectedKey, width],
@@ -894,7 +1033,8 @@ function WeekStripPager({
       pagingEnabled
       bounces={false}
       showsHorizontalScrollIndicator={false}
-      decelerationRate="fast"
+      decelerationRate={0.992}
+      disableIntervalMomentum
       keyExtractor={(_, index) => `week-${index}`}
       renderItem={renderWeek}
       getItemLayout={getItemLayout}
@@ -908,6 +1048,55 @@ function WeekStripPager({
       style={[styles.weekPager, { width }]}
       extraData={`${selectedKey}:${weekIndex}`}
     />
+  );
+}
+
+function WeekDayCell({
+  day,
+  selected,
+  accentColor,
+  onSelectDay,
+}: {
+  day: HomeWeekDay;
+  selected: boolean;
+  accentColor: string;
+  onSelectDay: (dateKey: string) => void;
+}) {
+  const scale = useSharedValue(selected ? 1 : 0.96);
+
+  useEffect(() => {
+    scale.value = withSpring(selected ? 1 : 0.96, springs.soft);
+  }, [selected, scale]);
+
+  const cellStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${day.weekdayLabel} ${day.dateLabel}`}
+      onPress={() => onSelectDay(day.dateKey)}>
+      <Animated.View
+        style={[
+          styles.weekCell,
+          selected && styles.weekCellSelected,
+          cellStyle,
+        ]}>
+        <Text
+          style={[
+            styles.weekDayNum,
+            selected && styles.weekDayNumSelected,
+          ]}>
+          {day.day}
+        </Text>
+        <Text
+          style={[styles.weekDow, selected && { color: accentColor }]}>
+          {day.dow}
+        </Text>
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -948,8 +1137,11 @@ function DayContentPager({
   useEffect(() => {
     if (width <= 0) return;
     if (settledIndexRef.current === dayIndex) return;
+    const delta = Math.abs(dayIndex - settledIndexRef.current);
+    // Near jumps (incl. FAB 「오늘」) animate — 슈루룩; far jumps snap.
+    const animate = delta > 0 && delta <= JUMP_ANIMATE_MAX_DELTA;
     settledIndexRef.current = dayIndex;
-    listRef.current?.scrollToIndex({ index: dayIndex, animated: false });
+    listRef.current?.scrollToIndex({ index: dayIndex, animated: animate });
   }, [dayIndex, width]);
 
   const onMomentumScrollEnd = useCallback(
@@ -1028,7 +1220,8 @@ function DayContentPager({
       pagingEnabled
       bounces={false}
       showsHorizontalScrollIndicator={false}
-      decelerationRate="fast"
+      decelerationRate={0.992}
+      disableIntervalMomentum
       keyExtractor={(item) => item.dateKey}
       renderItem={renderDay}
       getItemLayout={getItemLayout}
@@ -1196,6 +1389,48 @@ function ReviewSection({
   );
 }
 
+function ReviewCheck({
+  completed,
+  accent,
+  onToggle,
+}: {
+  completed: boolean;
+  accent: string;
+  onToggle: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const primed = useRef(false);
+
+  useEffect(() => {
+    if (!primed.current) {
+      primed.current = true;
+      return;
+    }
+    scale.value = 0.82;
+    scale.value = withSpring(1, springs.snappy);
+  }, [completed, scale]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: completed }}
+      onPress={onToggle}>
+      <Animated.View
+        style={[
+          styles.checkbox,
+          completed ? { backgroundColor: accent } : styles.checkboxOff,
+          animStyle,
+        ]}>
+        <CheckIcon />
+      </Animated.View>
+    </Pressable>
+  );
+}
+
 function ReviewCard({
   card,
   width,
@@ -1213,34 +1448,49 @@ function ReviewCard({
   onToggle: () => void;
   onDetail: () => void;
 }) {
+  const cardScale = useSharedValue(1);
+  const primed = useRef(false);
+
+  useEffect(() => {
+    if (!primed.current) {
+      primed.current = true;
+      return;
+    }
+    if (!card.completed) return;
+    cardScale.value = withSpring(1.02, springs.snappy, (finished) => {
+      if (finished) {
+        cardScale.value = withSpring(1, springs.soft);
+      }
+    });
+  }, [card.completed, cardScale]);
+
+  const cardAnim = useAnimatedStyle(() => ({
+    transform: [{ scale: cardScale.value }],
+  }));
+
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="자세히"
-      onPress={onDetail}
-      style={[
-        styles.reviewCard,
-        { width },
-        card.completed && {
-          backgroundColor: accentSoft,
-          borderColor: accent,
-        },
-      ]}>
+      onPress={onDetail}>
+      <Animated.View
+        style={[
+          styles.reviewCard,
+          { width },
+          card.completed && {
+            backgroundColor: accentSoft,
+            borderColor: accent,
+          },
+          cardAnim,
+        ]}>
       <View style={styles.reviewCardInner}>
         <View style={styles.reviewTopBlock}>
           <View style={styles.reviewTop}>
-            <Pressable
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: card.completed }}
-              onPress={onToggle}
-              style={[
-                styles.checkbox,
-                card.completed
-                  ? { backgroundColor: accent }
-                  : styles.checkboxOff,
-              ]}>
-              <CheckIcon />
-            </Pressable>
+            <ReviewCheck
+              completed={card.completed}
+              accent={accent}
+              onToggle={onToggle}
+            />
             <Text style={styles.intervalText}>
               {intervalLabel(card.intervalDays)}
             </Text>
@@ -1264,6 +1514,7 @@ function ReviewCard({
           <ArrowRightIcon />
         </View>
       </View>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -1582,6 +1833,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
     zIndex: 10,
+  },
+  fabInner: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fabArrowPrev: {
     transform: [{ scaleX: -1 }],

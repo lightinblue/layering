@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -6,9 +6,17 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import Animated, {
+  Easing,
+  FadeIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { ArrowRightIcon } from '@/components/icons/HomeIcons';
 import { fonts } from '@/constants/fonts';
+import { durations, springs } from '@/constants/motion';
 import { colors, softFromPrimary, spacing } from '@/constants/tokens';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import { DOW } from '@/utils/date';
@@ -66,6 +74,8 @@ export function MonthCalendar({
     onMonthChange(next.year, next.monthIndex);
   };
 
+  const monthKey = `${year}-${monthIndex}`;
+
   return (
     <View style={[styles.root, { width: frameWidth }]}>
       <View style={styles.header}>
@@ -79,7 +89,14 @@ export function MonthCalendar({
             <ArrowRightIcon size={NAV_ARROW} />
           </View>
         </Pressable>
-        <Text style={styles.title}>{monthTitle(year, monthIndex)}</Text>
+        <Animated.Text
+          key={`title-${monthKey}`}
+          entering={FadeIn.duration(durations.monthChange).easing(
+            Easing.out(Easing.cubic),
+          )}
+          style={styles.title}>
+          {monthTitle(year, monthIndex)}
+        </Animated.Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="다음 달"
@@ -98,7 +115,12 @@ export function MonthCalendar({
         ))}
       </View>
 
-      <View style={styles.grid}>
+      <Animated.View
+        key={`grid-${monthKey}`}
+        entering={FadeIn.duration(durations.monthChange).easing(
+          Easing.out(Easing.cubic),
+        )}
+        style={styles.grid}>
         {cells.map((cell) => (
           <DayCell
             key={cell.dateKey}
@@ -113,7 +135,7 @@ export function MonthCalendar({
             onPress={onSelectDay}
           />
         ))}
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -139,6 +161,23 @@ function DayCell({
   const isFocus = focusKey != null && cell.dateKey === focusKey;
   const dotColor = cell.inMonth ? progressDotColor(primary, progress) : null;
   const selectedBg = softFromPrimary(primary, 0.88);
+  const scale = useSharedValue(1);
+  const primed = useRef(false);
+
+  useEffect(() => {
+    if (!primed.current) {
+      primed.current = true;
+      return;
+    }
+    if (!isFocus) return;
+    scale.value = withSpring(1.08, springs.snappy, (finished) => {
+      if (finished) scale.value = withSpring(1, springs.soft);
+    });
+  }, [isFocus, scale]);
+
+  const innerAnim = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   return (
     <Pressable
@@ -148,12 +187,13 @@ function DayCell({
       disabled={!cell.inMonth}
       onPress={() => onPress(cell.dateKey)}
       style={[styles.dayCell, { width }]}>
-      <View
+      <Animated.View
         style={[
           styles.dayInner,
           isFocus && cell.inMonth
             ? { backgroundColor: selectedBg }
             : null,
+          innerAnim,
         ]}>
         <Text
           style={[
@@ -169,7 +209,7 @@ function DayCell({
             <View style={[styles.dot, { backgroundColor: dotColor }]} />
           ) : null}
         </View>
-      </View>
+      </Animated.View>
     </Pressable>
   );
 }

@@ -1,6 +1,13 @@
+import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { fonts } from '@/constants/fonts';
+import { springs } from '@/constants/motion';
 import { PRIMARY_OPTIONS, radii, type PrimaryOption } from '@/constants/tokens';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -36,29 +43,68 @@ export function SettingsSheet() {
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>색상</Text>
         <View style={styles.swatchRow}>
-          {PRIMARY_OPTIONS.map((hex) => {
-            const selected = hex === primary;
-            return (
-              <Pressable
-                key={hex}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`앱 색상 ${hex}`}
-                onPress={() => setPrimary(hex as PrimaryOption)}
-                style={[
-                  styles.swatch,
-                  { backgroundColor: hex },
-                  selected && {
-                    borderColor: colors.black,
-                    borderWidth: 2,
-                  },
-                ]}
-              />
-            );
-          })}
+          {PRIMARY_OPTIONS.map((hex) => (
+            <ColorSwatch
+              key={hex}
+              hex={hex}
+              selected={hex === primary}
+              borderColor={colors.black}
+              onPress={() => setPrimary(hex as PrimaryOption)}
+            />
+          ))}
         </View>
       </View>
     </View>
+  );
+}
+
+function ColorSwatch({
+  hex,
+  selected,
+  borderColor,
+  onPress,
+}: {
+  hex: string;
+  selected: boolean;
+  borderColor: string;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const primed = useRef(false);
+
+  useEffect(() => {
+    if (!primed.current) {
+      primed.current = true;
+      return;
+    }
+    if (!selected) return;
+    scale.value = withSpring(1.12, springs.snappy, (finished) => {
+      if (finished) scale.value = withSpring(1, springs.soft);
+    });
+  }, [selected, scale]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`앱 색상 ${hex}`}
+      onPress={onPress}>
+      <Animated.View
+        style={[
+          styles.swatch,
+          { backgroundColor: hex },
+          selected && {
+            borderColor,
+            borderWidth: 2,
+          },
+          animStyle,
+        ]}
+      />
+    </Pressable>
   );
 }
 

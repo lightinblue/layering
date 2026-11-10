@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type ComponentRef,
+  type ReactNode,
 } from 'react';
 import {
   Alert,
@@ -22,9 +23,15 @@ import {
   type GestureResponderEvent,
   type PanResponderGestureState,
 } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { DUMMY_SUBJECTS } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
+import { durations, springs } from '@/constants/motion';
 import {
   SUBJECT_COLOR_OPTIONS,
   SUBJECT_COLORS,
@@ -102,11 +109,105 @@ const NAME_LENGTH_HINT = '과목 이름은 4자까지예요';
 const LONG_PRESS_MS = 380;
 const MOVE_CANCEL_PX = 10;
 const CHIP_SHIFT_ANIM = {
-  duration: 220,
+  duration: durations.chipShift,
   update: {
-    type: LayoutAnimation.Types.easeInEaseOut,
+    type: LayoutAnimation.Types.spring,
+    springDamping: 0.82,
   },
 };
+
+function DraftColorSwatch({
+  hex,
+  selected,
+  borderColor,
+  onPress,
+}: {
+  hex: string;
+  selected: boolean;
+  borderColor: string;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const primed = useRef(false);
+
+  useEffect(() => {
+    if (!primed.current) {
+      primed.current = true;
+      return;
+    }
+    if (!selected) return;
+    scale.value = withSpring(1.12, springs.snappy, (finished) => {
+      if (finished) scale.value = withSpring(1, springs.soft);
+    });
+  }, [selected, scale]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`과목 색상 ${hex}`}
+      onPress={onPress}>
+      <Animated.View
+        style={[
+          styles.swatch,
+          { backgroundColor: hex },
+          selected && { borderColor, borderWidth: 2 },
+          animStyle,
+        ]}
+      />
+    </Pressable>
+  );
+}
+
+function SelectableChip({
+  selected,
+  style,
+  children,
+  panHandlers,
+  accessibilityLabel,
+  accessibilityHint,
+}: {
+  selected: boolean;
+  style: object | object[];
+  children: ReactNode;
+  panHandlers?: object;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+}) {
+  const scale = useSharedValue(1);
+  const primed = useRef(false);
+
+  useEffect(() => {
+    if (!primed.current) {
+      primed.current = true;
+      return;
+    }
+    if (!selected) return;
+    scale.value = withSpring(1.06, springs.snappy, (finished) => {
+      if (finished) scale.value = withSpring(1, springs.soft);
+    });
+  }, [selected, scale]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      style={[style, animStyle]}
+      {...(panHandlers ?? {})}>
+      {children}
+    </Animated.View>
+  );
+}
 
 const DEFAULT_SUBJECT_OPTIONS: SubjectOption[] = DUMMY_SUBJECTS.map((name) => ({
   name,
@@ -579,9 +680,9 @@ export function AddStudyForm({
                 key={name}
                 onLayout={(event) => onChipLayout(name, event)}
                 style={styles.chipWrap}>
-                <View
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
+                <SelectableChip
+                  selected={selected}
+                  panHandlers={pan?.panHandlers}
                   accessibilityLabel={`과목 ${name}`}
                   accessibilityHint={
                     onRemoveSubject
@@ -597,8 +698,7 @@ export function AddStudyForm({
                     selected && styles.subjectChipSelected,
                     !selected && styles.subjectChipIdle,
                     dragging && styles.subjectChipPlaceholder,
-                  ]}
-                  {...(pan ? pan.panHandlers : {})}>
+                  ]}>
                   <Text
                     style={[
                       styles.subjectChipText,
@@ -606,7 +706,7 @@ export function AddStudyForm({
                     ]}>
                     {name}
                   </Text>
-                </View>
+                </SelectableChip>
                 {showDelete ? (
                   <Pressable
                     accessibilityRole="button"
@@ -723,26 +823,15 @@ export function AddStudyForm({
             </View>
 
             <View style={styles.swatchRow}>
-              {SUBJECT_COLOR_OPTIONS.map((hex) => {
-                const selected = draftColor === hex;
-                return (
-                  <Pressable
-                    key={hex}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    accessibilityLabel={`과목 색상 ${hex}`}
-                    onPress={() => setDraftColor(hex)}
-                    style={[
-                      styles.swatch,
-                      { backgroundColor: hex },
-                      selected && {
-                        borderColor: colors.black,
-                        borderWidth: 2,
-                      },
-                    ]}
-                  />
-                );
-              })}
+              {SUBJECT_COLOR_OPTIONS.map((hex) => (
+                <DraftColorSwatch
+                  key={hex}
+                  hex={hex}
+                  selected={draftColor === hex}
+                  borderColor={colors.black}
+                  onPress={() => setDraftColor(hex)}
+                />
+              ))}
             </View>
           </View>
         ) : null}

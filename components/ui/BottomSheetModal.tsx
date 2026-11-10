@@ -14,12 +14,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { durations, rnSprings } from '@/constants/motion';
 import { colors, radii } from '@/constants/tokens';
 
-const OPEN_MS = 280;
-const CLOSE_MS = 220;
-const BACKDROP_OPEN_MS = 240;
-const BACKDROP_CLOSE_MS = 200;
+const CLOSE_MS = durations.sheetClose;
+const BACKDROP_OPEN_MS = durations.backdropOpen;
+const BACKDROP_CLOSE_MS = durations.backdropClose;
 const SHEET_OFFSCREEN = 640;
 /** Extra white paint below the rounded sheet so keyboard edges stay filled. */
 const KEYBOARD_FILL_EXTRA = 48;
@@ -89,11 +89,9 @@ export function SheetPanel({
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.timing(localSheet, {
+      Animated.spring(localSheet, {
         toValue: 0,
-        duration: OPEN_MS,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        ...rnSprings.sheetOpen,
       }),
     ]).start();
   }, [animateOnMount, backdropOpacityProp, localBackdrop, localSheet]);
@@ -233,11 +231,9 @@ export function BottomSheetModal({
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
-        Animated.timing(sheetTranslateY, {
+        Animated.spring(sheetTranslateY, {
           toValue: 0,
-          duration: OPEN_MS,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
+          ...rnSprings.sheetOpen,
         }),
       ]).start();
       return;
