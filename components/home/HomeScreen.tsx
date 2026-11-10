@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     maxWidth: spacing.frameWidth,
     gap: spacing.blockGap,
     alignItems: 'center',
-    paddingTop: 16,
+    paddingTop: 10,
   },
   headerRow: {
     width: '100%',
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.gothamBold,
     fontSize: sizes.dayNumber,
     color: colors.black,
-    lineHeight: 102,
+    lineHeight: 96,
     letterSpacing: -2,
     minWidth: 91,
     flexShrink: 0,
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 11,
     color: colors.mutedLight,
-    marginTop: 8,
+    marginTop: 4,
     alignSelf: 'center',
   },
 });
