@@ -103,8 +103,11 @@ function RootLayoutNav() {
         <Stack.Screen
           name="calendar"
           options={{
-            presentation: 'modal',
-            title: '전체보기',
+            // SheetPanel chrome (not formSheet — blank body on Expo Go).
+            presentation: 'transparentModal',
+            animation: 'none',
+            headerShown: false,
+            contentStyle: { backgroundColor: 'transparent' },
           }}
         />
       </Stack>

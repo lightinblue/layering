@@ -7,9 +7,11 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
+import { ArrowRightIcon } from '@/components/icons/HomeIcons';
 import { fonts } from '@/constants/fonts';
 import { colors, softFromPrimary, spacing } from '@/constants/tokens';
 import { useThemeColors } from '@/theme/ThemeProvider';
+import { DOW } from '@/utils/date';
 import type { DayProgress } from '@/utils/day-progress';
 import { emptyDayProgress, progressDotColor } from '@/utils/day-progress';
 import {
@@ -19,8 +21,10 @@ import {
   type MonthCell,
 } from '@/utils/month-grid';
 
-const WEEKDAY_HEADERS = ['일', '월', '화', '수', '목', '금', '토'] as const;
-const DOT = 7;
+const DOT = 8;
+/** Month nav chevron — slightly larger than home 「자세히」 arrow. */
+const NAV_ARROW = 18;
+const TITLE_SIZE = 16;
 
 type MonthCalendarProps = {
   year: number;
@@ -45,7 +49,8 @@ export function MonthCalendar({
 }: MonthCalendarProps) {
   const theme = useThemeColors();
   const { width: windowWidth } = useWindowDimensions();
-  const frameWidth = Math.min(windowWidth - 32, spacing.frameWidth);
+  // Slightly wider than prior (margin 20 vs 32) so the grid reads larger.
+  const frameWidth = Math.min(windowWidth - 20, spacing.frameWidth + 8);
   const cells = useMemo(
     () => buildMonthGrid(year, monthIndex),
     [year, monthIndex],
@@ -70,7 +75,9 @@ export function MonthCalendar({
           onPress={goPrev}
           hitSlop={12}
           style={styles.navBtn}>
-          <Text style={[styles.navGlyph, { color: theme.primary }]}>‹</Text>
+          <View style={styles.navArrowPrev}>
+            <ArrowRightIcon size={NAV_ARROW} />
+          </View>
         </Pressable>
         <Text style={styles.title}>{monthTitle(year, monthIndex)}</Text>
         <Pressable
@@ -79,12 +86,12 @@ export function MonthCalendar({
           onPress={goNext}
           hitSlop={12}
           style={styles.navBtn}>
-          <Text style={[styles.navGlyph, { color: theme.primary }]}>›</Text>
+          <ArrowRightIcon size={NAV_ARROW} />
         </Pressable>
       </View>
 
       <View style={styles.weekdayRow}>
-        {WEEKDAY_HEADERS.map((label) => (
+        {DOW.map((label) => (
           <View key={label} style={[styles.weekdayCell, { width: cellWidth }]}>
             <Text style={styles.weekdayText}>{label}</Text>
           </View>
@@ -170,7 +177,7 @@ function DayCell({
 const styles = StyleSheet.create({
   root: {
     alignSelf: 'center',
-    gap: 18,
+    gap: 16,
   },
   header: {
     flexDirection: 'row',
@@ -184,16 +191,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navGlyph: {
-    fontFamily: fonts.gothamMedium,
-    fontSize: 28,
-    lineHeight: 32,
-    marginTop: -2,
+  navArrowPrev: {
+    transform: [{ scaleX: -1 }],
   },
   title: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 18,
-    color: colors.black,
+    fontSize: TITLE_SIZE,
+    color: colors.body,
+    letterSpacing: -TITLE_SIZE * 0.04,
   },
   weekdayRow: {
     flexDirection: 'row',
@@ -203,9 +208,10 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   weekdayText: {
-    fontFamily: fonts.nexonMedium,
+    fontFamily: fonts.gothamMedium,
     fontSize: 12,
     color: colors.mutedLight,
+    textAlign: 'center',
   },
   grid: {
     flexDirection: 'row',
@@ -213,11 +219,11 @@ const styles = StyleSheet.create({
   },
   dayCell: {
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
   dayInner: {
-    width: 40,
-    minHeight: 48,
+    width: 44,
+    minHeight: 52,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -227,8 +233,9 @@ const styles = StyleSheet.create({
   },
   dayNum: {
     fontFamily: fonts.gothamMedium,
-    fontSize: 16,
-    color: colors.black,
+    fontSize: 17,
+    // Blue-gray (not pure black); lighter than month title (`body`).
+    color: colors.accentText,
     textAlign: 'center',
   },
   dayNumOutside: {
@@ -237,6 +244,7 @@ const styles = StyleSheet.create({
   },
   dayNumFocus: {
     fontFamily: fonts.gothamBold,
+    color: colors.body,
   },
   dotSlot: {
     height: DOT,

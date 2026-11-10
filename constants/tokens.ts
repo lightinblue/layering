@@ -9,7 +9,7 @@ export const colors = {
   surface: '#f2f6fa',
   muted: '#9fb1c1',
   mutedLight: '#ced7e0',
-  sectionLabel: '#808080',
+  sectionLabel: '#708AA2',
   body: '#526477',
   bodyAlt: '#646464',
   accentText: '#708aa2',

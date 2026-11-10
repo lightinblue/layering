@@ -14,6 +14,7 @@ import {
 } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
 import { colors } from '@/constants/tokens';
+import { SheetPanel } from '@/components/ui/BottomSheetModal';
 import { loadAppData } from '@/storage/app-data';
 import {
   DATA_MODE_LABEL,
@@ -96,9 +97,13 @@ export default function CalendarScreen() {
     setMonthIndex(nextMonth);
   }, []);
 
+  const onClose = useCallback(() => {
+    if (router.canGoBack()) router.back();
+  }, [router]);
+
   const onSelectDay = useCallback(
     (dateKey: string) => {
-      // Pop the modal and land on home with the chosen day selected.
+      // Pop the sheet and land on home with the chosen day selected.
       if (typeof router.dismissTo === 'function') {
         router.dismissTo({
           pathname: '/',
@@ -119,43 +124,43 @@ export default function CalendarScreen() {
     return DATA_MODE_LABEL.real;
   }, [mode]);
 
-  if (!hydrated) {
-    return (
-      <View style={[styles.container, styles.loading]}>
-        <ActivityIndicator color={theme.primary} />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      <MonthCalendar
-        year={year}
-        monthIndex={monthIndex}
-        todayKey={effectiveToday}
-        focusKey={focusParam}
-        progressForDay={progressForDay}
-        onSelectDay={onSelectDay}
-        onMonthChange={onMonthChange}
-      />
-      <Text style={styles.modeHint}>{modeHint}</Text>
-    </View>
+    <SheetPanel onClose={onClose}>
+      {!hydrated ? (
+        <View style={styles.loading}>
+          <ActivityIndicator color={theme.primary} />
+        </View>
+      ) : (
+        <View style={styles.content}>
+          <MonthCalendar
+            year={year}
+            monthIndex={monthIndex}
+            todayKey={effectiveToday}
+            focusKey={focusParam}
+            progressForDay={progressForDay}
+            onSelectDay={onSelectDay}
+            onMonthChange={onMonthChange}
+          />
+          <Text style={styles.modeHint}>{modeHint}</Text>
+        </View>
+      )}
+    </SheetPanel>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.mainWhite,
-    paddingTop: 12,
-    paddingBottom: 24,
+  content: {
+    paddingTop: 4,
+    paddingBottom: 8,
+    paddingHorizontal: 4,
   },
   loading: {
+    minHeight: 280,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modeHint: {
-    marginTop: 20,
+    marginTop: 14,
     alignSelf: 'center',
     fontFamily: fonts.nexonMedium,
     fontSize: 11,
