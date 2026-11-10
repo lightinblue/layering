@@ -16,6 +16,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { fonts } from '@/constants/fonts';
 import {
   loadTutorialSeen,
+  runTutorialRetestClearIfNeeded,
   saveTutorialSeen,
 } from '@/storage/tutorial';
 import {
@@ -54,6 +55,7 @@ export default function RootLayout() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      await runTutorialRetestClearIfNeeded();
       const seen = await loadTutorialSeen();
       if (!cancelled) setTutorialSeen(seen);
     })();
