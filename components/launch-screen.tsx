@@ -6,6 +6,7 @@ import Animated, { Easing, FadeInUp, FadeOut } from 'react-native-reanimated';
 import brand from '@/constants/brand.json';
 import { fonts } from '@/constants/fonts';
 import { LAUNCH, launchHoldBeforeFadeMs } from '@/constants/launch';
+import { colors } from '@/constants/tokens';
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => {
@@ -118,14 +119,14 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
-    color: 'rgba(26, 26, 26, 0.55)',
+    color: colors.muted,
     ...centeredTracking(14, 0.02),
   },
   line2: {
     marginTop: 4,
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
-    color: 'rgba(26, 26, 26, 0.45)',
+    color: colors.muted,
     ...centeredTracking(14, 0.02),
   },
 });
