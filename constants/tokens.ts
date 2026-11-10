@@ -55,8 +55,6 @@ export const sizes = {
   fab: 57,
   fabIcon: 28,
   addStudyHeight: 66,
-  /** Compact 「+공부 기록 추가」 under existing rows. */
-  addStudyMoreHeight: 44,
   checkIcon: 23.587,
   arrow: 14,
   plus: 19.2,

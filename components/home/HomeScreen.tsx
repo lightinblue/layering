@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Keyboard,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -20,10 +19,6 @@ import {
   type AddStudyPayload,
 } from '@/components/home/AddStudyForm';
 import { ReviewDetailContent } from '@/components/home/ReviewDetailContent';
-import {
-  SaveConfirmContent,
-  type SaveConfirmPayload,
-} from '@/components/home/SaveConfirmContent';
 import { SettingsSheet } from '@/components/home/SettingsSheet';
 import {
   ArrowRightIcon,
@@ -102,11 +97,7 @@ export default function HomeScreen({
 
   const [selectedKey, setSelectedKey] = useState(HOME_DUMMY.todayKey);
   const [weekIndex, setWeekIndex] = useState(HOME_DUMMY.currentWeekIndex);
-  const [studySheet, setStudySheet] = useState<
-    | { kind: 'add' }
-    | { kind: 'confirm'; payload: SaveConfirmPayload }
-    | null
-  >(null);
+  const [addOpen, setAddOpen] = useState(false);
   const [addKey, setAddKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState<{
@@ -211,11 +202,11 @@ export default function HomeScreen({
   const goAdd = useCallback(() => {
     if (isFutureDay) return;
     setAddKey((k) => k + 1);
-    setStudySheet({ kind: 'add' });
+    setAddOpen(true);
   }, [isFutureDay]);
 
-  const closeStudySheet = useCallback(() => {
-    setStudySheet(null);
+  const closeAdd = useCallback(() => {
+    setAddOpen(false);
   }, []);
 
   const onSaveAdd = useCallback(
@@ -223,12 +214,6 @@ export default function HomeScreen({
       const content = payload.title.trim();
       const memo = payload.memo.trim();
       const studiedOn = selectedDateKey;
-      const confirm: SaveConfirmPayload = {
-        subject: payload.subject,
-        content,
-        studiedOn,
-      };
-      Keyboard.dismiss();
 
       if (mode === 'dummy' || dataProp) {
         setDummyData((prev) =>
@@ -239,7 +224,7 @@ export default function HomeScreen({
             ...(memo ? { memo } : {}),
           }),
         );
-        setStudySheet({ kind: 'confirm', payload: confirm });
+        setAddOpen(false);
         return;
       }
 
@@ -251,7 +236,7 @@ export default function HomeScreen({
         ...(memo ? { memo } : {}),
       });
       void persistApp(next);
-      setStudySheet({ kind: 'confirm', payload: confirm });
+      setAddOpen(false);
     },
     [mode, dataProp, selectedDateKey, appData, persistApp],
   );
@@ -429,25 +414,16 @@ export default function HomeScreen({
         <CalendarIcon />
       </Pressable>
 
-      <BottomSheetModal
-        visible={studySheet != null}
-        onClose={closeStudySheet}>
-        {studySheet?.kind === 'confirm' ? (
-          <SaveConfirmContent
-            payload={studySheet.payload}
-            onConfirm={closeStudySheet}
-          />
-        ) : (
-          <AddStudyForm
-            key={addKey}
-            subjects={
-              subjectNames.length > 0
-                ? subjectNames
-                : DEFAULT_SUBJECTS.map((s) => s.name)
-            }
-            onSave={onSaveAdd}
-          />
-        )}
+      <BottomSheetModal visible={addOpen} onClose={closeAdd}>
+        <AddStudyForm
+          key={addKey}
+          subjects={
+            subjectNames.length > 0
+              ? subjectNames
+              : DEFAULT_SUBJECTS.map((s) => s.name)
+          }
+          onSave={onSaveAdd}
+        />
       </BottomSheetModal>
 
       <BottomSheetModal visible={settingsOpen} onClose={closeSettings}>
@@ -659,8 +635,8 @@ function StudySection({
                 accessibilityLabel="공부 기록 추가"
                 onPress={onAdd}
                 style={styles.addStudyMoreBtn}>
-                <PlusIcon size={16} />
-                <Text style={styles.addStudyMoreText}>+공부 기록 추가</Text>
+                <PlusIcon />
+                <Text style={styles.addStudyMoreText}>공부 기록 추가</Text>
               </Pressable>
             ) : null}
           </>
@@ -994,18 +970,18 @@ const styles = StyleSheet.create({
     color: colors.accentText,
   },
   addStudyMoreBtn: {
-    height: sizes.addStudyMoreHeight,
+    height: sizes.studyBodyHeight,
     borderRadius: radii.chip,
     backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     width: '100%',
   },
   addStudyMoreText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.accentText,
   },
   reviewGrid: {

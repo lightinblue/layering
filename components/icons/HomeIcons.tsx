@@ -111,30 +111,6 @@ export function SettingsIcon({ size = sizes.fabIcon }: { size?: number }) {
   );
 }
 
-/** Filled circle + check for post-save success header. */
-export function SuccessCheckIcon({
-  size = 40,
-  color,
-}: {
-  size?: number;
-  color?: string;
-}) {
-  const theme = useThemeColors();
-  const fill = color ?? theme.primary;
-  return (
-    <Svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <Circle cx="20" cy="20" r="20" fill={fill} />
-      <Path
-        d="M12.5 20.2L17.6 25.2L27.5 15.2"
-        stroke="white"
-        strokeWidth={2.6}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 /** Plus for empty-state add study CTA. */
 export function PlusIcon({ size = sizes.plus }: { size?: number }) {
   return (
