@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AddStudyForm,
   type AddStudyPayload,
+  type SubjectAddResult,
 } from '@/components/home/AddStudyForm';
 import { ReviewDetailContent } from '@/components/home/ReviewDetailContent';
 import { SettingsSheet } from '@/components/home/SettingsSheet';
@@ -54,10 +55,14 @@ import {
   subjectColor,
 } from '@/constants/tokens';
 import {
+  addSubject,
   appendStudyWithReviews,
   DEFAULT_SUBJECTS,
   loadAppData,
   MAX_STUDIES_PER_DAY,
+  MAX_SUBJECTS,
+  normalizeSubjectName,
+  removeSubject,
   saveAppData,
   toggleReviewCompleted,
 } from '@/storage/app-data';
@@ -111,6 +116,10 @@ export default function HomeScreen({
   const [dummyData, setDummyData] = useState<HomeScreenData>(() =>
     cloneHomeData(HOME_DUMMY),
   );
+  /** In-session subject chips for 더미 mode (not AsyncStorage). */
+  const [dummySubjects, setDummySubjects] = useState<string[]>(() => [
+    ...DUMMY_SUBJECTS,
+  ]);
   /** When set, week strip is recentered on this date (calendar jump). */
   const [weekAnchorKey, setWeekAnchorKey] = useState<string | null>(null);
   const appliedDayRef = useRef<string | null>(null);
@@ -147,6 +156,7 @@ export default function HomeScreen({
         setWeekIndex(screen.currentWeekIndex);
       } else {
         setDummyData(cloneHomeData(HOME_DUMMY));
+        setDummySubjects([...DUMMY_SUBJECTS]);
         setSelectedKey(HOME_DUMMY.todayKey);
         setWeekIndex(HOME_DUMMY.currentWeekIndex);
       }
@@ -202,8 +212,8 @@ export default function HomeScreen({
     if (mode === 'real' && appData) {
       return appData.subjects.map((s) => s.name);
     }
-    return [...DUMMY_SUBJECTS];
-  }, [mode, appData]);
+    return dummySubjects;
+  }, [mode, appData, dummySubjects]);
 
   const persistApp = useCallback(async (next: AppData) => {
     setAppData(next);
@@ -279,6 +289,48 @@ export default function HomeScreen({
       setAddOpen(false);
     },
     [mode, dataProp, selectedDateKey, appData, persistApp, studies.length],
+  );
+
+  const onAddSubject = useCallback(
+    (rawName: string): SubjectAddResult => {
+      if (mode === 'dummy' || dataProp) {
+        const name = normalizeSubjectName(rawName);
+        if (!name) return { ok: false, reason: 'empty' };
+        if (dummySubjects.includes(name)) {
+          return { ok: false, reason: 'duplicate' };
+        }
+        if (dummySubjects.length >= MAX_SUBJECTS) {
+          return { ok: false, reason: 'limit' };
+        }
+        setDummySubjects((prev) => [...prev, name]);
+        return { ok: true };
+      }
+      if (!appData) return { ok: false, reason: 'empty' };
+      const result = addSubject(appData, rawName);
+      if (!result.ok) {
+        return {
+          ok: false,
+          reason: result.reason === 'missing' ? 'empty' : result.reason,
+        };
+      }
+      void persistApp(result.data);
+      return { ok: true };
+    },
+    [mode, dataProp, dummySubjects, appData, persistApp],
+  );
+
+  const onRemoveSubject = useCallback(
+    (name: string) => {
+      if (mode === 'dummy' || dataProp) {
+        setDummySubjects((prev) => prev.filter((s) => s !== name));
+        return;
+      }
+      if (!appData) return;
+      const result = removeSubject(appData, name);
+      if (!result.ok) return;
+      void persistApp(result.data);
+    },
+    [mode, dataProp, appData, persistApp],
   );
 
   const goCalendar = useCallback(() => {
@@ -371,6 +423,7 @@ export default function HomeScreen({
       if (next === 'dummy') {
         const fresh = cloneHomeData(HOME_DUMMY);
         setDummyData(fresh);
+        setDummySubjects([...DUMMY_SUBJECTS]);
         setSelectedKey(fresh.todayKey);
         setWeekIndex(fresh.currentWeekIndex);
         return;
@@ -510,6 +563,9 @@ export default function HomeScreen({
               : DEFAULT_SUBJECTS.map((s) => s.name)
           }
           onSave={onSaveAdd}
+          onAddSubject={onAddSubject}
+          onRemoveSubject={onRemoveSubject}
+          maxSubjects={MAX_SUBJECTS}
         />
       </BottomSheetModal>
 
