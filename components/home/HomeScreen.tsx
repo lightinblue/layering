@@ -69,6 +69,7 @@ import {
   MAX_SUBJECTS,
   normalizeSubjectName,
   removeSubject,
+  reorderSubjects,
   saveAppData,
   subjectColorMap,
   toggleReviewCompleted,
@@ -438,6 +439,34 @@ export default function HomeScreen({
     [mode, dataProp, appData, persistApp],
   );
 
+  const onReorderSubjects = useCallback(
+    (orderedNames: string[]) => {
+      if (mode === 'dummy' || dataProp) {
+        setDummySubjects((prev) => {
+          const byName = new Map(prev.map((s) => [s.name, s]));
+          const next: SubjectOption[] = [];
+          const seen = new Set<string>();
+          for (const name of orderedNames) {
+            const chip = byName.get(name);
+            if (!chip || seen.has(name)) continue;
+            next.push(chip);
+            seen.add(name);
+          }
+          for (const chip of prev) {
+            if (!seen.has(chip.name)) next.push(chip);
+          }
+          return next;
+        });
+        return;
+      }
+      if (!appData) return;
+      const result = reorderSubjects(appData, orderedNames);
+      if (!result.ok) return;
+      void persistApp(result.data);
+    },
+    [mode, dataProp, appData, persistApp],
+  );
+
   const goCalendar = useCallback(() => {
     router.push({
       pathname: '/calendar',
@@ -703,6 +732,7 @@ export default function HomeScreen({
           onDelete={editingStudy ? onDeleteStudy : undefined}
           onAddSubject={onAddSubject}
           onRemoveSubject={onRemoveSubject}
+          onReorderSubjects={onReorderSubjects}
           maxSubjects={MAX_SUBJECTS}
         />
       </BottomSheetModal>

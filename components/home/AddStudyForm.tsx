@@ -1,12 +1,23 @@
-import { useCallback, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentRef,
+} from 'react';
 import {
   Alert,
+  LayoutChangeEvent,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type GestureResponderEvent,
+  type PanResponderGestureState,
 } from 'react-native';
 
 import { DUMMY_SUBJECTS } from '@/constants/home-mock';
@@ -61,6 +72,8 @@ type AddStudyFormProps = {
   onAddSubject?: (name: string, color: string) => SubjectAddResult | boolean;
   /** Remove a chip only (must not delete study/review history). */
   onRemoveSubject?: (name: string) => void;
+  /** Persist chip order after long-press drag. */
+  onReorderSubjects?: (orderedNames: string[]) => void;
   /** Cap for chip list (default MAX_SUBJECTS). */
   maxSubjects?: number;
   /** create (default) vs edit — copy + optional delete. */
@@ -71,8 +84,14 @@ type AddStudyFormProps = {
   onDelete?: () => void;
 };
 
+type ChipLayout = { x: number; y: number; width: number; height: number };
+
 const LIMIT_HINT = '과목은 최대 10개까지예요';
 const NAME_LENGTH_HINT = '과목 이름은 4자까지예요';
+const CHIP_HINT =
+  '길게 눌러 순서 변경 · 선택한 과목을 다시 누르면 삭제';
+const LONG_PRESS_MS = 380;
+const MOVE_CANCEL_PX = 10;
 
 const DEFAULT_SUBJECT_OPTIONS: SubjectOption[] = DUMMY_SUBJECTS.map((name) => ({
   name,
@@ -93,9 +112,22 @@ function subjectAddErrorMessage(reason: SubjectAddFailReason): string {
   }
 }
 
+function moveName(names: string[], from: number, to: number): string[] {
+  if (from === to || from < 0 || to < 0) return names;
+  const next = [...names];
+  const [item] = next.splice(from, 1);
+  if (item == null) return names;
+  next.splice(to, 0, item);
+  return next;
+}
+
+function namesSignature(names: readonly string[]): string {
+  return names.join('\u0001');
+}
+
 /**
  * 「공부 기록 추가 / 수정」 form body (subject · title · optional memo).
- * Subject chips: tap select · long-press delete · 「+」 add with color pick (max 10).
+ * Subject chips: tap select · re-tap for delete X · long-press drag reorder · 「+」 add.
  * Mounted inside BottomSheetModal so Expo Go always lays out content.
  */
 export function AddStudyForm({
@@ -103,6 +135,7 @@ export function AddStudyForm({
   subjects = DEFAULT_SUBJECT_OPTIONS,
   onAddSubject,
   onRemoveSubject,
+  onReorderSubjects,
   maxSubjects = MAX_SUBJECTS,
   mode = 'create',
   initial,
@@ -119,6 +152,9 @@ export function AddStudyForm({
   const [draftName, setDraftName] = useState('');
   const [draftColor, setDraftColor] = useState<string>(SUBJECT_COLOR_OPTIONS[0]);
   const [chipHint, setChipHint] = useState<string | null>(null);
+  const [deleteArmed, setDeleteArmed] = useState<string | null>(null);
+  const [draggingName, setDraggingName] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   const chipSubjects = useMemo(() => {
     if (!initial?.subject) return subjects;
@@ -132,16 +168,56 @@ export function AddStudyForm({
     ];
   }, [subjects, initial?.subject]);
 
-  const atLimit = subjects.length >= maxSubjects;
-  const subjectNames = useMemo(
+  const propNames = useMemo(
     () => chipSubjects.map((s) => s.name),
     [chipSubjects],
   );
+  const [orderedNames, setOrderedNames] = useState(propNames);
+  const orderedNamesRef = useRef(orderedNames);
+  const draggingRef = useRef<string | null>(null);
+  const dragOriginRef = useRef<string[]>([]);
+  const chipLayoutsRef = useRef<Record<string, ChipLayout>>({});
+  const rowPageRef = useRef({ x: 0, y: 0 });
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragActivatedRef = useRef(false);
+  const activeChipRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    orderedNamesRef.current = orderedNames;
+  }, [orderedNames]);
+
+  useEffect(() => {
+    if (draggingRef.current) return;
+    if (namesSignature(propNames) === namesSignature(orderedNamesRef.current)) {
+      return;
+    }
+    setOrderedNames(propNames);
+  }, [propNames]);
+
   const colorByName = useMemo(() => {
     const map: Record<string, string> = {};
     for (const s of chipSubjects) map[s.name] = s.color;
     return map;
   }, [chipSubjects]);
+
+  const orderedChips = useMemo(() => {
+    const byName = new Map(chipSubjects.map((s) => [s.name, s]));
+    const list: SubjectOption[] = [];
+    for (const name of orderedNames) {
+      const chip = byName.get(name);
+      if (chip) list.push(chip);
+    }
+    for (const chip of chipSubjects) {
+      if (!list.some((s) => s.name === chip.name)) list.push(chip);
+    }
+    return list;
+  }, [chipSubjects, orderedNames]);
+
+  const atLimit = subjects.length >= maxSubjects;
+  const subjectNames = useMemo(
+    () => orderedChips.map((s) => s.name),
+    [orderedChips],
+  );
   const subject =
     subjectPick != null && subjectNames.includes(subjectPick)
       ? subjectPick
@@ -151,6 +227,206 @@ export function AddStudyForm({
     () => subject != null && title.trim().length > 0,
     [subject, title],
   );
+
+  const rowRef = useRef<ComponentRef<typeof View>>(null);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const measureRow = useCallback(() => {
+    rowRef.current?.measureInWindow((x: number, y: number) => {
+      rowPageRef.current = { x, y };
+    });
+  }, []);
+
+  const findHoverIndex = useCallback(
+    (pageX: number, pageY: number, exclude: string) => {
+      const localX = pageX - rowPageRef.current.x;
+      const localY = pageY - rowPageRef.current.y;
+      let best = -1;
+      let bestDist = Number.POSITIVE_INFINITY;
+      orderedNamesRef.current.forEach((name, index) => {
+        if (name === exclude) return;
+        const layout = chipLayoutsRef.current[name];
+        if (!layout) return;
+        const cx = layout.x + layout.width / 2;
+        const cy = layout.y + layout.height / 2;
+        const dist = (cx - localX) ** 2 + (cy - localY) ** 2;
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = index;
+        }
+      });
+      return best;
+    },
+    [],
+  );
+
+  const hoverIndexRef = useRef(-1);
+
+  const endDrag = useCallback(() => {
+    const name = draggingRef.current;
+    clearLongPressTimer();
+    dragActivatedRef.current = false;
+    activeChipRef.current = null;
+    draggingRef.current = null;
+    setDraggingName(null);
+    setDragOffset({ x: 0, y: 0 });
+    const hover = hoverIndexRef.current;
+    hoverIndexRef.current = -1;
+    if (!name || !onReorderSubjects) return;
+    const origin = dragOriginRef.current;
+    const from = origin.indexOf(name);
+    if (from < 0 || hover < 0 || hover === from) return;
+    const next = moveName(origin, from, hover);
+    orderedNamesRef.current = next;
+    setOrderedNames(next);
+    if (namesSignature(next) === namesSignature(origin)) return;
+    onReorderSubjects(next);
+  }, [clearLongPressTimer, onReorderSubjects]);
+
+  const handleChipTap = useCallback(
+    (name: string) => {
+      setChipHint(null);
+      if (subjectPick !== name) {
+        setSubjectPick(name);
+        setDeleteArmed(null);
+        return;
+      }
+      if (!onRemoveSubject) return;
+      setDeleteArmed((prev) => (prev === name ? null : name));
+    },
+    [subjectPick, onRemoveSubject],
+  );
+
+  const requestRemove = useCallback(
+    (name: string) => {
+      if (!onRemoveSubject) return;
+      Alert.alert(
+        '과목 삭제',
+        `‘${name}’ 과목을 삭제할까요?\n이미 기록한 내용은 그대로 남아요.`,
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '삭제',
+            style: 'destructive',
+            onPress: () => {
+              onRemoveSubject(name);
+              setChipHint(null);
+              setDeleteArmed(null);
+              setSubjectPick((prev) => (prev === name ? null : prev));
+            },
+          },
+        ],
+      );
+    },
+    [onRemoveSubject],
+  );
+
+  const beginDrag = useCallback(
+    (name: string) => {
+      if (!onReorderSubjects) return;
+      measureRow();
+      dragActivatedRef.current = true;
+      draggingRef.current = name;
+      dragOriginRef.current = [...orderedNamesRef.current];
+      setDraggingName(name);
+      setDeleteArmed(null);
+      setDragOffset({ x: 0, y: 0 });
+    },
+    [measureRow, onReorderSubjects],
+  );
+
+  const onChipLayout = useCallback((name: string, event: LayoutChangeEvent) => {
+    chipLayoutsRef.current[name] = event.nativeEvent.layout;
+  }, []);
+
+  const panResponders = useMemo(() => {
+    const map: Record<
+      string,
+      ReturnType<typeof PanResponder.create>
+    > = {};
+    for (const { name } of orderedChips) {
+      map[name] = PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => false,
+        onMoveShouldSetPanResponder: () => dragActivatedRef.current,
+        onMoveShouldSetPanResponderCapture: () => dragActivatedRef.current,
+        onPanResponderTerminationRequest: () => !dragActivatedRef.current,
+        onShouldBlockNativeResponder: () => dragActivatedRef.current,
+        onPanResponderGrant: () => {
+          activeChipRef.current = name;
+          dragActivatedRef.current = false;
+          clearLongPressTimer();
+          if (!onReorderSubjects) return;
+          longPressTimerRef.current = setTimeout(() => {
+            if (activeChipRef.current !== name) return;
+            beginDrag(name);
+          }, LONG_PRESS_MS);
+        },
+        onPanResponderMove: (
+          event: GestureResponderEvent,
+          gesture: PanResponderGestureState,
+        ) => {
+          if (!dragActivatedRef.current) {
+            if (
+              Math.abs(gesture.dx) > MOVE_CANCEL_PX ||
+              Math.abs(gesture.dy) > MOVE_CANCEL_PX
+            ) {
+              clearLongPressTimer();
+            }
+            return;
+          }
+          setDragOffset({ x: gesture.dx, y: gesture.dy });
+          hoverIndexRef.current = findHoverIndex(
+            event.nativeEvent.pageX,
+            event.nativeEvent.pageY,
+            name,
+          );
+        },
+        onPanResponderRelease: (
+          _event: GestureResponderEvent,
+          gesture: PanResponderGestureState,
+        ) => {
+          const wasDragging = dragActivatedRef.current;
+          clearLongPressTimer();
+          if (wasDragging) {
+            endDrag();
+            return;
+          }
+          if (
+            Math.abs(gesture.dx) <= MOVE_CANCEL_PX &&
+            Math.abs(gesture.dy) <= MOVE_CANCEL_PX
+          ) {
+            handleChipTap(name);
+          }
+          activeChipRef.current = null;
+        },
+        onPanResponderTerminate: () => {
+          const wasDragging = dragActivatedRef.current;
+          clearLongPressTimer();
+          if (wasDragging) {
+            endDrag();
+            return;
+          }
+          activeChipRef.current = null;
+        },
+      });
+    }
+    return map;
+  }, [
+    orderedChips,
+    onReorderSubjects,
+    clearLongPressTimer,
+    beginDrag,
+    findHoverIndex,
+    endDrag,
+    handleChipTap,
+  ]);
 
   const handleSave = useCallback(() => {
     if (!canSave || subject == null) return;
@@ -184,6 +460,7 @@ export function AddStudyForm({
       return;
     }
     setChipHint(null);
+    setDeleteArmed(null);
     setDraftName('');
     setDraftColor(SUBJECT_COLOR_OPTIONS[0]);
     setAdding(true);
@@ -209,38 +486,17 @@ export function AddStudyForm({
     }
     const name = draftName.trim().replace(/\s+/g, ' ');
     setSubjectPick(name);
+    setDeleteArmed(null);
     setAdding(false);
     setDraftName('');
     setChipHint(null);
   }, [onAddSubject, draftName, draftColor]);
 
-  const requestRemove = useCallback(
-    (name: string) => {
-      if (!onRemoveSubject) return;
-      Alert.alert(
-        '과목 삭제',
-        `‘${name}’ 과목을 삭제할까요?\n이미 기록한 내용은 그대로 남아요.`,
-        [
-          { text: '취소', style: 'cancel' },
-          {
-            text: '삭제',
-            style: 'destructive',
-            onPress: () => {
-              onRemoveSubject(name);
-              setChipHint(null);
-              setSubjectPick((prev) => (prev === name ? null : prev));
-            },
-          },
-        ],
-      );
-    },
-    [onRemoveSubject],
-  );
-
   return (
     <ScrollView
       keyboardShouldPersistTaps="handled"
       bounces={false}
+      scrollEnabled={draggingName == null}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { backgroundColor: colors.white }]}>
       <Text style={[styles.title, { color: colors.black }]}>
@@ -249,38 +505,70 @@ export function AddStudyForm({
 
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>과목</Text>
-        <View style={styles.chipRow}>
-          {chipSubjects.map(({ name, color }) => {
+        <View
+          ref={rowRef}
+          style={styles.chipRow}
+          onLayout={measureRow}
+          collapsable={false}>
+          {orderedChips.map(({ name, color }) => {
             const selected = subject === name;
             const fill = color || subjectColor(name, colorByName);
+            const dragging = draggingName === name;
+            const showDelete = deleteArmed === name && selected && !!onRemoveSubject;
+            const pan = panResponders[name];
             return (
-              <Pressable
+              <View
                 key={name}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`과목 ${name}`}
-                accessibilityHint={
-                  onRemoveSubject ? '길게 누르면 삭제' : undefined
-                }
-                onPress={() => {
-                  setSubjectPick(name);
-                  setChipHint(null);
-                }}
-                onLongPress={
-                  onRemoveSubject ? () => requestRemove(name) : undefined
-                }
-                delayLongPress={380}
+                onLayout={(event) => onChipLayout(name, event)}
                 style={[
-                  styles.subjectChip,
-                  {
-                    backgroundColor: fill,
-                    borderColor: subjectBorderColor(name, fill),
+                  styles.chipWrap,
+                  dragging && {
+                    zIndex: 20,
+                    transform: [
+                      { translateX: dragOffset.x },
+                      { translateY: dragOffset.y },
+                      { scale: 1.06 },
+                    ],
                   },
-                  selected && styles.subjectChipSelected,
-                  !selected && styles.subjectChipIdle,
                 ]}>
-                <Text style={styles.subjectChipText}>{name}</Text>
-              </Pressable>
+                <View
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`과목 ${name}`}
+                  accessibilityHint={
+                    onReorderSubjects
+                      ? '길게 눌러 순서 변경. 선택한 뒤 다시 누르면 삭제 버튼이 나타나요.'
+                      : onRemoveSubject
+                        ? '선택한 뒤 다시 누르면 삭제 버튼이 나타나요.'
+                        : undefined
+                  }
+                  style={[
+                    styles.subjectChip,
+                    {
+                      backgroundColor: fill,
+                      borderColor: subjectBorderColor(name, fill),
+                    },
+                    selected && styles.subjectChipSelected,
+                    !selected && styles.subjectChipIdle,
+                    dragging && styles.subjectChipDragging,
+                  ]}
+                  {...(pan ? pan.panHandlers : {})}>
+                  <Text style={styles.subjectChipText}>{name}</Text>
+                </View>
+                {showDelete ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${name} 과목 삭제`}
+                    hitSlop={8}
+                    onPress={() => requestRemove(name)}
+                    style={[
+                      styles.deleteBadge,
+                      { backgroundColor: colors.white },
+                    ]}>
+                    <Text style={styles.deleteBadgeText}>×</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             );
           })}
 
@@ -385,9 +673,9 @@ export function AddStudyForm({
           <Text style={[styles.chipHint, { color: colors.mutedLight }]}>
             {LIMIT_HINT}
           </Text>
-        ) : onRemoveSubject && !adding ? (
+        ) : (onRemoveSubject || onReorderSubjects) && !adding ? (
           <Text style={[styles.chipHint, { color: colors.mutedLight }]}>
-            길게 누르면 삭제
+            {CHIP_HINT}
           </Text>
         ) : null}
       </View>
@@ -495,6 +783,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    overflow: 'visible',
+  },
+  chipWrap: {
+    position: 'relative',
+    overflow: 'visible',
   },
   // Width follows label; padding tuned so a 3-char Hangul name is the visual baseline.
   subjectChip: {
@@ -511,10 +804,38 @@ const styles = StyleSheet.create({
   subjectChipSelected: {
     opacity: 1,
   },
+  subjectChipDragging: {
+    opacity: 0.95,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
   subjectChipText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 15,
     color: '#ffffff',
+  },
+  deleteBadge: {
+    position: 'absolute',
+    top: -7,
+    right: -7,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#e5484d',
+    zIndex: 30,
+  },
+  deleteBadgeText: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 16,
+    lineHeight: 18,
+    color: '#e5484d',
+    marginTop: -1,
   },
   addChip: {
     width: 44,

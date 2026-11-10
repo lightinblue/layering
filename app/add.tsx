@@ -18,6 +18,7 @@ import {
   MAX_STUDIES_PER_DAY,
   MAX_SUBJECTS,
   removeSubject,
+  reorderSubjects,
   saveAppData,
   withSubjectColor,
 } from '@/storage/app-data';
@@ -118,6 +119,16 @@ export default function AddRecordSheet() {
     [appData, persist],
   );
 
+  const onReorderSubjects = useCallback(
+    (orderedNames: string[]) => {
+      if (!appData) return;
+      const result = reorderSubjects(appData, orderedNames);
+      if (!result.ok) return;
+      void persist(result.data);
+    },
+    [appData, persist],
+  );
+
   return (
     <SheetPanel onClose={onClose}>
       <AddStudyForm
@@ -125,6 +136,7 @@ export default function AddRecordSheet() {
         onSave={onSave}
         onAddSubject={onAddSubject}
         onRemoveSubject={onRemoveSubject}
+        onReorderSubjects={onReorderSubjects}
         maxSubjects={MAX_SUBJECTS}
       />
     </SheetPanel>

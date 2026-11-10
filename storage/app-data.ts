@@ -134,6 +134,37 @@ export function removeSubject(
   };
 }
 
+/**
+ * Reorder subject chips by name list. Unknown names are skipped; any chips
+ * missing from orderedNames are appended in prior order.
+ */
+export function reorderSubjects(
+  data: AppData,
+  orderedNames: readonly string[],
+): SubjectMutationResult {
+  if (data.subjects.length === 0) return { ok: false, reason: 'missing' };
+  const byName = new Map(data.subjects.map((s) => [s.name, s]));
+  const next: SubjectChip[] = [];
+  const seen = new Set<string>();
+  for (const raw of orderedNames) {
+    const name = normalizeSubjectName(raw);
+    if (!name || seen.has(name)) continue;
+    const chip = byName.get(name);
+    if (!chip) continue;
+    next.push(chip);
+    seen.add(name);
+  }
+  for (const chip of data.subjects) {
+    if (!seen.has(chip.name)) next.push(chip);
+  }
+  if (next.length !== data.subjects.length) {
+    return { ok: false, reason: 'missing' };
+  }
+  const unchanged = next.every((chip, i) => chip.id === data.subjects[i]?.id);
+  if (unchanged) return { ok: true, data };
+  return { ok: true, data: { ...data, subjects: next } };
+}
+
 export async function loadAppData(): Promise<AppData> {
   const raw = await AsyncStorage.getItem(STORAGE_KEYS.appData);
   if (!raw) {
