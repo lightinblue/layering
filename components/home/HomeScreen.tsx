@@ -36,8 +36,6 @@ import {
   subjectColor,
 } from '@/constants/tokens';
 
-/** Clears default tab bar (+ safe area handled by tab bar itself). */
-const FAB_BOTTOM_GAP = 72;
 const REVIEW_COLS = 3;
 
 type HomeScreenProps = {
@@ -90,16 +88,16 @@ export default function HomeScreen({
   );
 
   const goAdd = useCallback(() => {
-    router.push('/(tabs)/add');
+    router.push('/add');
   }, [router]);
 
   const goCalendar = useCallback(() => {
-    router.push('/(tabs)/calendar');
+    router.push('/calendar');
   }, [router]);
 
   const onDetail = useCallback((_id: string) => {
     // Stub: detail flow not in MVP scope for this PR.
-    router.push('/(tabs)/add');
+    router.push('/add');
   }, [router]);
 
   const cycleDemo = useCallback(() => {
@@ -167,7 +165,7 @@ export default function HomeScreen({
           styles.fab,
           {
             right: Math.max(16, (windowWidth - contentWidth) / 2),
-            bottom: FAB_BOTTOM_GAP,
+            bottom: 24 + insets.bottom,
           },
         ]}>
         <CalendarIcon />

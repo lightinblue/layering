@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { colors } from '@/constants/tokens';
 
 /** FR-C stub — 날짜별 복습 확인·체크, 완료/미완료 색 구분. */
 export default function CalendarScreen() {
@@ -18,7 +19,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 32,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.mainWhite,
   },
   title: {
     fontSize: 28,

@@ -13,11 +13,12 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { colors } from '@/constants/tokens';
 
 export { ErrorBoundary } from 'expo-router';
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: 'index',
 };
 
 SplashScreen.preventAutoHideAsync();
@@ -56,8 +57,16 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: colors.mainWhite },
+          headerTintColor: colors.primary,
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: colors.mainWhite },
+        }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="add" options={{ title: '기록 추가' }} />
+        <Stack.Screen name="calendar" options={{ title: '캘린더' }} />
       </Stack>
     </ThemeProvider>
   );

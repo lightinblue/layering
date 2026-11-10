@@ -2,6 +2,7 @@ import { StyleSheet } from 'react-native';
 
 import { REVIEW_INTERVAL_DAYS, REVIEW_INTERVAL_NOTICE } from '@/constants/review';
 import { Text, View } from '@/components/Themed';
+import { colors } from '@/constants/tokens';
 
 /** FR-A stub — 과목 칩·학습 내용·학습일 입력 및 복습일 자동 생성. */
 export default function AddRecordScreen() {
@@ -22,7 +23,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 32,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.mainWhite,
   },
   title: {
     fontSize: 28,
