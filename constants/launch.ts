@@ -9,10 +9,10 @@ export const LAUNCH = {
   /** Logo alone before copy animates in. */
   textRevealDelayMs: 600,
   textRevealDurationMs: 520,
-  /** Second line follows the first slightly. */
+  /** Title → line1 → line2 stagger. */
   taglineStaggerMs: 160,
-  /** Hold after the second line finishes entering, before fade-out. */
-  holdAfterTextMs: 1100,
+  /** Hold after the last line finishes entering, before fade-out. */
+  holdAfterTextMs: 1500,
   fadeOutMs: 500,
 } as const;
 
@@ -20,7 +20,8 @@ export function launchHoldBeforeFadeMs() {
   return (
     LAUNCH.textRevealDelayMs +
     LAUNCH.textRevealDurationMs +
-    LAUNCH.taglineStaggerMs +
+    /** Two stagger steps: title → line1 → line2 */
+    LAUNCH.taglineStaggerMs * 2 +
     LAUNCH.holdAfterTextMs
   );
 }

@@ -58,4 +58,27 @@ export function dayMeta(date: Date): {
   };
 }
 
-export { DOW, WEEKDAY_LABELS };
+const SHORT_WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'] as const;
+
+/** Single-character Korean weekday (일…토). */
+export function shortWeekdayLabel(date: Date): string {
+  return SHORT_WEEKDAYS[date.getDay()];
+}
+
+/**
+ * Schedule row label, e.g. `11/10 (화)`.
+ * When `relativeToYear` is set and the date is in another year, appends `(YYYY)`.
+ */
+export function scheduleDateLabel(
+  isoDate: string,
+  relativeToYear?: number,
+): string {
+  const date = parseKey(isoDate);
+  const base = `${date.getMonth() + 1}/${date.getDate()} (${shortWeekdayLabel(date)})`;
+  if (relativeToYear != null && date.getFullYear() !== relativeToYear) {
+    return `${base} (${date.getFullYear()})`;
+  }
+  return base;
+}
+
+export { DOW, WEEKDAY_LABELS, SHORT_WEEKDAYS };

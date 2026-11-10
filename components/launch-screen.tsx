@@ -48,8 +48,9 @@ export function LaunchScreen() {
     return null;
   }
 
-  const line1Delay = LAUNCH.textRevealDelayMs;
-  const line2Delay = LAUNCH.textRevealDelayMs + LAUNCH.taglineStaggerMs;
+  const titleDelay = LAUNCH.textRevealDelayMs;
+  const line1Delay = titleDelay + LAUNCH.taglineStaggerMs;
+  const line2Delay = line1Delay + LAUNCH.taglineStaggerMs;
 
   return (
     <Animated.View
@@ -64,6 +65,9 @@ export function LaunchScreen() {
         />
       </View>
       <View style={styles.textBlock}>
+        <Animated.Text entering={textEnter(titleDelay)} style={styles.title}>
+          {brand.SERVICE_NAME}
+        </Animated.Text>
         <Animated.Text entering={textEnter(line1Delay)} style={styles.line1}>
           {brand.SPLASH_LINE_1}
         </Animated.Text>
@@ -103,14 +107,22 @@ const styles = StyleSheet.create({
     width: LAUNCH.markSize,
     height: LAUNCH.markSize,
   },
-  line1: {
+  /** Slightly smaller than the previous single large splash line (22). */
+  title: {
     fontFamily: fonts.nexonBold,
-    fontSize: 22,
+    fontSize: 20,
     color: '#1A1A1A',
-    ...centeredTracking(22),
+    ...centeredTracking(20),
+  },
+  line1: {
+    marginTop: 10,
+    fontFamily: fonts.nexonMedium,
+    fontSize: 14,
+    color: 'rgba(26, 26, 26, 0.55)',
+    ...centeredTracking(14, 0.02),
   },
   line2: {
-    marginTop: 8,
+    marginTop: 4,
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
     color: 'rgba(26, 26, 26, 0.45)',

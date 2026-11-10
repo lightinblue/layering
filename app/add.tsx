@@ -1,10 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
+import { Keyboard } from 'react-native';
 
 import {
   AddStudyForm,
   type AddStudyPayload,
 } from '@/components/home/AddStudyForm';
+import {
+  SaveConfirmContent,
+  type SaveConfirmPayload,
+} from '@/components/home/SaveConfirmContent';
 import { SheetPanel } from '@/components/ui/BottomSheetModal';
 import {
   appendStudyWithReviews,
@@ -22,6 +27,9 @@ export default function AddRecordSheet() {
   const router = useRouter();
   const [subjects, setSubjects] = useState(
     DEFAULT_SUBJECTS.map((s) => s.name),
+  );
+  const [saveConfirm, setSaveConfirm] = useState<SaveConfirmPayload | null>(
+    null,
   );
 
   useEffect(() => {
@@ -42,26 +50,33 @@ export default function AddRecordSheet() {
     if (router.canGoBack()) router.back();
   }, [router]);
 
-  const onSave = useCallback(
-    async (payload: AddStudyPayload) => {
-      const content = payload.title.trim();
-      const memo = payload.memo.trim();
-      const data = await loadAppData();
-      const next = appendStudyWithReviews(data, {
-        subjectName: payload.subject,
-        content,
-        studiedOn: todayKey(),
-        ...(memo ? { memo } : {}),
-      });
-      await saveAppData(next);
-      onClose();
-    },
-    [onClose],
-  );
+  const onSave = useCallback(async (payload: AddStudyPayload) => {
+    const content = payload.title.trim();
+    const memo = payload.memo.trim();
+    const studiedOn = todayKey();
+    Keyboard.dismiss();
+    const data = await loadAppData();
+    const next = appendStudyWithReviews(data, {
+      subjectName: payload.subject,
+      content,
+      studiedOn,
+      ...(memo ? { memo } : {}),
+    });
+    await saveAppData(next);
+    setSaveConfirm({
+      subject: payload.subject,
+      content,
+      studiedOn,
+    });
+  }, []);
 
   return (
     <SheetPanel onClose={onClose}>
-      <AddStudyForm subjects={subjects} onSave={onSave} />
+      {saveConfirm ? (
+        <SaveConfirmContent payload={saveConfirm} onConfirm={onClose} />
+      ) : (
+        <AddStudyForm subjects={subjects} onSave={onSave} />
+      )}
     </SheetPanel>
   );
 }
