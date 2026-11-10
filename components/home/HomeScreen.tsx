@@ -820,7 +820,10 @@ function ReviewCard({
   onDetail: () => void;
 }) {
   return (
-    <View
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="자세히"
+      onPress={onDetail}
       style={[
         styles.reviewCard,
         { width },
@@ -862,16 +865,12 @@ function ReviewCard({
             ))}
           </View>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="자세히"
-          onPress={onDetail}
-          style={styles.detailRow}>
+        <View style={styles.detailRow}>
           <Text style={styles.detailText}>자세히</Text>
           <ArrowRightIcon />
-        </Pressable>
+        </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
