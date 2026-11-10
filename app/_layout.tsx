@@ -6,13 +6,18 @@ import {
   ThemeProvider as NavThemeProvider,
 } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { LaunchScreen } from '@/components/launch-screen';
+import { TutorialScreen } from '@/components/tutorial/TutorialScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fonts } from '@/constants/fonts';
+import {
+  loadTutorialSeen,
+  saveTutorialSeen,
+} from '@/storage/tutorial';
 import {
   ThemeProvider,
   useThemeColors,
@@ -40,20 +45,41 @@ export default function RootLayout() {
     [fonts.nexonLight]: require('../assets/fonts/NEXONLv2Gothic-Light.otf'),
     [fonts.nexonBold]: require('../assets/fonts/NEXONLv2Gothic-Bold.otf'),
   });
+  const [tutorialSeen, setTutorialSeen] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (error) throw error;
   }, [error]);
 
-  if (!loaded) {
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const seen = await loadTutorialSeen();
+      if (!cancelled) setTutorialSeen(seen);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const finishTutorial = useCallback(() => {
+    setTutorialSeen(true);
+    void saveTutorialSeen();
+  }, []);
+
+  if (!loaded || tutorialSeen === null) {
     return null;
   }
 
   return (
     <ThemeProvider>
       <View style={styles.root}>
+        {tutorialSeen ? (
+          <RootLayoutNav />
+        ) : (
+          <TutorialScreen onFinished={finishTutorial} />
+        )}
         <LaunchScreen />
-        <RootLayoutNav />
       </View>
     </ThemeProvider>
   );
