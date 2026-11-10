@@ -133,16 +133,11 @@ export function SheetPanel({
     };
   }, [keyboardLift]);
 
-  // fill = lift + EXTRA so paint tracks the animated keyboard gap
+  // fill = lift + EXTRA so white paint tracks the animated keyboard gap
   const animatedFillHeight = Animated.add(
     keyboardLift,
     KEYBOARD_FILL_EXTRA,
   );
-  const flatSheet = StyleSheet.flatten(sheetStyle);
-  const sheetBackgroundColor =
-    typeof flatSheet?.backgroundColor === 'string'
-      ? flatSheet.backgroundColor
-      : colors.white;
 
   return (
     <View style={styles.root}>
@@ -173,7 +168,6 @@ export function SheetPanel({
                 paddingBottom: keyboardOpen
                   ? 16
                   : Math.max(insets.bottom, 16),
-                backgroundColor: sheetBackgroundColor,
               },
               sheetStyle,
             ]}>
@@ -183,16 +177,15 @@ export function SheetPanel({
             {children}
           </View>
           {/*
-            Continuation below the rounded panel. Negative margin keeps
+            White continuation below the rounded panel. Negative margin keeps
             layout height at the sheet while painting into the keyboard lift
-            gap / under the keyboard so sides stay filled.
+            gap / under the keyboard so sides stay white.
           */}
           <Animated.View
             pointerEvents="none"
             style={[
               styles.keyboardFill,
               {
-                backgroundColor: sheetBackgroundColor,
                 height: animatedFillHeight,
                 marginBottom: Animated.multiply(animatedFillHeight, -1),
               },

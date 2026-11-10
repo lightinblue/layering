@@ -650,10 +650,7 @@ export function AddStudyForm({
       bounces={false}
       scrollEnabled={draggingName == null}
       style={styles.scroll}
-      contentContainerStyle={[
-        styles.content,
-        { backgroundColor: colors.surfaceLight },
-      ]}>
+      contentContainerStyle={[styles.content, { backgroundColor: colors.white }]}>
       <Text style={[styles.title, { color: colors.black }]}>
         {isEdit ? '공부 기록 수정' : '공부 기록 추가'}
       </Text>
@@ -764,7 +761,7 @@ export function AddStudyForm({
                 styles.addChip,
                 {
                   borderColor: atLimit ? colors.mutedLight : colors.muted,
-                  backgroundColor: colors.white,
+                  backgroundColor: colors.surface,
                 },
                 atLimit && styles.addChipDisabled,
               ]}>
@@ -793,7 +790,7 @@ export function AddStudyForm({
                 style={[
                   styles.input,
                   styles.addInput,
-                  { backgroundColor: colors.white, color: colors.body },
+                  { backgroundColor: colors.surface, color: colors.body },
                 ]}
                 accessibilityLabel="새 과목 이름"
               />
@@ -808,7 +805,7 @@ export function AddStudyForm({
                 accessibilityRole="button"
                 accessibilityLabel="과목 추가 취소"
                 onPress={cancelAdd}
-                style={[styles.addCancel, { backgroundColor: colors.white }]}>
+                style={[styles.addCancel, { backgroundColor: colors.surface }]}>
                 <Text style={[styles.addCancelText, { color: colors.muted }]}>
                   취소
                 </Text>
@@ -854,7 +851,7 @@ export function AddStudyForm({
           placeholderTextColor={colors.mutedLight}
           style={[
             styles.input,
-            { backgroundColor: colors.white, color: colors.body },
+            { backgroundColor: colors.surface, color: colors.body },
           ]}
           returnKeyType="next"
           accessibilityLabel="학습 내용"
@@ -871,7 +868,7 @@ export function AddStudyForm({
           style={[
             styles.input,
             styles.memoInput,
-            { backgroundColor: colors.white, color: colors.body },
+            { backgroundColor: colors.surface, color: colors.body },
           ]}
           multiline
           textAlignVertical="top"

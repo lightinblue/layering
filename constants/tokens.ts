@@ -7,8 +7,6 @@ export const colors = {
   primary: '#1991ff',
   primarySoft: '#dff0ff',
   surface: '#f2f6fa',
-  /** Lighter blue-gray for sheets / soft panels. */
-  surfaceLight: '#f7fafc',
   muted: '#9fb1c1',
   mutedLight: '#ced7e0',
   sectionLabel: '#708AA2',
