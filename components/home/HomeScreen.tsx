@@ -19,12 +19,14 @@ import {
   type AddStudyPayload,
 } from '@/components/home/AddStudyForm';
 import { ReviewDetailContent } from '@/components/home/ReviewDetailContent';
+import { SettingsSheet } from '@/components/home/SettingsSheet';
 import {
   ArrowRightIcon,
   CalendarIcon,
   CheckIcon,
   EllipseIcon,
   PlusIcon,
+  SettingsIcon,
 } from '@/components/icons/HomeIcons';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import {
@@ -64,6 +66,7 @@ import {
   saveDataMode,
   type DataMode,
 } from '@/storage/data-mode';
+import { useThemeColors } from '@/theme/ThemeProvider';
 import type { AppData } from '@/types/domain';
 import { homeScreenDataFromAppData } from '@/utils/home-from-app-data';
 
@@ -83,6 +86,7 @@ export default function HomeScreen({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
+  const theme = useThemeColors();
 
   const [mode, setMode] = useState<DataMode>(initialMode);
   const [hydrated, setHydrated] = useState(dataProp != null);
@@ -95,6 +99,7 @@ export default function HomeScreen({
   const [weekIndex, setWeekIndex] = useState(HOME_DUMMY.currentWeekIndex);
   const [addOpen, setAddOpen] = useState(false);
   const [addKey, setAddKey] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState<{
     intervalDays: number;
     studies: HomeReviewStudy[];
@@ -240,6 +245,14 @@ export default function HomeScreen({
     router.push('/calendar');
   }, [router]);
 
+  const openSettings = useCallback(() => {
+    setSettingsOpen(true);
+  }, []);
+
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+  }, []);
+
   const onDetail = useCallback(
     (card: HomeReviewCard) => {
       setReviewOpen({
@@ -297,10 +310,13 @@ export default function HomeScreen({
     return idx >= 0 ? idx : 0;
   }, [base.weeks, weekIndex, selected]);
 
+  const fabInsetX = Math.max(16, (windowWidth - contentWidth) / 2);
+  const fabBottom = 24 + insets.bottom;
+
   if (!hydrated || !selected) {
     return (
       <View style={[styles.root, styles.loading]}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={theme.primary} />
       </View>
     );
   }
@@ -335,6 +351,7 @@ export default function HomeScreen({
               selectedKey={selected.dateKey}
               weekdayIndex={selectedWeekdayIndex}
               width={frameWidth}
+              accentColor={theme.primary}
               onSelectDay={selectDay}
               onWeekChange={onWeekChange}
             />
@@ -344,21 +361,44 @@ export default function HomeScreen({
             <StudySection
               studies={studies}
               allowAdd={!isFutureDay}
+              isToday={isToday}
               onAdd={goAdd}
             />
             <ReviewSection
               reviews={reviews}
               cardWidth={reviewCardWidth}
+              isToday={isToday}
+              accent={theme.primary}
+              accentSoft={theme.primarySoft}
               onToggle={toggleReview}
               onDetail={onDetail}
             />
           </View>
 
           {!dataProp ? (
-            <ModeControl active={mode} onSelect={selectMode} />
+            <ModeControl
+              active={mode}
+              accent={theme.primary}
+              accentSoft={theme.primarySoft}
+              onSelect={selectMode}
+            />
           ) : null}
         </View>
       </View>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="설정"
+        onPress={openSettings}
+        style={[
+          styles.fab,
+          {
+            left: fabInsetX,
+            bottom: fabBottom,
+          },
+        ]}>
+        <SettingsIcon />
+      </Pressable>
 
       <Pressable
         accessibilityRole="button"
@@ -367,8 +407,8 @@ export default function HomeScreen({
         style={[
           styles.fab,
           {
-            right: Math.max(16, (windowWidth - contentWidth) / 2),
-            bottom: 24 + insets.bottom,
+            right: fabInsetX,
+            bottom: fabBottom,
           },
         ]}>
         <CalendarIcon />
@@ -386,6 +426,10 @@ export default function HomeScreen({
         />
       </BottomSheetModal>
 
+      <BottomSheetModal visible={settingsOpen} onClose={closeSettings}>
+        <SettingsSheet />
+      </BottomSheetModal>
+
       <BottomSheetModal visible={reviewOpen != null} onClose={closeReview}>
         {reviewOpen ? (
           <ReviewDetailContent
@@ -400,9 +444,13 @@ export default function HomeScreen({
 
 function ModeControl({
   active,
+  accent,
+  accentSoft,
   onSelect,
 }: {
   active: DataMode;
+  accent: string;
+  accentSoft: string;
   onSelect: (mode: DataMode) => void;
 }) {
   return (
@@ -420,12 +468,12 @@ function ModeControl({
               onPress={() => onSelect(mode)}
               style={[
                 styles.devSegment,
-                selected && styles.devSegmentSelected,
+                selected && { backgroundColor: accentSoft },
               ]}>
               <Text
                 style={[
                   styles.devSegmentText,
-                  selected && styles.devSegmentTextSelected,
+                  selected && { color: accent },
                 ]}>
                 {DATA_MODE_LABEL[mode]}
               </Text>
@@ -446,6 +494,7 @@ function WeekStripPager({
   selectedKey,
   weekdayIndex,
   width,
+  accentColor,
   onSelectDay,
   onWeekChange,
 }: {
@@ -454,6 +503,7 @@ function WeekStripPager({
   selectedKey: string;
   weekdayIndex: number;
   width: number;
+  accentColor: string;
   onSelectDay: (dateKey: string) => void;
   onWeekChange: (weekIndex: number, weekdayIndex: number) => void;
 }) {
@@ -501,7 +551,10 @@ function WeekStripPager({
                 {d.day}
               </Text>
               <Text
-                style={[styles.weekDow, selected && styles.weekDowSelected]}>
+                style={[
+                  styles.weekDow,
+                  selected && { color: accentColor },
+                ]}>
                 {d.dow}
               </Text>
             </Pressable>
@@ -509,7 +562,7 @@ function WeekStripPager({
         })}
       </View>
     ),
-    [onSelectDay, selectedKey, width],
+    [accentColor, onSelectDay, selectedKey, width],
   );
 
   return (
@@ -540,16 +593,20 @@ function WeekStripPager({
 function StudySection({
   studies,
   allowAdd,
+  isToday,
   onAdd,
 }: {
   studies: HomeStudyRow[];
   allowAdd: boolean;
+  isToday: boolean;
   onAdd: () => void;
 }) {
   return (
     <View style={styles.section}>
       <View style={styles.sectionLabelWrap}>
-        <Text style={styles.sectionLabel}>오늘 한 공부</Text>
+        <Text style={styles.sectionLabel}>
+          {isToday ? '오늘 한 공부' : '이 날 한 공부'}
+        </Text>
       </View>
       <View style={styles.studyList}>
         {studies.length === 0 ? (
@@ -597,11 +654,17 @@ function StudyRow({ row }: { row: HomeStudyRow }) {
 function ReviewSection({
   reviews,
   cardWidth,
+  isToday,
+  accent,
+  accentSoft,
   onToggle,
   onDetail,
 }: {
   reviews: HomeReviewCard[];
   cardWidth: number;
+  isToday: boolean;
+  accent: string;
+  accentSoft: string;
   onToggle: (card: HomeReviewCard) => void;
   onDetail: (card: HomeReviewCard) => void;
 }) {
@@ -609,7 +672,9 @@ function ReviewSection({
   return (
     <View style={[styles.section, styles.reviewSection]}>
       <View style={styles.sectionLabelWrap}>
-        <Text style={styles.sectionLabel}>오늘 할 복습</Text>
+        <Text style={styles.sectionLabel}>
+          {isToday ? '오늘 할 복습' : '이 날 할 복습'}
+        </Text>
       </View>
       {empty ? (
         <View style={styles.reviewEmpty}>
@@ -626,6 +691,8 @@ function ReviewSection({
               key={card.id}
               card={card}
               width={cardWidth}
+              accent={accent}
+              accentSoft={accentSoft}
               onToggle={() => onToggle(card)}
               onDetail={() => onDetail(card)}
             />
@@ -639,11 +706,15 @@ function ReviewSection({
 function ReviewCard({
   card,
   width,
+  accent,
+  accentSoft,
   onToggle,
   onDetail,
 }: {
   card: HomeReviewCard;
   width: number;
+  accent: string;
+  accentSoft: string;
   onToggle: () => void;
   onDetail: () => void;
 }) {
@@ -652,7 +723,10 @@ function ReviewCard({
       style={[
         styles.reviewCard,
         { width },
-        card.completed && styles.reviewCardSelected,
+        card.completed && {
+          backgroundColor: accentSoft,
+          borderColor: accent,
+        },
       ]}>
       <View style={styles.reviewCardInner}>
         <View style={styles.reviewTopBlock}>
@@ -663,7 +737,9 @@ function ReviewCard({
               onPress={onToggle}
               style={[
                 styles.checkbox,
-                card.completed ? styles.checkboxOn : styles.checkboxOff,
+                card.completed
+                  ? { backgroundColor: accent }
+                  : styles.checkboxOff,
               ]}>
               <CheckIcon />
             </Pressable>
@@ -804,9 +880,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: 26,
   },
-  weekDowSelected: {
-    color: colors.primary,
-  },
   sections: {
     width: '100%',
     maxWidth: spacing.contentWidth,
@@ -902,10 +975,6 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     minHeight: 120,
   },
-  reviewCardSelected: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
-  },
   reviewCardInner: {
     flex: 1,
     gap: 12,
@@ -928,9 +997,6 @@ const styles = StyleSheet.create({
   },
   checkboxOff: {
     backgroundColor: colors.mutedLight,
-  },
-  checkboxOn: {
-    backgroundColor: colors.primary,
   },
   intervalText: {
     fontFamily: fonts.nexonMedium,
@@ -1028,15 +1094,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: colors.surface,
   },
-  devSegmentSelected: {
-    backgroundColor: colors.primarySoft,
-  },
   devSegmentText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 11,
     color: colors.mutedLight,
-  },
-  devSegmentTextSelected: {
-    color: colors.primary,
   },
 });

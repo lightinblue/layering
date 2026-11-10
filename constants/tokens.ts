@@ -71,8 +71,8 @@ export function subjectColor(name: string): string {
   return SUBJECT_COLORS[name] ?? colors.chipGray;
 }
 
-/** Darken a `#RRGGBB` (or `#RGB`) hex for same-hue chip borders. */
-export function darkenHex(hex: string, amount = 0.22): string {
+/** Parse `#RRGGBB` / `#RGB` → 0–255 channels (or null). */
+function parseHexRgb(hex: string): { r: number; g: number; b: number } | null {
   const raw = hex.replace('#', '');
   const full =
     raw.length === 3
@@ -81,15 +81,64 @@ export function darkenHex(hex: string, amount = 0.22): string {
           .map((c) => `${c}${c}`)
           .join('')
       : raw;
+  if (full.length !== 6) return null;
   const n = Number.parseInt(full, 16);
-  if (Number.isNaN(n)) return hex;
-  const factor = 1 - amount;
-  const r = Math.max(0, Math.round(((n >> 16) & 255) * factor));
-  const g = Math.max(0, Math.round(((n >> 8) & 255) * factor));
-  const b = Math.max(0, Math.round((n & 255) * factor));
+  if (Number.isNaN(n)) return null;
+  return {
+    r: (n >> 16) & 255,
+    g: (n >> 8) & 255,
+    b: n & 255,
+  };
+}
+
+function toHex({ r, g, b }: { r: number; g: number; b: number }): string {
   return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
+/**
+ * Darken a `#RRGGBB` (or `#RGB`) hex for same-hue chip borders.
+ * Mild default so selected subject chips keep a soft rim.
+ */
+export function darkenHex(hex: string, amount = 0.1): string {
+  const rgb = parseHexRgb(hex);
+  if (!rgb) return hex;
+  const factor = 1 - amount;
+  return toHex({
+    r: Math.max(0, Math.round(rgb.r * factor)),
+    g: Math.max(0, Math.round(rgb.g * factor)),
+    b: Math.max(0, Math.round(rgb.b * factor)),
+  });
+}
+
+/** Mix hex toward white for soft accent surfaces (selected cards, chips). */
+export function softFromPrimary(hex: string, whiteMix = 0.86): string {
+  const rgb = parseHexRgb(hex);
+  if (!rgb) return colors.primarySoft;
+  const t = Math.min(1, Math.max(0, whiteMix));
+  return toHex({
+    r: Math.round(rgb.r + (255 - rgb.r) * t),
+    g: Math.round(rgb.g + (255 - rgb.g) * t),
+    b: Math.round(rgb.b + (255 - rgb.b) * t),
+  });
 }
 
 export function subjectBorderColor(name: string): string {
   return darkenHex(subjectColor(name));
+}
+
+/** Solid accent options for Settings → 색상 (first = default blue). */
+export const PRIMARY_OPTIONS = [
+  '#1991ff',
+  '#45c775',
+  '#ff7a45',
+  '#ef5b7a',
+  '#2bb8a8',
+] as const;
+
+export type PrimaryOption = (typeof PRIMARY_OPTIONS)[number];
+
+export const DEFAULT_PRIMARY: PrimaryOption = PRIMARY_OPTIONS[0];
+
+export function isPrimaryOption(value: string): value is PrimaryOption {
+  return (PRIMARY_OPTIONS as readonly string[]).includes(value);
 }

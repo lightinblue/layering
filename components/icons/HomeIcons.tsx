@@ -1,12 +1,20 @@
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { colors, sizes } from '@/constants/tokens';
+import { useThemeColors } from '@/theme/ThemeProvider';
 
-/** Blue ellipse next to day number (Figma Ellipse 27). */
-export function EllipseIcon({ size = sizes.ellipse }: { size?: number }) {
+/** Accent ellipse next to day number (Figma Ellipse 27). */
+export function EllipseIcon({
+  size = sizes.ellipse,
+  color,
+}: {
+  size?: number;
+  color?: string;
+}) {
+  const theme = useThemeColors();
   return (
     <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-      <Circle cx="14" cy="14" r="14" fill={colors.primary} />
+      <Circle cx="14" cy="14" r="14" fill={color ?? theme.primary} />
     </Svg>
   );
 }
@@ -76,6 +84,28 @@ export function CalendarIcon({ size = sizes.fabIcon }: { size?: number }) {
         stroke={colors.accentText}
         strokeWidth={2.36923}
         strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+/** Settings FAB icon — same visual weight as CalendarIcon. */
+export function SettingsIcon({ size = sizes.fabIcon }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <Path
+        d="M14.257 2.333h-.514a2.333 2.333 0 0 0-2.333 2.334v.21a2.333 2.333 0 0 1-1.167 2.018l-.502.292a2.333 2.333 0 0 1-2.333 0l-.175-.093a2.333 2.333 0 0 0-3.185.852l-.257.443a2.333 2.333 0 0 0 .852 3.185l.175.117a2.333 2.333 0 0 1 1.167 2.007v.595a2.333 2.333 0 0 1-1.167 2.03l-.175.105a2.333 2.333 0 0 0-.852 3.185l.257.443a2.333 2.333 0 0 0 3.185.852l.175-.093a2.333 2.333 0 0 1 2.333 0l.502.292a2.333 2.333 0 0 1 1.167 2.018v.21a2.333 2.333 0 0 0 2.333 2.333h.514a2.333 2.333 0 0 0 2.333-2.333v-.21a2.333 2.333 0 0 1 1.167-2.018l.502-.292a2.333 2.333 0 0 1 2.333 0l.175.093a2.333 2.333 0 0 0 3.185-.852l.257-.455a2.333 2.333 0 0 0-.852-3.185l-.175-.093a2.333 2.333 0 0 1-1.167-2.03v-.583a2.333 2.333 0 0 1 1.167-2.03l.175-.105a2.333 2.333 0 0 0 .852-3.185l-.257-.443a2.333 2.333 0 0 0-3.185-.852l-.175.093a2.333 2.333 0 0 1-2.333 0l-.502-.292a2.333 2.333 0 0 1-1.167-2.018v-.21a2.333 2.333 0 0 0-2.333-2.334Z"
+        stroke={colors.accentText}
+        strokeWidth={2.1}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle
+        cx="14"
+        cy="14"
+        r="3.5"
+        stroke={colors.accentText}
+        strokeWidth={2.1}
       />
     </Svg>
   );

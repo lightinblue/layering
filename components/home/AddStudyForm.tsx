@@ -11,11 +11,11 @@ import {
 import { DUMMY_SUBJECTS } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
 import {
-  colors,
   radii,
   subjectBorderColor,
   subjectColor,
 } from '@/constants/tokens';
+import { useThemeColors } from '@/theme/ThemeProvider';
 
 export type AddStudyPayload = {
   subject: string;
@@ -37,6 +37,7 @@ export function AddStudyForm({
   onSave,
   subjects = [...DUMMY_SUBJECTS],
 }: AddStudyFormProps) {
+  const colors = useThemeColors();
   const [subject, setSubject] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [memo, setMemo] = useState('');
@@ -60,11 +61,11 @@ export function AddStudyForm({
       keyboardShouldPersistTaps="handled"
       bounces={false}
       style={styles.scroll}
-      contentContainerStyle={styles.content}>
-      <Text style={styles.title}>공부 기록 추가</Text>
+      contentContainerStyle={[styles.content, { backgroundColor: colors.white }]}>
+      <Text style={[styles.title, { color: colors.black }]}>공부 기록 추가</Text>
 
       <View style={styles.field}>
-        <Text style={styles.label}>과목</Text>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>과목</Text>
         <View style={styles.chipRow}>
           {subjects.map((name) => {
             const selected = subject === name;
@@ -92,26 +93,35 @@ export function AddStudyForm({
       </View>
 
       <View style={styles.field}>
-        <Text style={styles.label}>학습 내용</Text>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>
+          학습 내용
+        </Text>
         <TextInput
           value={title}
           onChangeText={setTitle}
           placeholder="1-3단원 / p. 22-36"
           placeholderTextColor={colors.mutedLight}
-          style={styles.input}
+          style={[
+            styles.input,
+            { backgroundColor: colors.surface, color: colors.body },
+          ]}
           returnKeyType="next"
           accessibilityLabel="학습 내용"
         />
       </View>
 
       <View style={styles.field}>
-        <Text style={styles.label}>메모</Text>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>메모</Text>
         <TextInput
           value={memo}
           onChangeText={setMemo}
           placeholder="추가로 기록하고 싶은 내용"
           placeholderTextColor={colors.mutedLight}
-          style={[styles.input, styles.memoInput]}
+          style={[
+            styles.input,
+            styles.memoInput,
+            { backgroundColor: colors.surface, color: colors.body },
+          ]}
           multiline
           textAlignVertical="top"
           accessibilityLabel="메모"
@@ -124,7 +134,11 @@ export function AddStudyForm({
         accessibilityState={{ disabled: !canSave }}
         disabled={!canSave}
         onPress={handleSave}
-        style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}>
+        style={[
+          styles.saveBtn,
+          { backgroundColor: colors.primary },
+          !canSave && { backgroundColor: colors.mutedLight },
+        ]}>
         <Text style={styles.saveBtnText}>저장</Text>
       </Pressable>
     </ScrollView>
@@ -136,7 +150,6 @@ const styles = StyleSheet.create({
     maxHeight: 520,
   },
   content: {
-    backgroundColor: colors.white,
     paddingHorizontal: 24,
     paddingBottom: 8,
     gap: 20,
@@ -144,7 +157,6 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.nexonMedium,
     fontSize: 18,
-    color: colors.black,
   },
   field: {
     gap: 8,
@@ -152,7 +164,6 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
-    color: colors.sectionLabel,
   },
   chipRow: {
     flexDirection: 'row',
@@ -177,16 +188,14 @@ const styles = StyleSheet.create({
   subjectChipText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 15,
-    color: colors.white,
+    color: '#ffffff',
   },
   input: {
-    backgroundColor: colors.surface,
     borderRadius: radii.chip,
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontFamily: fonts.nexonMedium,
     fontSize: 15,
-    color: colors.body,
     minHeight: 49,
   },
   memoInput: {
@@ -197,16 +206,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     height: 52,
     borderRadius: radii.chip,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  saveBtnDisabled: {
-    backgroundColor: colors.mutedLight,
   },
   saveBtnText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 16,
-    color: colors.white,
+    color: '#ffffff',
   },
 });

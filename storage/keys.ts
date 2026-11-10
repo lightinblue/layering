@@ -4,4 +4,6 @@ export const STORAGE_KEYS = {
   appData: '@bokbok/app-data/v1',
   /** 'real' | 'dummy' — Home data source mode. */
   dataMode: '@bokbok/data-mode/v1',
+  /** Accent primary hex (`#RRGGBB`). */
+  themePrimary: '@bokbok/theme-primary/v1',
 } as const;
