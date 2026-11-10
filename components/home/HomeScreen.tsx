@@ -1531,7 +1531,7 @@ const styles = StyleSheet.create({
   addStudyBtn: {
     height: sizes.addStudyHeight,
     borderRadius: radii.chip,
-    backgroundColor: colors.white,
+    backgroundColor: colors.mainWhite,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1546,7 +1546,7 @@ const styles = StyleSheet.create({
   addStudyMoreBtn: {
     height: sizes.studyBodyHeight,
     borderRadius: radii.chip,
-    backgroundColor: colors.white,
+    backgroundColor: colors.mainWhite,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
