@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -113,12 +112,11 @@ export default function HomeScreen({
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: sizes.fab + 40 },
-        ]}
-        showsVerticalScrollIndicator={false}>
+      <View
+        style={[
+          styles.body,
+          { paddingBottom: Math.max(insets.bottom, 8) + 12 },
+        ]}>
         <View style={[styles.frame, { maxWidth: frameWidth }]}>
           <Pressable
             accessibilityRole="button"
@@ -156,7 +154,7 @@ export default function HomeScreen({
             </Text>
           ) : null}
         </View>
-      </ScrollView>
+      </View>
 
       <Pressable
         accessibilityRole="button"
@@ -351,9 +349,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.mainWhite,
   },
-  scrollContent: {
+  body: {
+    flex: 1,
+    width: '100%',
     alignItems: 'center',
-    paddingBottom: 24,
   },
   frame: {
     width: '100%',
