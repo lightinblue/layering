@@ -30,7 +30,7 @@ export const spacing = {
   blockGap: 18,
   /** Gap between date header and week strip (tighter than blockGap). */
   headerWeekGap: 10,
-  studyRowGap: 7,
+  studyRowGap: 5,
   reviewGap: 10,
   labelPad: 8,
   contentWidth: 332,
@@ -51,8 +51,8 @@ export const sizes = {
   dayNumber: 80,
   ellipse: 24,
   weekCell: { width: 50, height: 58 },
-  studyChip: { width: 77, height: 49 },
-  studyBodyHeight: 49,
+  studyChip: { width: 77, height: 42 },
+  studyBodyHeight: 42,
   reviewCheckbox: 38,
   /** Review subject marker: 24×24 color square with first glyph. */
   reviewChip: { width: 24, height: 24 },

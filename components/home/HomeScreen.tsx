@@ -1687,7 +1687,7 @@ const styles = StyleSheet.create({
   studyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     width: '100%',
   },
   studyChip: {
@@ -1699,7 +1699,7 @@ const styles = StyleSheet.create({
   },
   studyChipText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 16,
+    fontSize: 14,
     color: colors.white,
   },
   studyBody: {
@@ -1708,12 +1708,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radii.chip,
     justifyContent: 'center',
-    paddingLeft: 14,
-    paddingRight: 14,
+    paddingLeft: 12,
+    paddingRight: 12,
   },
   studyBodyText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 15,
+    fontSize: 13,
     color: colors.body,
   },
   addStudyBtn: {
