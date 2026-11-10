@@ -1086,7 +1086,7 @@ function StudySection({
             style={styles.addStudyBtn}>
             {allowAdd ? (
               <>
-                <PlusIcon />
+                <PlusIcon size={16} />
                 <Text style={styles.addStudyText}>공부 기록 추가</Text>
               </>
             ) : null}
@@ -1107,7 +1107,7 @@ function StudySection({
                 accessibilityLabel="공부 기록 추가"
                 onPress={onAdd}
                 style={styles.addStudyMoreBtn}>
-                <PlusIcon />
+                <PlusIcon size={16} />
                 <Text style={styles.addStudyMoreText}>공부 기록 추가</Text>
               </Pressable>
             ) : null}
