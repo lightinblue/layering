@@ -4,6 +4,8 @@ export type HomeStudyRow = {
   id: string;
   subjectName: string;
   content: string;
+  /** Optional memo (edit sheet prefill). */
+  memo?: string;
 };
 
 export type HomeReviewStudy = {
@@ -13,6 +15,8 @@ export type HomeReviewStudy = {
   studiedOn: string;
   /** Optional memo shown muted under 학습 내용. */
   memo?: string;
+  /** Links to HomeStudyRow.id for dummy edit/delete. */
+  studyId?: string;
 };
 
 export type HomeReviewCard = {

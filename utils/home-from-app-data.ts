@@ -78,6 +78,7 @@ function studiesForDay(dateKey: string, data: AppData): HomeStudyRow[] {
       id: r.id,
       subjectName: r.subjectName,
       content: r.content,
+      ...(r.memo?.trim() ? { memo: r.memo.trim() } : {}),
     }));
 }
 

@@ -39,7 +39,9 @@ import {
   flattenWeeks,
   HOME_DUMMY,
   intervalLabel,
+  removeDummyStudy,
   toggleDummyReview,
+  updateDummyStudy,
   weekIndexForDate,
   type HomeReviewCard,
   type HomeReviewStudy,
@@ -60,6 +62,7 @@ import {
   addSubject,
   appendStudyWithReviews,
   DEFAULT_SUBJECTS,
+  deleteStudyWithReviews,
   loadAppData,
   MAX_STUDIES_PER_DAY,
   MAX_SUBJECT_NAME_LENGTH,
@@ -69,6 +72,7 @@ import {
   saveAppData,
   subjectColorMap,
   toggleReviewCompleted,
+  updateStudyWithReviews,
   withSubjectColor,
 } from '@/storage/app-data';
 import {
@@ -140,6 +144,8 @@ export default function HomeScreen({
   const [weekIndex, setWeekIndex] = useState(HOME_DUMMY.currentWeekIndex);
   const [addOpen, setAddOpen] = useState(false);
   const [addKey, setAddKey] = useState(0);
+  /** When set, the add sheet opens in edit mode for this study. */
+  const [editingStudy, setEditingStudy] = useState<HomeStudyRow | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState<{
     intervalDays: number;
@@ -259,24 +265,80 @@ export default function HomeScreen({
 
   const goAdd = useCallback(() => {
     if (!allowAdd) return;
+    setEditingStudy(null);
     setAddKey((k) => k + 1);
     setAddOpen(true);
   }, [allowAdd]);
 
+  const goEditStudy = useCallback(
+    (row: HomeStudyRow) => {
+      let next = row;
+      if (mode === 'real' && appData) {
+        const record = appData.records.find((r) => r.id === row.id);
+        if (record) {
+          const memo = record.memo?.trim();
+          next = {
+            id: record.id,
+            subjectName: record.subjectName,
+            content: record.content,
+            ...(memo ? { memo } : {}),
+          };
+        }
+      }
+      setEditingStudy(next);
+      setAddKey((k) => k + 1);
+      setAddOpen(true);
+    },
+    [mode, appData],
+  );
+
   const closeAdd = useCallback(() => {
     setAddOpen(false);
+    setEditingStudy(null);
   }, []);
 
   const onSaveAdd = useCallback(
     (payload: AddStudyPayload) => {
+      const content = payload.title.trim();
+      const memo = payload.memo.trim();
+      const studiedOn = selectedDateKey;
+
+      if (editingStudy) {
+        if (mode === 'dummy' || dataProp) {
+          setDummyData((prev) =>
+            updateDummyStudy(
+              prev,
+              editingStudy.id,
+              {
+                subjectName: payload.subject,
+                content,
+                studiedOn,
+                ...(memo ? { memo } : {}),
+              },
+              MAX_STUDIES_PER_DAY,
+            ),
+          );
+          setAddOpen(false);
+          setEditingStudy(null);
+          return;
+        }
+        if (!appData) return;
+        const next = updateStudyWithReviews(appData, editingStudy.id, {
+          subjectName: payload.subject,
+          content,
+          studiedOn,
+          ...(memo ? { memo } : {}),
+        });
+        void persistApp(next);
+        setAddOpen(false);
+        setEditingStudy(null);
+        return;
+      }
+
       if (studies.length >= MAX_STUDIES_PER_DAY) {
         setAddOpen(false);
         return;
       }
-
-      const content = payload.title.trim();
-      const memo = payload.memo.trim();
-      const studiedOn = selectedDateKey;
 
       if (mode === 'dummy' || dataProp) {
         setDummyData((prev) =>
@@ -305,8 +367,31 @@ export default function HomeScreen({
       void persistApp(next);
       setAddOpen(false);
     },
-    [mode, dataProp, selectedDateKey, appData, persistApp, studies.length],
+    [
+      mode,
+      dataProp,
+      selectedDateKey,
+      appData,
+      persistApp,
+      studies.length,
+      editingStudy,
+    ],
   );
+
+  const onDeleteStudy = useCallback(() => {
+    if (!editingStudy) return;
+    const studyId = editingStudy.id;
+    if (mode === 'dummy' || dataProp) {
+      setDummyData((prev) => removeDummyStudy(prev, studyId));
+      setAddOpen(false);
+      setEditingStudy(null);
+      return;
+    }
+    if (!appData) return;
+    void persistApp(deleteStudyWithReviews(appData, studyId));
+    setAddOpen(false);
+    setEditingStudy(null);
+  }, [editingStudy, mode, dataProp, appData, persistApp]);
 
   const onAddSubject = useCallback(
     (rawName: string, color: string): SubjectAddResult => {
@@ -543,6 +628,7 @@ export default function HomeScreen({
             colorByName={colorByName}
             onDayChange={onDayPagerChange}
             onAdd={goAdd}
+            onEditStudy={goEditStudy}
             onToggle={toggleReview}
             onDetail={onDetail}
           />
@@ -595,6 +681,16 @@ export default function HomeScreen({
       <BottomSheetModal visible={addOpen} onClose={closeAdd}>
         <AddStudyForm
           key={addKey}
+          mode={editingStudy ? 'edit' : 'create'}
+          initial={
+            editingStudy
+              ? {
+                  subject: editingStudy.subjectName,
+                  title: editingStudy.content,
+                  ...(editingStudy.memo ? { memo: editingStudy.memo } : {}),
+                }
+              : undefined
+          }
           subjects={
             subjectOptions.length > 0
               ? subjectOptions
@@ -604,6 +700,7 @@ export default function HomeScreen({
                 }))
           }
           onSave={onSaveAdd}
+          onDelete={editingStudy ? onDeleteStudy : undefined}
           onAddSubject={onAddSubject}
           onRemoveSubject={onRemoveSubject}
           maxSubjects={MAX_SUBJECTS}
@@ -796,6 +893,7 @@ function DayContentPager({
   colorByName,
   onDayChange,
   onAdd,
+  onEditStudy,
   onToggle,
   onDetail,
 }: {
@@ -810,6 +908,7 @@ function DayContentPager({
   colorByName: Record<string, string>;
   onDayChange: (dayIndex: number) => void;
   onAdd: () => void;
+  onEditStudy: (row: HomeStudyRow) => void;
   onToggle: (dateKey: string, card: HomeReviewCard) => void;
   onDetail: (card: HomeReviewCard) => void;
 }) {
@@ -860,6 +959,7 @@ function DayContentPager({
               isToday={dayIsToday}
               colorByName={colorByName}
               onAdd={onAdd}
+              onEditStudy={onEditStudy}
             />
             <ReviewSection
               reviews={day.reviews}
@@ -882,6 +982,7 @@ function DayContentPager({
       contentWidth,
       onAdd,
       onDetail,
+      onEditStudy,
       onToggle,
       reviewCardWidth,
       todayKey,
@@ -920,12 +1021,14 @@ function StudySection({
   isToday,
   colorByName,
   onAdd,
+  onEditStudy,
 }: {
   studies: HomeStudyRow[];
   allowAdd: boolean;
   isToday: boolean;
   colorByName: Record<string, string>;
   onAdd: () => void;
+  onEditStudy: (row: HomeStudyRow) => void;
 }) {
   return (
     <View style={styles.section}>
@@ -953,7 +1056,12 @@ function StudySection({
         ) : (
           <>
             {studies.map((row) => (
-              <StudyRow key={row.id} row={row} colorByName={colorByName} />
+              <StudyRow
+                key={row.id}
+                row={row}
+                colorByName={colorByName}
+                onPress={() => onEditStudy(row)}
+              />
             ))}
             {allowAdd ? (
               <Pressable
@@ -975,12 +1083,18 @@ function StudySection({
 function StudyRow({
   row,
   colorByName,
+  onPress,
 }: {
   row: HomeStudyRow;
   colorByName: Record<string, string>;
+  onPress: () => void;
 }) {
   return (
-    <View style={styles.studyRow}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${row.subjectName} ${row.content} 수정`}
+      onPress={onPress}
+      style={styles.studyRow}>
       <View
         style={[
           styles.studyChip,
@@ -993,7 +1107,7 @@ function StudyRow({
           {row.content}
         </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

@@ -45,6 +45,14 @@ export type SubjectAddResult =
   | { ok: true }
   | { ok: false; reason: SubjectAddFailReason };
 
+export type AddStudyFormMode = 'create' | 'edit';
+
+export type AddStudyFormInitial = {
+  subject: string;
+  title: string;
+  memo?: string;
+};
+
 type AddStudyFormProps = {
   onSave: (payload: AddStudyPayload) => void;
   /** Subject chips (defaults to demo list with Figma colors). */
@@ -55,6 +63,12 @@ type AddStudyFormProps = {
   onRemoveSubject?: (name: string) => void;
   /** Cap for chip list (default MAX_SUBJECTS). */
   maxSubjects?: number;
+  /** create (default) vs edit — copy + optional delete. */
+  mode?: AddStudyFormMode;
+  /** Prefill subject / title / memo when editing. */
+  initial?: AddStudyFormInitial;
+  /** Shown in edit mode; caller confirms before calling. */
+  onDelete?: () => void;
 };
 
 const LIMIT_HINT = '과목은 최대 10개까지예요';
@@ -80,7 +94,7 @@ function subjectAddErrorMessage(reason: SubjectAddFailReason): string {
 }
 
 /**
- * 「공부 기록 추가」 form body (subject · title · optional memo).
+ * 「공부 기록 추가 / 수정」 form body (subject · title · optional memo).
  * Subject chips: tap select · long-press delete · 「+」 add with color pick (max 10).
  * Mounted inside BottomSheetModal so Expo Go always lays out content.
  */
@@ -90,23 +104,44 @@ export function AddStudyForm({
   onAddSubject,
   onRemoveSubject,
   maxSubjects = MAX_SUBJECTS,
+  mode = 'create',
+  initial,
+  onDelete,
 }: AddStudyFormProps) {
   const colors = useThemeColors();
-  const [subjectPick, setSubjectPick] = useState<string | null>(null);
-  const [title, setTitle] = useState('');
-  const [memo, setMemo] = useState('');
+  const isEdit = mode === 'edit';
+  const [subjectPick, setSubjectPick] = useState<string | null>(
+    () => initial?.subject ?? null,
+  );
+  const [title, setTitle] = useState(() => initial?.title ?? '');
+  const [memo, setMemo] = useState(() => initial?.memo ?? '');
   const [adding, setAdding] = useState(false);
   const [draftName, setDraftName] = useState('');
   const [draftColor, setDraftColor] = useState<string>(SUBJECT_COLOR_OPTIONS[0]);
   const [chipHint, setChipHint] = useState<string | null>(null);
 
+  const chipSubjects = useMemo(() => {
+    if (!initial?.subject) return subjects;
+    if (subjects.some((s) => s.name === initial.subject)) return subjects;
+    return [
+      ...subjects,
+      {
+        name: initial.subject,
+        color: subjectColor(initial.subject),
+      },
+    ];
+  }, [subjects, initial?.subject]);
+
   const atLimit = subjects.length >= maxSubjects;
-  const subjectNames = useMemo(() => subjects.map((s) => s.name), [subjects]);
+  const subjectNames = useMemo(
+    () => chipSubjects.map((s) => s.name),
+    [chipSubjects],
+  );
   const colorByName = useMemo(() => {
     const map: Record<string, string> = {};
-    for (const s of subjects) map[s.name] = s.color;
+    for (const s of chipSubjects) map[s.name] = s.color;
     return map;
-  }, [subjects]);
+  }, [chipSubjects]);
   const subject =
     subjectPick != null && subjectNames.includes(subjectPick)
       ? subjectPick
@@ -125,6 +160,22 @@ export function AddStudyForm({
       memo: memo.trim(),
     });
   }, [canSave, subject, title, memo, onSave]);
+
+  const requestDelete = useCallback(() => {
+    if (!onDelete) return;
+    Alert.alert(
+      '공부 기록 삭제',
+      '이 공부 기록과 연결된 복습 일정도 함께 삭제돼요.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: onDelete,
+        },
+      ],
+    );
+  }, [onDelete]);
 
   const openAdd = useCallback(() => {
     if (!onAddSubject) return;
@@ -192,12 +243,14 @@ export function AddStudyForm({
       bounces={false}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { backgroundColor: colors.white }]}>
-      <Text style={[styles.title, { color: colors.black }]}>공부 기록 추가</Text>
+      <Text style={[styles.title, { color: colors.black }]}>
+        {isEdit ? '공부 기록 수정' : '공부 기록 추가'}
+      </Text>
 
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>과목</Text>
         <View style={styles.chipRow}>
-          {subjects.map(({ name, color }) => {
+          {chipSubjects.map(({ name, color }) => {
             const selected = subject === name;
             const fill = color || subjectColor(name, colorByName);
             return (
@@ -377,7 +430,7 @@ export function AddStudyForm({
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="저장"
+        accessibilityLabel={isEdit ? '수정' : '저장'}
         accessibilityState={{ disabled: !canSave }}
         disabled={!canSave}
         onPress={handleSave}
@@ -386,8 +439,20 @@ export function AddStudyForm({
           { backgroundColor: colors.primary },
           !canSave && { backgroundColor: colors.mutedLight },
         ]}>
-        <Text style={styles.saveBtnText}>저장</Text>
+        <Text style={styles.saveBtnText}>{isEdit ? '수정' : '저장'}</Text>
       </Pressable>
+
+      {isEdit && onDelete ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="삭제"
+          onPress={requestDelete}
+          style={[styles.deleteBtn, { borderColor: colors.mutedLight }]}>
+          <Text style={[styles.deleteBtnText, { color: colors.muted }]}>
+            삭제
+          </Text>
+        </Pressable>
+      ) : null}
     </ScrollView>
   );
 }
@@ -525,5 +590,17 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 16,
     color: '#ffffff',
+  },
+  deleteBtn: {
+    height: 48,
+    borderRadius: radii.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  deleteBtnText: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 15,
   },
 });

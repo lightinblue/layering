@@ -289,12 +289,23 @@ export function cloneHomeData(data: HomeScreenData): HomeScreenData {
     weeks: data.weeks.map((week) =>
       week.map((day) => ({
         ...day,
-        studies: day.studies.map((s) => ({ ...s })),
+        studies: day.studies.map((s) => ({
+          id: s.id,
+          subjectName: s.subjectName,
+          content: s.content,
+          ...(s.memo ? { memo: s.memo } : {}),
+        })),
         reviews: day.reviews.map((r) => ({
           ...r,
           scheduleIds: [...r.scheduleIds],
           subjectNames: [...r.subjectNames],
-          studies: r.studies.map((s) => ({ ...s })),
+          studies: r.studies.map((s) => ({
+            subjectName: s.subjectName,
+            content: s.content,
+            studiedOn: s.studiedOn,
+            ...(s.memo ? { memo: s.memo } : {}),
+            ...(s.studyId ? { studyId: s.studyId } : {}),
+          })),
         })),
       })),
     ),
@@ -310,6 +321,8 @@ export function applyDummyStudy(
     studiedOn: string;
     memo?: string;
     intervals?: ReviewIntervalDay[];
+    /** Reuse id when re-adding after a studiedOn move. */
+    studyId?: string;
   },
   maxPerDay = 3,
 ): HomeScreenData {
@@ -322,7 +335,7 @@ export function applyDummyStudy(
 
   const intervals = input.intervals ?? [1, 3, 7, 15, 30, 60];
   const next = cloneHomeData(data);
-  const studyId = `dummy-s-${Date.now().toString(36)}`;
+  const studyId = input.studyId ?? `dummy-s-${Date.now().toString(36)}`;
   const memo = input.memo?.trim();
 
   for (const week of next.weeks) {
@@ -334,6 +347,7 @@ export function applyDummyStudy(
           id: studyId,
           subjectName: input.subjectName,
           content: input.content,
+          ...(memo ? { memo } : {}),
         },
       ];
     }
@@ -352,6 +366,7 @@ export function applyDummyStudy(
           subjectName: input.subjectName,
           content: input.content,
           studiedOn: input.studiedOn,
+          studyId,
           ...(memo ? { memo } : {}),
         };
         if (existing) {
@@ -379,6 +394,123 @@ export function applyDummyStudy(
   }
 
   return next;
+}
+
+/** Strip one study and any linked review slots (by studyId). */
+export function removeDummyStudy(
+  data: HomeScreenData,
+  studyId: string,
+): HomeScreenData {
+  const next = cloneHomeData(data);
+  for (const week of next.weeks) {
+    for (const day of week) {
+      day.studies = day.studies.filter((s) => s.id !== studyId);
+      const keptCards: HomeReviewCard[] = [];
+      for (const card of day.reviews) {
+        const keepIdx: number[] = [];
+        card.studies.forEach((study, index) => {
+          if (study.studyId !== studyId) keepIdx.push(index);
+        });
+        if (keepIdx.length === card.studies.length) {
+          keptCards.push(card);
+          continue;
+        }
+        if (keepIdx.length === 0) continue;
+        const studies = keepIdx.map((i) => card.studies[i]);
+        const scheduleIds = keepIdx
+          .map((i) => card.scheduleIds[i])
+          .filter((id): id is string => id != null);
+        keptCards.push({
+          ...card,
+          studies,
+          scheduleIds:
+            scheduleIds.length > 0
+              ? scheduleIds
+              : card.scheduleIds.slice(0, studies.length),
+          subjectNames: [...new Set(studies.map((s) => s.subjectName))],
+        });
+      }
+      day.reviews = keptCards;
+    }
+  }
+  return next;
+}
+
+/** Update a dummy study; regenerates reviews when studiedOn changes. */
+export function updateDummyStudy(
+  data: HomeScreenData,
+  studyId: string,
+  input: {
+    subjectName: string;
+    content: string;
+    studiedOn: string;
+    memo?: string;
+    intervals?: ReviewIntervalDay[];
+  },
+  maxPerDay = 3,
+): HomeScreenData {
+  let oldStudiedOn: string | null = null;
+  for (const day of flattenWeeks(data.weeks)) {
+    if (day.studies.some((s) => s.id === studyId)) {
+      oldStudiedOn = day.dateKey;
+      break;
+    }
+  }
+  if (oldStudiedOn == null) return data;
+
+  const memo = input.memo?.trim();
+
+  if (oldStudiedOn === input.studiedOn) {
+    const next = cloneHomeData(data);
+    for (const week of next.weeks) {
+      for (const day of week) {
+        day.studies = day.studies.map((s) =>
+          s.id === studyId
+            ? {
+                id: studyId,
+                subjectName: input.subjectName,
+                content: input.content,
+                ...(memo ? { memo } : {}),
+              }
+            : s,
+        );
+        for (const card of day.reviews) {
+          let touched = false;
+          card.studies = card.studies.map((s) => {
+            if (s.studyId !== studyId) return s;
+            touched = true;
+            return {
+              subjectName: input.subjectName,
+              content: input.content,
+              studiedOn: input.studiedOn,
+              studyId,
+              ...(memo ? { memo } : {}),
+            };
+          });
+          if (touched) {
+            card.subjectNames = [
+              ...new Set(card.studies.map((s) => s.subjectName)),
+            ];
+          }
+        }
+      }
+    }
+    return next;
+  }
+
+  const without = removeDummyStudy(data, studyId);
+  return applyDummyStudy(
+    without,
+    {
+      subjectName: input.subjectName,
+      content: input.content,
+      studiedOn: input.studiedOn,
+      ...(memo ? { memo } : {}),
+      ...(input.intervals ? { intervals: input.intervals } : {}),
+      studyId,
+    },
+    maxPerDay,
+  );
 }
 
 export function toggleDummyReview(

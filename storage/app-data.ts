@@ -235,3 +235,98 @@ export function toggleReviewCompleted(
     }),
   };
 }
+
+/** Remove one study and every review schedule generated from it. */
+export function deleteStudyWithReviews(
+  data: AppData,
+  studyId: string,
+): AppData {
+  if (!data.records.some((r) => r.id === studyId)) return data;
+  return {
+    ...data,
+    records: data.records.filter((r) => r.id !== studyId),
+    schedules: data.schedules.filter((s) => s.studyRecordId !== studyId),
+  };
+}
+
+export type UpdateStudyInput = {
+  subjectName: string;
+  content: string;
+  studiedOn: string;
+  memo?: string;
+};
+
+/**
+ * Update a study record. Content/subject/memo edits keep due dates.
+ * studiedOn change regenerates +1/3/7/15/30/60 schedules (completion
+ * preserved per interval when possible). Honors daily max on the target day.
+ */
+export function updateStudyWithReviews(
+  data: AppData,
+  studyId: string,
+  input: UpdateStudyInput,
+): AppData {
+  const existing = data.records.find((r) => r.id === studyId);
+  if (!existing) return data;
+
+  const studiedOnChanged = existing.studiedOn !== input.studiedOn;
+  if (studiedOnChanged) {
+    const othersOnTarget = data.records.filter(
+      (r) => r.studiedOn === input.studiedOn && r.id !== studyId,
+    ).length;
+    if (othersOnTarget >= MAX_STUDIES_PER_DAY) return data;
+  }
+
+  const chip = data.subjects.find((s) => s.name === input.subjectName);
+  const memo = input.memo?.trim();
+  const nextRecord: StudyRecord = {
+    id: existing.id,
+    subjectId: chip?.id ?? existing.subjectId,
+    subjectName: input.subjectName,
+    content: input.content,
+    studiedOn: input.studiedOn,
+    createdAt: existing.createdAt,
+    ...(memo ? { memo } : {}),
+  };
+
+  const records = data.records.map((r) =>
+    r.id === studyId ? nextRecord : r,
+  );
+
+  if (!studiedOnChanged) {
+    return { ...data, records };
+  }
+
+  const oldForStudy = data.schedules.filter((s) => s.studyRecordId === studyId);
+  const completionByInterval = new Map(
+    oldForStudy.map((s) => [
+      s.intervalDays,
+      { completed: s.completed, completedAt: s.completedAt },
+    ]),
+  );
+  const otherSchedules = data.schedules.filter(
+    (s) => s.studyRecordId !== studyId,
+  );
+  const regenerated: ReviewSchedule[] = buildReviewDueDates(
+    input.studiedOn,
+  ).map(({ intervalDays, dueOn }) => {
+    const prev = completionByInterval.get(intervalDays);
+    const reuseId = oldForStudy.find((s) => s.intervalDays === intervalDays)?.id;
+    return {
+      id: reuseId ?? newId(`rev${intervalDays}`),
+      studyRecordId: studyId,
+      intervalDays,
+      dueOn,
+      completed: prev?.completed ?? false,
+      ...(prev?.completed && prev.completedAt
+        ? { completedAt: prev.completedAt }
+        : {}),
+    };
+  });
+
+  return {
+    ...data,
+    records,
+    schedules: [...otherSchedules, ...regenerated],
+  };
+}
