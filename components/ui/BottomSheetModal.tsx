@@ -148,10 +148,7 @@ export function SheetPanel({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="닫기"
-        onPress={() => {
-          haptics.sheetClose();
-          onClose();
-        }}
+        onPress={onClose}
         style={styles.backdropHit}
       />
       {/*
@@ -274,10 +271,7 @@ export function BottomSheetModal({
       transparent
       animationType="none"
       statusBarTranslucent
-      onRequestClose={() => {
-        haptics.sheetClose();
-        onClose();
-      }}>
+      onRequestClose={onClose}>
       <SheetPanel
         onClose={onClose}
         sheetStyle={sheetStyle}

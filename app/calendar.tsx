@@ -30,7 +30,6 @@ import {
   progressFromReviewCards,
   type DayProgress,
 } from '@/utils/day-progress';
-import { haptics } from '@/utils/haptics';
 import { parseYearMonth } from '@/utils/month-grid';
 
 function firstParam(value: string | string[] | undefined): string | undefined {
@@ -99,14 +98,11 @@ export default function CalendarScreen() {
   }, []);
 
   const onClose = useCallback(() => {
-    // Backdrop already fires sheetClose via SheetPanel.
     if (router.canGoBack()) router.back();
   }, [router]);
 
   const onSelectDay = useCallback(
     (dateKey: string) => {
-      // DayCell already fired select; soft settle as the sheet pops.
-      haptics.sheetClose();
       // Pop the sheet and land on home with the chosen day selected.
       if (typeof router.dismissTo === 'function') {
         router.dismissTo({

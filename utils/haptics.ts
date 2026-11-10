@@ -67,13 +67,11 @@ export const haptics = {
   weekPage: hapticLight,
   /** Jump back to today. */
   todayJump: hapticMedium,
-  /** Open a sheet / form. */
+  /** Open a sheet / form (close has no haptic). */
   sheetOpen: hapticLight,
-  /** Close a sheet (backdrop / dismiss). */
-  sheetClose: hapticSoft,
   /** Persist study / subject. */
   save: hapticSuccess,
-  /** Confirm destructive delete. */
+  /** Confirmed destructive delete only — not arm / alert open. */
   delete: hapticWarning,
   /** Review check → done. */
   checkOn: hapticSuccess,
@@ -87,13 +85,11 @@ export const haptics = {
   subjectReorderStart: hapticMedium,
   /** Chip shifts while dragging. */
   subjectReorderTick: hapticSelection,
-  /** Arm / confirm subject delete X. */
-  subjectDelete: hapticWarning,
   /** Open month calendar. */
   calendarOpen: hapticMedium,
   /** Prev / next month. */
   monthChange: hapticLight,
-  /** Theme accent swatch. */
+  /** Theme / subject color swatch — selection only. */
   themePick: hapticSelection,
   /** Settings FAB. */
   settings: hapticLight,

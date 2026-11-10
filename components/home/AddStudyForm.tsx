@@ -390,7 +390,6 @@ export function AddStudyForm({
         return;
       }
       if (!onRemoveSubject) return;
-      haptics.subjectDelete();
       setDeleteArmed((prev) => (prev === name ? null : name));
     },
     [subjectPick, onRemoveSubject],
@@ -399,7 +398,6 @@ export function AddStudyForm({
   const requestRemove = useCallback(
     (name: string) => {
       if (!onRemoveSubject) return;
-      haptics.subjectDelete();
       Alert.alert(
         '과목 삭제',
         `‘${name}’ 과목을 삭제할까요?\n이미 기록한 내용은 그대로 남아요.`,
@@ -580,7 +578,6 @@ export function AddStudyForm({
 
   const requestDelete = useCallback(() => {
     if (!onDelete) return;
-    haptics.subjectDelete();
     Alert.alert(
       '공부 기록 삭제',
       '이 공부 기록과 연결된 복습 일정도 함께 삭제돼요.',
@@ -589,6 +586,7 @@ export function AddStudyForm({
         {
           text: '삭제',
           style: 'destructive',
+          // Haptic fires in onDelete only after confirmed delete.
           onPress: onDelete,
         },
       ],
@@ -611,7 +609,6 @@ export function AddStudyForm({
   }, [onAddSubject, atLimit]);
 
   const cancelAdd = useCallback(() => {
-    haptics.sheetClose();
     setAdding(false);
     setDraftName('');
   }, []);
