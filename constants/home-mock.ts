@@ -188,6 +188,26 @@ function addDaysKey(key: string, days: number): string {
   return toKey(addDaysToDate(parseKey(key), days));
 }
 
+const DEFAULT_TODAY_CONTENT = {
+  studies: FULL_STUDIES,
+  reviews: FULL_REVIEWS,
+};
+
+/** Canned day payload for 더미 calendar dots / week rebuilds. */
+export function demoContentForDate(dateKey: string): {
+  studies: HomeStudyRow[];
+  reviews: HomeReviewCard[];
+} {
+  if (dateKey === HOME_TODAY_KEY) {
+    return DEFAULT_TODAY_CONTENT;
+  }
+  if (DEMO_DAY_CONTENT[dateKey]) {
+    return DEMO_DAY_CONTENT[dateKey];
+  }
+  const weekdayIndex = parseKey(dateKey).getDay();
+  return adjacentDemoContent(dateKey, weekdayIndex);
+}
+
 function buildWeek(
   weekStart: Date,
   todayContent: { studies: HomeStudyRow[]; reviews: HomeReviewCard[] },
@@ -216,23 +236,38 @@ function buildWeek(
   });
 }
 
-function buildWeeks(
+function buildWeeksAround(
+  weekAnchor: Date,
   todayContent: { studies: HomeStudyRow[]; reviews: HomeReviewCard[] },
 ): HomeWeekDay[][] {
-  const demoStart = parseKey(DEMO_WEEK_START_KEY);
+  const anchorStart = startOfWeek(weekAnchor);
   const weeks: HomeWeekDay[][] = [];
   for (let offset = -WEEK_RANGE; offset <= WEEK_RANGE; offset += 1) {
-    weeks.push(buildWeek(addDaysToDate(demoStart, offset * 7), todayContent));
+    weeks.push(
+      buildWeek(addDaysToDate(anchorStart, offset * 7), todayContent),
+    );
   }
   return weeks;
 }
 
+/**
+ * Build 더미 Home weeks centered on `weekAnchor` (defaults to demo week).
+ * `todayKey` stays fixed at HOME_TODAY_KEY for future/today checks.
+ */
+export function buildDummyHomeData(
+  weekAnchor: Date = parseKey(DEMO_WEEK_START_KEY),
+): HomeScreenData {
+  return {
+    todayKey: HOME_TODAY_KEY,
+    currentWeekIndex: WEEK_RANGE,
+    weeks: buildWeeksAround(weekAnchor, DEFAULT_TODAY_CONTENT),
+  };
+}
+
 /** Rich canned Home fixture for 「더미」 preview mode. */
-export const HOME_DUMMY: HomeScreenData = {
-  todayKey: HOME_TODAY_KEY,
-  currentWeekIndex: WEEK_RANGE,
-  weeks: buildWeeks({ studies: FULL_STUDIES, reviews: FULL_REVIEWS }),
-};
+export const HOME_DUMMY: HomeScreenData = buildDummyHomeData(
+  parseKey(DEMO_WEEK_START_KEY),
+);
 
 /** Default subject names for 더미 add sheet. */
 export const DUMMY_SUBJECTS = ['분류', '교육학', '정검'] as const;

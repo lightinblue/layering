@@ -91,13 +91,22 @@ function buildWeek(weekStart: Date, data: AppData): HomeWeekDay[] {
   });
 }
 
+export type HomeScreenDataOptions = {
+  /**
+   * Center the swipeable week strip on this date’s week.
+   * Defaults to `now` (device / dummy “today”).
+   */
+  weekAnchor?: Date;
+};
+
 /** Build Home weeks around real (or provided) today from persisted AppData. */
 export function homeScreenDataFromAppData(
   data: AppData,
   now = new Date(),
+  options?: HomeScreenDataOptions,
 ): HomeScreenData {
   const today = todayKey(now);
-  const currentStart = startOfWeek(now);
+  const currentStart = startOfWeek(options?.weekAnchor ?? now);
   const weeks: HomeWeekDay[][] = [];
   for (let offset = -WEEK_RANGE; offset <= WEEK_RANGE; offset += 1) {
     weeks.push(buildWeek(addDaysToDate(currentStart, offset * 7), data));

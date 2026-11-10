@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -31,12 +31,14 @@ import {
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import {
   applyDummyStudy,
+  buildDummyHomeData,
   cloneHomeData,
   DUMMY_SUBJECTS,
   flattenWeeks,
   HOME_DUMMY,
   intervalLabel,
   toggleDummyReview,
+  weekIndexForDate,
   type HomeReviewCard,
   type HomeReviewStudy,
   type HomeScreenData,
@@ -69,7 +71,11 @@ import {
 } from '@/storage/data-mode';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import type { AppData } from '@/types/domain';
-import { homeScreenDataFromAppData } from '@/utils/home-from-app-data';
+import { parseKey } from '@/utils/date';
+import {
+  homeScreenDataFromAppData,
+  WEEK_RANGE,
+} from '@/utils/home-from-app-data';
 
 const REVIEW_COLS = 3;
 
@@ -80,11 +86,21 @@ type HomeScreenProps = {
   initialMode?: DataMode;
 };
 
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function isDateKey(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
 export default function HomeScreen({
   data: dataProp,
   initialMode = DEFAULT_DATA_MODE,
 }: HomeScreenProps) {
   const router = useRouter();
+  const params = useLocalSearchParams<{ day?: string }>();
+  const dayParam = firstParam(params.day);
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const theme = useThemeColors();
@@ -95,6 +111,9 @@ export default function HomeScreen({
   const [dummyData, setDummyData] = useState<HomeScreenData>(() =>
     cloneHomeData(HOME_DUMMY),
   );
+  /** When set, week strip is recentered on this date (calendar jump). */
+  const [weekAnchorKey, setWeekAnchorKey] = useState<string | null>(null);
+  const appliedDayRef = useRef<string | null>(null);
 
   const [selectedKey, setSelectedKey] = useState(HOME_DUMMY.todayKey);
   const [weekIndex, setWeekIndex] = useState(HOME_DUMMY.currentWeekIndex);
@@ -121,6 +140,7 @@ export default function HomeScreen({
           : storedMode;
       setMode(nextMode);
       setAppData(storedApp);
+      setWeekAnchorKey(null);
       if (nextMode === 'real') {
         const screen = homeScreenDataFromAppData(storedApp);
         setSelectedKey(screen.todayKey);
@@ -140,9 +160,17 @@ export default function HomeScreen({
   const base: HomeScreenData = useMemo(() => {
     if (dataProp) return dataProp;
     if (mode === 'dummy') return dummyData;
-    if (appData) return homeScreenDataFromAppData(appData);
+    if (appData) {
+      return homeScreenDataFromAppData(
+        appData,
+        new Date(),
+        weekAnchorKey
+          ? { weekAnchor: parseKey(weekAnchorKey) }
+          : undefined,
+      );
+    }
     return HOME_DUMMY;
-  }, [dataProp, mode, dummyData, appData]);
+  }, [dataProp, mode, dummyData, appData, weekAnchorKey]);
 
   const todayKey = base.todayKey;
   const allDays = useMemo(() => flattenWeeks(base.weeks), [base.weeks]);
@@ -254,8 +282,11 @@ export default function HomeScreen({
   );
 
   const goCalendar = useCallback(() => {
-    router.push('/calendar');
-  }, [router]);
+    router.push({
+      pathname: '/calendar',
+      params: { focus: selectedDateKey },
+    });
+  }, [router, selectedDateKey]);
 
   const openSettings = useCallback(() => {
     setSettingsOpen(true);
@@ -283,6 +314,38 @@ export default function HomeScreen({
     setSelectedKey(dateKey);
   }, []);
 
+  const selectDayFromCalendar = useCallback(
+    (dateKey: string) => {
+      const contained = flattenWeeks(base.weeks).some(
+        (d) => d.dateKey === dateKey,
+      );
+      if (contained) {
+        setSelectedKey(dateKey);
+        setWeekIndex(weekIndexForDate(base, dateKey));
+        return;
+      }
+      setWeekAnchorKey(dateKey);
+      setSelectedKey(dateKey);
+      setWeekIndex(WEEK_RANGE);
+      if (mode === 'dummy' && !dataProp) {
+        setDummyData(buildDummyHomeData(parseKey(dateKey)));
+      }
+    },
+    [base, mode, dataProp],
+  );
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!dayParam || !isDateKey(dayParam)) {
+      appliedDayRef.current = null;
+      return;
+    }
+    if (appliedDayRef.current === dayParam) return;
+    appliedDayRef.current = dayParam;
+    selectDayFromCalendar(dayParam);
+    router.setParams({ day: undefined });
+  }, [hydrated, dayParam, selectDayFromCalendar, router]);
+
   const onWeekChange = useCallback(
     (nextIndex: number, weekdayIndex: number) => {
       const week = base.weeks[nextIndex];
@@ -299,6 +362,8 @@ export default function HomeScreen({
       if (dataProp) return;
       setMode(next);
       await saveDataMode(next);
+      setWeekAnchorKey(null);
+      appliedDayRef.current = null;
       if (next === 'dummy') {
         const fresh = cloneHomeData(HOME_DUMMY);
         setDummyData(fresh);
@@ -357,7 +422,7 @@ export default function HomeScreen({
             </View>
 
             <WeekStripPager
-              key={`${mode}:${base.todayKey}:${base.currentWeekIndex}`}
+              key={`${mode}:${base.todayKey}:${weekAnchorKey ?? 'home'}:${base.weeks[0]?.[0]?.dateKey ?? ''}`}
               weeks={base.weeks}
               weekIndex={weekIndex}
               selectedKey={selected.dateKey}
