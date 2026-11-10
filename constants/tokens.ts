@@ -21,8 +21,8 @@ export const colors = {
 
 export const spacing = {
   weekGap: 1,
-  sectionGap: 20,
-  blockGap: 21,
+  sectionGap: 28,
+  blockGap: 18,
   studyRowGap: 7,
   reviewGap: 10,
   labelPad: 8,
@@ -41,13 +41,14 @@ export const radii = {
 } as const;
 
 export const sizes = {
-  dayNumber: 88,
-  ellipse: 28,
-  weekCell: { width: 50, height: 68 },
+  dayNumber: 80,
+  ellipse: 24,
+  weekCell: { width: 50, height: 58 },
   studyChip: { width: 77, height: 49 },
   studyBodyHeight: 49,
   reviewCheckbox: 38,
-  reviewChip: { width: 38, height: 24 },
+  /** Review subject marker: solid square, height matches prior chip. */
+  reviewChip: { width: 24, height: 24 },
   fab: 57,
   fabIcon: 28,
   addStudyHeight: 66,

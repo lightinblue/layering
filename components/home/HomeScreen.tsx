@@ -354,12 +354,12 @@ function ReviewCard({
             {card.subjectNames.map((name) => (
               <View
                 key={name}
+                accessibilityLabel={name}
                 style={[
                   styles.reviewChip,
                   { backgroundColor: subjectColor(name) },
-                ]}>
-                <Text style={styles.reviewChipText}>{name}</Text>
-              </View>
+                ]}
+              />
             ))}
           </View>
         </View>
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     maxWidth: spacing.frameWidth,
     gap: spacing.blockGap,
     alignItems: 'center',
-    paddingTop: 10,
+    paddingTop: 6,
   },
   headerRow: {
     width: '100%',
@@ -404,33 +404,33 @@ const styles = StyleSheet.create({
   dayRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 15,
+    gap: 12,
   },
   dayNumber: {
     fontFamily: fonts.gothamBold,
     fontSize: sizes.dayNumber,
     color: colors.black,
-    lineHeight: 96,
+    lineHeight: 86,
     letterSpacing: -2,
-    minWidth: 91,
+    minWidth: 84,
     flexShrink: 0,
     includeFontPadding: false,
   },
   dateMeta: {
     minWidth: 85,
     alignItems: 'flex-end',
-    gap: 9,
+    gap: 6,
   },
   weekday: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 24,
+    fontSize: 22,
     color: colors.muted,
     textAlign: 'right',
     width: '100%',
   },
   dateLabel: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 22,
+    fontSize: 20,
     color: colors.mutedLight,
     textAlign: 'right',
     width: '100%',
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   },
   weekDayNum: {
     fontFamily: fonts.gothamBold,
-    fontSize: 24,
+    fontSize: 22,
     color: colors.muted,
     textAlign: 'center',
     width: 26,
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
   },
   weekDow: {
     fontFamily: fonts.gothamMedium,
-    fontSize: 14,
+    fontSize: 12,
     color: colors.mutedLight,
     textAlign: 'center',
     width: 26,
@@ -612,14 +612,6 @@ const styles = StyleSheet.create({
     width: sizes.reviewChip.width,
     height: sizes.reviewChip.height,
     borderRadius: radii.reviewChip,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  reviewChipText: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 9,
-    color: colors.white,
-    textAlign: 'center',
   },
   detailRow: {
     flexDirection: 'row',
