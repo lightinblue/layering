@@ -158,7 +158,7 @@ export function AddStudyForm({
       if (!onRemoveSubject) return;
       Alert.alert(
         '과목 삭제',
-        `‘${name}’ 칩을 삭제할까요?\n이미 기록한 공부·복습은 그대로 남아요.`,
+        `‘${name}’ 과목을 삭제할까요?\n이미 기록한 내용은 그대로 남아요.`,
         [
           { text: '취소', style: 'cancel' },
           {

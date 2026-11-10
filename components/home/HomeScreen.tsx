@@ -204,7 +204,6 @@ export default function HomeScreen({
     );
   }, [allDays, selectedKey, todayKey]);
 
-  const reviews = selected?.reviews ?? [];
   const studies = selected?.studies ?? [];
 
   const isFutureDay = selected != null && selected.dateKey > todayKey;
@@ -242,11 +241,9 @@ export default function HomeScreen({
   const selectedDateKey = selected?.dateKey ?? todayKey;
 
   const toggleReview = useCallback(
-    (card: HomeReviewCard) => {
+    (dateKey: string, card: HomeReviewCard) => {
       if (mode === 'dummy' || dataProp) {
-        setDummyData((prev) =>
-          toggleDummyReview(prev, selectedDateKey, card.id),
-        );
+        setDummyData((prev) => toggleDummyReview(prev, dateKey, card.id));
         return;
       }
       if (!appData) return;
@@ -256,7 +253,7 @@ export default function HomeScreen({
       }
       void persistApp(next);
     },
-    [mode, dataProp, selectedDateKey, appData, persistApp],
+    [mode, dataProp, appData, persistApp],
   );
 
   const goAdd = useCallback(() => {
@@ -381,9 +378,13 @@ export default function HomeScreen({
     setReviewOpen(null);
   }, []);
 
-  const selectDay = useCallback((dateKey: string) => {
-    setSelectedKey(dateKey);
-  }, []);
+  const selectDay = useCallback(
+    (dateKey: string) => {
+      setSelectedKey(dateKey);
+      setWeekIndex(weekIndexForDate(base, dateKey));
+    },
+    [base],
+  );
 
   const selectDayFromCalendar = useCallback(
     (dateKey: string) => {
@@ -432,6 +433,16 @@ export default function HomeScreen({
     [base.weeks],
   );
 
+  const onDayPagerChange = useCallback(
+    (nextIndex: number) => {
+      const day = allDays[nextIndex];
+      if (!day) return;
+      setSelectedKey(day.dateKey);
+      setWeekIndex(weekIndexForDate(base, day.dateKey));
+    },
+    [allDays, base],
+  );
+
   const selectMode = useCallback(
     async (next: DataMode) => {
       if (dataProp) return;
@@ -462,6 +473,12 @@ export default function HomeScreen({
     const idx = week.findIndex((d) => d.dateKey === selected.dateKey);
     return idx >= 0 ? idx : 0;
   }, [base.weeks, weekIndex, selected]);
+
+  const dayIndex = useMemo(() => {
+    if (!selected) return 0;
+    const idx = allDays.findIndex((d) => d.dateKey === selected.dateKey);
+    return idx >= 0 ? idx : 0;
+  }, [allDays, selected]);
 
   const fabInsetX = Math.max(16, (windowWidth - contentWidth) / 2);
   const fabBottom = 24 + insets.bottom;
@@ -510,25 +527,21 @@ export default function HomeScreen({
             />
           </View>
 
-          <View style={[styles.sections, { maxWidth: contentWidth }]}>
-            <StudySection
-              studies={studies}
-              allowAdd={allowAdd}
-              isToday={isToday}
-              colorByName={colorByName}
-              onAdd={goAdd}
-            />
-            <ReviewSection
-              reviews={reviews}
-              cardWidth={reviewCardWidth}
-              isToday={isToday}
-              accent={theme.primary}
-              accentSoft={theme.primarySoft}
-              colorByName={colorByName}
-              onToggle={toggleReview}
-              onDetail={onDetail}
-            />
-          </View>
+          <DayContentPager
+            days={allDays}
+            dayIndex={dayIndex}
+            width={frameWidth}
+            contentWidth={contentWidth}
+            reviewCardWidth={reviewCardWidth}
+            todayKey={todayKey}
+            accent={theme.primary}
+            accentSoft={theme.primarySoft}
+            colorByName={colorByName}
+            onDayChange={onDayPagerChange}
+            onAdd={goAdd}
+            onToggle={toggleReview}
+            onDetail={onDetail}
+          />
 
           {!dataProp ? (
             <ModeControl
@@ -676,12 +689,21 @@ function WeekStripPager({
   onWeekChange: (weekIndex: number, weekdayIndex: number) => void;
 }) {
   const listRef = useRef<FlatList<HomeWeekDay[]>>(null);
+  const settledIndexRef = useRef(weekIndex);
+
+  useEffect(() => {
+    if (width <= 0) return;
+    if (settledIndexRef.current === weekIndex) return;
+    settledIndexRef.current = weekIndex;
+    listRef.current?.scrollToIndex({ index: weekIndex, animated: true });
+  }, [weekIndex, width]);
 
   const onMomentumScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (width <= 0) return;
       const next = Math.round(e.nativeEvent.contentOffset.x / width);
       const clamped = Math.max(0, Math.min(weeks.length - 1, next));
+      settledIndexRef.current = clamped;
       if (clamped !== weekIndex) {
         onWeekChange(clamped, weekdayIndex);
       }
@@ -754,6 +776,136 @@ function WeekStripPager({
       }}
       style={[styles.weekPager, { width }]}
       extraData={`${selectedKey}:${weekIndex}`}
+    />
+  );
+}
+
+function DayContentPager({
+  days,
+  dayIndex,
+  width,
+  contentWidth,
+  reviewCardWidth,
+  todayKey,
+  accent,
+  accentSoft,
+  colorByName,
+  onDayChange,
+  onAdd,
+  onToggle,
+  onDetail,
+}: {
+  days: HomeWeekDay[];
+  dayIndex: number;
+  width: number;
+  contentWidth: number;
+  reviewCardWidth: number;
+  todayKey: string;
+  accent: string;
+  accentSoft: string;
+  colorByName: Record<string, string>;
+  onDayChange: (dayIndex: number) => void;
+  onAdd: () => void;
+  onToggle: (dateKey: string, card: HomeReviewCard) => void;
+  onDetail: (card: HomeReviewCard) => void;
+}) {
+  const listRef = useRef<FlatList<HomeWeekDay>>(null);
+  const settledIndexRef = useRef(dayIndex);
+
+  useEffect(() => {
+    if (width <= 0) return;
+    if (settledIndexRef.current === dayIndex) return;
+    settledIndexRef.current = dayIndex;
+    listRef.current?.scrollToIndex({ index: dayIndex, animated: false });
+  }, [dayIndex, width]);
+
+  const onMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (width <= 0) return;
+      const next = Math.round(e.nativeEvent.contentOffset.x / width);
+      const clamped = Math.max(0, Math.min(days.length - 1, next));
+      settledIndexRef.current = clamped;
+      if (clamped !== dayIndex) {
+        onDayChange(clamped);
+      }
+    },
+    [dayIndex, days.length, onDayChange, width],
+  );
+
+  const getItemLayout = useCallback(
+    (_: ArrayLike<HomeWeekDay> | null | undefined, index: number) => ({
+      length: width,
+      offset: width * index,
+      index,
+    }),
+    [width],
+  );
+
+  const renderDay = useCallback(
+    ({ item: day }: { item: HomeWeekDay }) => {
+      const dayIsToday = day.dateKey === todayKey;
+      const dayIsFuture = day.dateKey > todayKey;
+      const dayAllowAdd =
+        !dayIsFuture && day.studies.length < MAX_STUDIES_PER_DAY;
+      return (
+        <View style={[styles.dayPage, { width }]}>
+          <View style={[styles.sections, { maxWidth: contentWidth }]}>
+            <StudySection
+              studies={day.studies}
+              allowAdd={dayAllowAdd}
+              isToday={dayIsToday}
+              colorByName={colorByName}
+              onAdd={onAdd}
+            />
+            <ReviewSection
+              reviews={day.reviews}
+              cardWidth={reviewCardWidth}
+              isToday={dayIsToday}
+              accent={accent}
+              accentSoft={accentSoft}
+              colorByName={colorByName}
+              onToggle={(card) => onToggle(day.dateKey, card)}
+              onDetail={onDetail}
+            />
+          </View>
+        </View>
+      );
+    },
+    [
+      accent,
+      accentSoft,
+      colorByName,
+      contentWidth,
+      onAdd,
+      onDetail,
+      onToggle,
+      reviewCardWidth,
+      todayKey,
+      width,
+    ],
+  );
+
+  return (
+    <FlatList
+      ref={listRef}
+      data={days}
+      horizontal
+      pagingEnabled
+      bounces={false}
+      showsHorizontalScrollIndicator={false}
+      decelerationRate="fast"
+      keyExtractor={(item) => item.dateKey}
+      renderItem={renderDay}
+      getItemLayout={getItemLayout}
+      initialScrollIndex={dayIndex}
+      onMomentumScrollEnd={onMomentumScrollEnd}
+      onScrollToIndexFailed={({ index }) => {
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToIndex({ index, animated: false });
+        });
+      }}
+      style={[styles.dayPager, { width }]}
+      extraData={days}
     />
   );
 }
@@ -1046,6 +1198,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  dayPager: {
+    maxWidth: spacing.frameWidth,
+    flexGrow: 0,
+    alignSelf: 'stretch',
+  },
+  dayPage: {
+    alignItems: 'center',
   },
   weekCell: {
     width: sizes.weekCell.width,
