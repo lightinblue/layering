@@ -93,14 +93,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    transform: [{ translateY: -LAUNCH.markSize / 2 }],
+    transform: [{ translateY: -LAUNCH.markSize / 2 - LAUNCH.contentLift }],
   },
   textBlock: {
     position: 'absolute',
     top: '50%',
     left: 0,
     right: 0,
-    marginTop: LAUNCH.markSize / 2 + LAUNCH.textGap,
+    marginTop: LAUNCH.markSize / 2 + LAUNCH.textGap - LAUNCH.contentLift,
     alignItems: 'center',
   },
   mark: {

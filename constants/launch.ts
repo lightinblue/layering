@@ -6,6 +6,8 @@ export const LAUNCH = {
   markSize: 140,
   /** Space between the centered mark and the first copy line. */
   textGap: 8,
+  /** Lift logo + copy above true center (px). */
+  contentLift: 28,
   /** Logo alone before copy animates in. */
   textRevealDelayMs: 600,
   textRevealDurationMs: 520,
