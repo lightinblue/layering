@@ -158,15 +158,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.chip,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
   },
   subjectChipIdle: {
     opacity: 0.45,
   },
   subjectChipSelected: {
     opacity: 1,
-    borderColor: colors.primary,
   },
   subjectChipText: {
     fontFamily: fonts.nexonMedium,

@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
+  Easing,
   Keyboard,
   Modal,
   Platform,
   Pressable,
   StyleSheet,
   View,
+  type KeyboardEvent,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -21,6 +23,8 @@ const BACKDROP_CLOSE_MS = 200;
 const SHEET_OFFSCREEN = 640;
 /** Extra white paint below the rounded sheet so keyboard edges stay filled. */
 const KEYBOARD_FILL_EXTRA = 48;
+/** Fallback when the platform event omits duration (common on Android). */
+const KEYBOARD_FALLBACK_MS = Platform.OS === 'ios' ? 250 : 220;
 
 type SheetPanelProps = {
   onClose: () => void;
@@ -31,6 +35,23 @@ type SheetPanelProps = {
   backdropOpacity?: Animated.Value;
   sheetTranslateY?: Animated.Value;
 };
+
+function keyboardEasing(event: KeyboardEvent) {
+  switch (event.easing) {
+    case 'easeIn':
+      return Easing.in(Easing.ease);
+    case 'easeOut':
+      return Easing.out(Easing.ease);
+    case 'linear':
+      return Easing.linear;
+    case 'keyboard':
+      // iOS keyboard curve approximation
+      return Easing.bezier(0.17, 0.59, 0.4, 0.77);
+    case 'easeInEaseOut':
+    default:
+      return Easing.inOut(Easing.ease);
+  }
+}
 
 /**
  * Backdrop + white bottom panel. Use as a transparentModal screen root,
@@ -56,7 +77,8 @@ export function SheetPanel({
   ).current;
   const backdropOpacity = backdropOpacityProp ?? localBackdrop;
   const sheetTranslateY = sheetTranslateYProp ?? localSheet;
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardLift = useRef(new Animated.Value(0)).current;
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   useEffect(() => {
     if (!animateOnMount || backdropOpacityProp != null) return;
@@ -64,11 +86,13 @@ export function SheetPanel({
       Animated.timing(localBackdrop, {
         toValue: 1,
         duration: BACKDROP_OPEN_MS,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(localSheet, {
         toValue: 0,
         duration: OPEN_MS,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
     ]).start();
@@ -80,23 +104,41 @@ export function SheetPanel({
     const hideEvent =
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
+    const animateLift = (toValue: number, event: KeyboardEvent) => {
+      const duration =
+        typeof event.duration === 'number' && event.duration > 0
+          ? event.duration
+          : KEYBOARD_FALLBACK_MS;
+
+      Animated.timing(keyboardLift, {
+        toValue,
+        duration,
+        easing: keyboardEasing(event),
+        // marginBottom cannot use the native driver
+        useNativeDriver: false,
+      }).start();
+    };
+
     const onShow = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
+      setKeyboardOpen(true);
+      animateLift(e.endCoordinates.height, e);
     });
-    const onHide = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
+    const onHide = Keyboard.addListener(hideEvent, (e) => {
+      setKeyboardOpen(false);
+      animateLift(0, e);
     });
 
     return () => {
       onShow.remove();
       onHide.remove();
     };
-  }, []);
+  }, [keyboardLift]);
 
-  const keyboardOpen = keyboardHeight > 0;
-  const fillHeight = keyboardOpen
-    ? keyboardHeight + KEYBOARD_FILL_EXTRA
-    : KEYBOARD_FILL_EXTRA;
+  // fill = lift + EXTRA so white paint tracks the animated keyboard gap
+  const animatedFillHeight = Animated.add(
+    keyboardLift,
+    KEYBOARD_FILL_EXTRA,
+  );
 
   return (
     <View style={styles.root}>
@@ -110,44 +152,47 @@ export function SheetPanel({
         onPress={onClose}
         style={styles.backdropHit}
       />
+      {/*
+        Native driver owns open/close slide; JS driver owns keyboard lift.
+        Keep them on separate nodes so the animations do not conflict.
+      */}
       <Animated.View
         style={[
           styles.sheetColumn,
-          {
-            transform: [{ translateY: sheetTranslateY }],
-            marginBottom: keyboardHeight,
-          },
+          { transform: [{ translateY: sheetTranslateY }] },
         ]}>
-        <View
-          style={[
-            styles.sheet,
-            {
-              paddingBottom: keyboardOpen
-                ? 16
-                : Math.max(insets.bottom, 16),
-            },
-            sheetStyle,
-          ]}>
-          <View style={styles.grabberWrap} accessibilityElementsHidden>
-            <View style={styles.grabber} />
+        <Animated.View style={{ marginBottom: keyboardLift }}>
+          <View
+            style={[
+              styles.sheet,
+              {
+                paddingBottom: keyboardOpen
+                  ? 16
+                  : Math.max(insets.bottom, 16),
+              },
+              sheetStyle,
+            ]}>
+            <View style={styles.grabberWrap} accessibilityElementsHidden>
+              <View style={styles.grabber} />
+            </View>
+            {children}
           </View>
-          {children}
-        </View>
-        {/*
-          White continuation below the rounded panel. Negative margin keeps
-          layout height at the sheet while painting into the keyboard lift
-          gap / under the keyboard so sides stay white.
-        */}
-        <View
-          pointerEvents="none"
-          style={[
-            styles.keyboardFill,
-            {
-              height: fillHeight,
-              marginBottom: -fillHeight,
-            },
-          ]}
-        />
+          {/*
+            White continuation below the rounded panel. Negative margin keeps
+            layout height at the sheet while painting into the keyboard lift
+            gap / under the keyboard so sides stay white.
+          */}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.keyboardFill,
+              {
+                height: animatedFillHeight,
+                marginBottom: Animated.multiply(animatedFillHeight, -1),
+              },
+            ]}
+          />
+        </Animated.View>
       </Animated.View>
     </View>
   );
@@ -185,11 +230,13 @@ export function BottomSheetModal({
         Animated.timing(backdropOpacity, {
           toValue: 1,
           duration: BACKDROP_OPEN_MS,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(sheetTranslateY, {
           toValue: 0,
           duration: OPEN_MS,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
       ]).start();
@@ -203,11 +250,13 @@ export function BottomSheetModal({
       Animated.timing(backdropOpacity, {
         toValue: 0,
         duration: BACKDROP_CLOSE_MS,
+        easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(sheetTranslateY, {
         toValue: SHEET_OFFSCREEN,
         duration: CLOSE_MS,
+        easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }),
     ]).start(({ finished }) => {
@@ -257,7 +306,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopLeftRadius: radii.chip + 8,
     borderTopRightRadius: radii.chip + 8,
-    paddingTop: 8,
+    paddingTop: 4,
     overflow: 'hidden',
   },
   keyboardFill: {
@@ -265,7 +314,8 @@ const styles = StyleSheet.create({
   },
   grabberWrap: {
     alignItems: 'center',
-    paddingBottom: 10,
+    paddingTop: 14,
+    paddingBottom: 12,
   },
   grabber: {
     width: 36,
