@@ -113,11 +113,6 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
               {page.accent}
             </Animated.Text>
           ) : null}
-          {page.footnote ? (
-            <Text style={[styles.footnote, { color: colors.muted }]}>
-              {page.footnote}
-            </Text>
-          ) : null}
         </Animated.View>
       </View>
 
@@ -192,15 +187,9 @@ const styles = StyleSheet.create({
   },
   accent: {
     marginTop: 6,
-    fontFamily: fonts.gothamBold,
-    fontSize: 20,
-    letterSpacing: 0.6,
-  },
-  footnote: {
-    marginTop: 4,
-    fontFamily: fonts.nexonRegular,
-    fontSize: 13,
-    lineHeight: 20,
+    fontFamily: fonts.nexonBold,
+    fontSize: 17,
+    lineHeight: 26,
   },
   footer: {
     paddingTop: 8,

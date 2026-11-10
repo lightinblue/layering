@@ -1,16 +1,16 @@
-import { REVIEW_INTERVAL_DAYS, REVIEW_INTERVAL_NOTICE } from '@/constants/review';
+import { REVIEW_INTERVAL_DAYS } from '@/constants/review';
 
 /** Short first-launch intro — keep to a few screens. */
 export type TutorialPage = {
   eyebrow: string;
   title: string;
   body: string;
-  /** Optional accent line under body (intervals, notice). */
+  /** Optional accent line under body (intervals). */
   accent?: string;
-  footnote?: string;
 };
 
-const INTERVAL_LABEL = REVIEW_INTERVAL_DAYS.map((d) => `+${d}`).join(' · ');
+const INTERVAL_LABEL =
+  REVIEW_INTERVAL_DAYS.map((d) => `${d}일`).join(', ') + ' 후';
 
 export const TUTORIAL_PAGES: readonly TutorialPage[] = [
   {
@@ -23,7 +23,6 @@ export const TUTORIAL_PAGES: readonly TutorialPage[] = [
     title: '학습일만 적으면\n복습 일정이 생겨요',
     body: '공부한 날을 기록하면 기본 주기로 복습일이 자동 생성됩니다.',
     accent: INTERVAL_LABEL,
-    footnote: REVIEW_INTERVAL_NOTICE,
   },
   {
     eyebrow: '이렇게 써요',
