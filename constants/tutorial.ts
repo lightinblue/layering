@@ -14,14 +14,14 @@ const INTERVAL_LABEL =
 
 export const TUTORIAL_PAGES: readonly TutorialPage[] = [
   {
-    eyebrow: '망각곡선',
-    title: '에빙하우스 망각곡선,\n그래서 이 주기예요',
-    body: '복습하지 않으면 배운 내용은 빠르게 잊혀집니다. 그 타이밍에 맞춰 다시 꺼내 보면 기억이 오래 남아요. 그래서 학습일 기준으로 아래 주기를 씁니다.',
+    eyebrow: '어떻게?',
+    title: '에빙하우스의 망각곡선,\n그 주기를 따라 철저히 복습해요',
+    body: '그 타이밍에 이론에 맞춰 들여다보면 절대 잊지 않을 수 있어요.\n그래서 우리는 아래 주기를 씁니다.',
     accent: INTERVAL_LABEL,
   },
   {
     eyebrow: '이렇게 써요',
-    title: '기록하고,\n오늘 확인하고,\n캘린더로 챙기세요',
+    title: '간편하게 기록하고\n오래오래 기억해요',
     body: '공부한 날을 남기면 복습 일정이 자동으로 생깁니다. 홈에서 오늘 복습을 체크하고, 놓친 날은 캘린더에서 그 날짜를 열어 확인하세요.',
   },
 ] as const;
