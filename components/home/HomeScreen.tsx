@@ -949,7 +949,7 @@ const styles = StyleSheet.create({
   },
   studyChipText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 17,
+    fontSize: 16,
     color: colors.white,
   },
   studyBody: {
