@@ -22,10 +22,10 @@ import {
   type ViewStyle,
 } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
-  FadeIn,
-  FadeInUp,
   interpolateColor,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -119,16 +119,19 @@ function isDateKey(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-/** Soft→sharp date enter — short travel so opacity fade reads on device. */
-const dateNumberEnter = FadeInUp.duration(durations.fadeQuick)
-  .easing(Easing.out(Easing.cubic))
-  .withInitialValues({ opacity: 0, translateY: 10 });
+/** Date-area ease-out (300–450ms); interruptible via cancelAnimation. */
+const DATE_SHIFT = {
+  duration: durations.dateShift,
+  easing: Easing.out(Easing.cubic),
+} as const;
 
-const dateMetaEnter = FadeIn.duration(durations.fadeQuick).easing(
-  Easing.out(Easing.cubic),
-);
+const DAY_NUMBER_TRAVEL = 86;
+const DATE_META_TRAVEL = 10;
 
-/** Day number — remount + soft→sharp fade/slide on date change. */
+/**
+ * Big day number — clipped vertical slide.
+ * Forward: outgoing up / incoming from below; reverse for previous dates.
+ */
 function AnimatedDayNumber({
   dateKey,
   dayNumber,
@@ -136,18 +139,69 @@ function AnimatedDayNumber({
   dateKey: string;
   dayNumber: string;
 }) {
+  const [incoming, setIncoming] = useState(dayNumber);
+  const [outgoing, setOutgoing] = useState<string | null>(null);
+  const dateKeyRef = useRef(dateKey);
+  const incomingRef = useRef(dayNumber);
+  const progress = useSharedValue(1);
+  const direction = useSharedValue(1);
+
+  const clearOutgoing = useCallback(() => {
+    setOutgoing(null);
+  }, []);
+
+  useEffect(() => {
+    if (dateKey === dateKeyRef.current) {
+      incomingRef.current = dayNumber;
+      setIncoming(dayNumber);
+      return;
+    }
+    const dir = dateKey > dateKeyRef.current ? 1 : -1;
+    dateKeyRef.current = dateKey;
+    direction.value = dir;
+    setOutgoing(incomingRef.current);
+    incomingRef.current = dayNumber;
+    setIncoming(dayNumber);
+    cancelAnimation(progress);
+    progress.value = 0;
+    progress.value = withTiming(1, DATE_SHIFT, (finished) => {
+      if (finished) runOnJS(clearOutgoing)();
+    });
+  }, [clearOutgoing, dateKey, dayNumber, direction, progress]);
+
+  const outgoingStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: -direction.value * DAY_NUMBER_TRAVEL * progress.value },
+    ],
+  }));
+
+  const incomingStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY:
+          direction.value * DAY_NUMBER_TRAVEL * (1 - progress.value),
+      },
+    ],
+  }));
+
   return (
-    <Animated.Text
-      key={dateKey}
-      entering={dateNumberEnter}
-      style={styles.dayNumber}
-      numberOfLines={1}>
-      {dayNumber}
-    </Animated.Text>
+    <View style={styles.dayNumberSlot}>
+      {outgoing != null ? (
+        <Animated.Text
+          pointerEvents="none"
+          style={[styles.dayNumber, styles.dayNumberOutgoing, outgoingStyle]}
+          numberOfLines={1}>
+          {outgoing}
+        </Animated.Text>
+      ) : null}
+      <Animated.Text style={[styles.dayNumber, incomingStyle]} numberOfLines={1}>
+        {incoming}
+      </Animated.Text>
+    </View>
   );
 }
 
-/** Weekday remounts on change; month/day label stays static chrome. */
+/** Weekday + month/day — same direction/timing as the day number. */
 function AnimatedDateMeta({
   dateKey,
   weekdayLabel,
@@ -157,15 +211,121 @@ function AnimatedDateMeta({
   weekdayLabel: string;
   dateLabel: string;
 }) {
+  const [incomingWeekday, setIncomingWeekday] = useState(weekdayLabel);
+  const [outgoingWeekday, setOutgoingWeekday] = useState<string | null>(null);
+  const [incomingLabel, setIncomingLabel] = useState(dateLabel);
+  const [outgoingLabel, setOutgoingLabel] = useState<string | null>(null);
+  const dateKeyRef = useRef(dateKey);
+  const weekdayRef = useRef(weekdayLabel);
+  const labelRef = useRef(dateLabel);
+  const progress = useSharedValue(1);
+  const direction = useSharedValue(1);
+
+  const clearOutgoing = useCallback(() => {
+    setOutgoingWeekday(null);
+    setOutgoingLabel(null);
+  }, []);
+
+  useEffect(() => {
+    if (dateKey === dateKeyRef.current) {
+      weekdayRef.current = weekdayLabel;
+      labelRef.current = dateLabel;
+      setIncomingWeekday(weekdayLabel);
+      setIncomingLabel(dateLabel);
+      return;
+    }
+    const dir = dateKey > dateKeyRef.current ? 1 : -1;
+    dateKeyRef.current = dateKey;
+    direction.value = dir;
+    setOutgoingWeekday(weekdayRef.current);
+    setOutgoingLabel(labelRef.current);
+    weekdayRef.current = weekdayLabel;
+    labelRef.current = dateLabel;
+    setIncomingWeekday(weekdayLabel);
+    setIncomingLabel(dateLabel);
+    cancelAnimation(progress);
+    progress.value = 0;
+    progress.value = withTiming(1, DATE_SHIFT, (finished) => {
+      if (finished) runOnJS(clearOutgoing)();
+    });
+  }, [
+    clearOutgoing,
+    dateKey,
+    dateLabel,
+    direction,
+    progress,
+    weekdayLabel,
+  ]);
+
+  const outgoingWeekdayStyle = useAnimatedStyle(() => ({
+    opacity: 1 - progress.value,
+    transform: [
+      { translateY: -direction.value * DATE_META_TRAVEL * progress.value },
+    ],
+  }));
+
+  const incomingWeekdayStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [
+      {
+        translateY: direction.value * DATE_META_TRAVEL * (1 - progress.value),
+      },
+    ],
+  }));
+
+  const outgoingLabelStyle = useAnimatedStyle(() => ({
+    opacity: 1 - progress.value,
+    transform: [
+      {
+        translateY: -direction.value * (DATE_META_TRAVEL * 0.6) * progress.value,
+      },
+    ],
+  }));
+
+  const incomingLabelStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [
+      {
+        translateY:
+          direction.value * (DATE_META_TRAVEL * 0.6) * (1 - progress.value),
+      },
+    ],
+  }));
+
   return (
     <View style={styles.dateMeta}>
-      <Animated.Text
-        key={`wd-${dateKey}`}
-        entering={dateMetaEnter}
-        style={styles.weekday}>
-        {weekdayLabel}
-      </Animated.Text>
-      <Text style={styles.dateLabel}>{dateLabel}</Text>
+      <View style={styles.weekdaySlot}>
+        {outgoingWeekday != null ? (
+          <Animated.Text
+            pointerEvents="none"
+            style={[
+              styles.weekday,
+              styles.dateMetaOutgoing,
+              outgoingWeekdayStyle,
+            ]}>
+            {outgoingWeekday}
+          </Animated.Text>
+        ) : null}
+        <Animated.Text style={[styles.weekday, incomingWeekdayStyle]}>
+          {incomingWeekday}
+        </Animated.Text>
+      </View>
+      <View style={styles.dateLabelSlot}>
+        {outgoingLabel != null ? (
+          <Animated.Text
+            pointerEvents="none"
+            style={[
+              styles.dateLabel,
+              styles.dateMetaOutgoing,
+              outgoingLabelStyle,
+            ]}>
+            {outgoingLabel}
+          </Animated.Text>
+        ) : null}
+        <Animated.Text style={[styles.dateLabel, incomingLabelStyle]}>
+          {incomingLabel}
+        </Animated.Text>
+      </View>
     </View>
   );
 }
@@ -821,18 +981,14 @@ function WeekStripPager({
 
   const renderWeek = useCallback(
     ({ item: days }: { item: HomeWeekDay[] }) => (
-      <View style={[styles.weekPage, { width }]}>
-        {days.map((d) => (
-          <WeekDayCell
-            key={d.dateKey}
-            day={d}
-            width={cellWidth}
-            selected={d.dateKey === selectedKey}
-            accentColor={accentColor}
-            onSelectDay={onSelectDay}
-          />
-        ))}
-      </View>
+      <WeekStripPage
+        days={days}
+        width={width}
+        cellWidth={cellWidth}
+        selectedKey={selectedKey}
+        accentColor={accentColor}
+        onSelectDay={onSelectDay}
+      />
     ),
     [accentColor, cellWidth, onSelectDay, selectedKey, width],
   );
@@ -863,6 +1019,87 @@ function WeekStripPager({
   );
 }
 
+/** One week row: moving selection pill + per-day text (dots stay on cells). */
+function WeekStripPage({
+  days,
+  width,
+  cellWidth,
+  selectedKey,
+  accentColor,
+  onSelectDay,
+}: {
+  days: HomeWeekDay[];
+  width: number;
+  cellWidth: number;
+  selectedKey: string;
+  accentColor: string;
+  onSelectDay: (dateKey: string) => void;
+}) {
+  const selectedIndex = days.findIndex((d) => d.dateKey === selectedKey);
+  const pillX = useSharedValue(
+    selectedIndex >= 0 ? selectedIndex * cellWidth : 0,
+  );
+  const pillOpacity = useSharedValue(selectedIndex >= 0 ? 1 : 0);
+  const primed = useRef(false);
+  const cellWidthRef = useRef(cellWidth);
+
+  useEffect(() => {
+    const widthChanged = cellWidthRef.current !== cellWidth;
+    cellWidthRef.current = cellWidth;
+
+    if (selectedIndex < 0) {
+      cancelAnimation(pillX);
+      cancelAnimation(pillOpacity);
+      pillOpacity.value = withTiming(0, DATE_SHIFT);
+      primed.current = false;
+      return;
+    }
+
+    const targetX = selectedIndex * cellWidth;
+    if (!primed.current || widthChanged) {
+      cancelAnimation(pillX);
+      cancelAnimation(pillOpacity);
+      pillX.value = targetX;
+      pillOpacity.value = 1;
+      primed.current = true;
+      return;
+    }
+
+    cancelAnimation(pillX);
+    cancelAnimation(pillOpacity);
+    pillOpacity.value = 1;
+    pillX.value = withTiming(targetX, DATE_SHIFT);
+  }, [cellWidth, pillOpacity, pillX, selectedIndex]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    opacity: pillOpacity.value,
+    transform: [{ translateX: pillX.value }],
+  }));
+
+  return (
+    <View style={[styles.weekPage, { width }]}>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.weekSelectionPill,
+          { width: cellWidth, height: sizes.weekCell.height },
+          pillStyle,
+        ]}
+      />
+      {days.map((d) => (
+        <WeekDayCell
+          key={d.dateKey}
+          day={d}
+          width={cellWidth}
+          selected={d.dateKey === selectedKey}
+          accentColor={accentColor}
+          onSelectDay={onSelectDay}
+        />
+      ))}
+    </View>
+  );
+}
+
 function WeekDayCell({
   day,
   width,
@@ -876,14 +1113,27 @@ function WeekDayCell({
   accentColor: string;
   onSelectDay: (dateKey: string) => void;
 }) {
-  const scale = useSharedValue(selected ? 1 : 0.96);
+  const selectedProgress = useSharedValue(selected ? 1 : 0);
 
   useEffect(() => {
-    scale.value = withSpring(selected ? 1 : 0.96, springs.soft);
-  }, [selected, scale]);
+    cancelAnimation(selectedProgress);
+    selectedProgress.value = withTiming(selected ? 1 : 0, DATE_SHIFT);
+  }, [selected, selectedProgress]);
 
-  const cellStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+  const dayNumStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(
+      selectedProgress.value,
+      [0, 1],
+      [colors.muted, colors.black],
+    ),
+  }));
+
+  const dowStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(
+      selectedProgress.value,
+      [0, 1],
+      [colors.mutedLight, accentColor],
+    ),
   }));
 
   return (
@@ -891,26 +1141,16 @@ function WeekDayCell({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={`${day.weekdayLabel} ${day.dateLabel}`}
-      onPress={() => onSelectDay(day.dateKey)}>
-      <Animated.View
-        style={[
-          styles.weekCell,
-          { width },
-          selected && styles.weekCellSelected,
-          cellStyle,
-        ]}>
-        <Text
-          style={[
-            styles.weekDayNum,
-            selected && styles.weekDayNumSelected,
-          ]}>
+      onPress={() => onSelectDay(day.dateKey)}
+      style={{ width }}>
+      <View style={[styles.weekCell, { width }]}>
+        <Animated.Text style={[styles.weekDayNum, dayNumStyle]}>
           {day.day}
-        </Text>
-        <Text
-          style={[styles.weekDow, selected && { color: accentColor }]}>
+        </Animated.Text>
+        <Animated.Text style={[styles.weekDow, dowStyle]}>
           {day.dow}
-        </Text>
-      </Animated.View>
+        </Animated.Text>
+      </View>
     </Pressable>
   );
 }
@@ -1392,19 +1632,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  dayNumberSlot: {
+    height: DAY_NUMBER_TRAVEL,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
   dayNumber: {
     fontFamily: fonts.gothamBold,
     fontSize: sizes.dayNumber,
     color: colors.black,
-    lineHeight: 86,
+    lineHeight: DAY_NUMBER_TRAVEL,
     letterSpacing: -2,
     flexShrink: 0,
     includeFontPadding: false,
+  },
+  dayNumberOutgoing: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
   },
   dateMeta: {
     minWidth: 85,
     alignItems: 'flex-end',
     gap: 6,
+  },
+  weekdaySlot: {
+    width: '100%',
+    height: 28,
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  dateLabelSlot: {
+    width: '100%',
+    height: 26,
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  dateMetaOutgoing: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
   },
   weekday: {
     fontFamily: fonts.nexonMedium,
@@ -1428,6 +1697,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    position: 'relative',
+  },
+  weekSelectionPill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    borderRadius: radii.weekDay,
+    backgroundColor: colors.surface,
+    zIndex: 0,
   },
   dayPager: {
     maxWidth: spacing.frameWidth,
@@ -1443,9 +1721,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.weekDay,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  weekCellSelected: {
-    backgroundColor: colors.surface,
+    zIndex: 1,
   },
   weekDayNum: {
     fontFamily: fonts.gothamBold,
@@ -1453,9 +1729,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: 'center',
     width: 26,
-  },
-  weekDayNumSelected: {
-    color: colors.black,
   },
   weekDow: {
     fontFamily: fonts.nexonBold,

@@ -51,6 +51,8 @@ export const durations = {
   fill: 90,
   /** Calendar FAB ↔ today-arrow icon crossfade. */
   crossfade: 160,
+  /** Date header + week selection pill (ease-out slide). */
+  dateShift: 380,
   sheetClose: 180,
   backdropOpen: 180,
   backdropClose: 140,
