@@ -51,8 +51,8 @@ export const sizes = {
   dayNumber: 80,
   ellipse: 24,
   weekCell: { width: 50, height: 58 },
-  studyChip: { width: 77, height: 42 },
-  studyBodyHeight: 42,
+  studyChip: { width: 77, height: 44 },
+  studyBodyHeight: 44,
   reviewCheckbox: 38,
   /** Review subject marker: 24×24 color square with first glyph. */
   reviewChip: { width: 24, height: 24 },
