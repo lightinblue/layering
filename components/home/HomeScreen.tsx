@@ -91,6 +91,10 @@ import {
   updateStudyWithReviews,
   withSubjectColor,
 } from '@/storage/app-data';
+import {
+  buildDefaultAppData,
+  buildScreenshotAppData,
+} from '@/storage/screenshot-seed';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import type { AppData } from '@/types/domain';
 import { parseKey, todayKey as deviceTodayKey } from '@/utils/date';
@@ -492,6 +496,31 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     setSettingsOpen(false);
   }, []);
 
+  const applySeededAppData = useCallback(
+    async (next: AppData) => {
+      await persistApp(next);
+      setWeekAnchorKey(null);
+      const screen = homeScreenDataFromAppData(next);
+      setSelectedKey(screen.todayKey);
+      setWeekIndex(screen.currentWeekIndex);
+      setReviewOpen(null);
+      setAddOpen(false);
+      setEditingStudy(null);
+      closeSettings();
+    },
+    [closeSettings, persistApp],
+  );
+
+  const handleScreenshotSeed = useCallback(async () => {
+    if (!__DEV__ || dataProp) return;
+    await applySeededAppData(buildScreenshotAppData());
+  }, [applySeededAppData, dataProp]);
+
+  const handleScreenshotReset = useCallback(async () => {
+    if (!__DEV__ || dataProp) return;
+    await applySeededAppData(buildDefaultAppData());
+  }, [applySeededAppData, dataProp]);
+
   const onDetail = useCallback(
     (card: HomeReviewCard) => {
       setReviewOpen({
@@ -713,7 +742,14 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       </BottomSheetModal>
 
       <BottomSheetModal visible={settingsOpen} onClose={closeSettings}>
-        <SettingsSheet />
+        <SettingsSheet
+          onScreenshotSeed={
+            __DEV__ && !dataProp ? handleScreenshotSeed : undefined
+          }
+          onScreenshotReset={
+            __DEV__ && !dataProp ? handleScreenshotReset : undefined
+          }
+        />
       </BottomSheetModal>
 
       <BottomSheetModal visible={reviewOpen != null} onClose={closeReview}>
