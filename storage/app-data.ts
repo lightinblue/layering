@@ -10,12 +10,19 @@ export const EMPTY_APP_DATA: AppData = {
   schedules: [],
 };
 
+/** Max study records allowed for a single studiedOn date. */
+export const MAX_STUDIES_PER_DAY = 3;
+
 /** Seed chips so add sheet works before user-managed subjects land. */
 export const DEFAULT_SUBJECTS: SubjectChip[] = [
   { id: 'sub-bunryu', name: '분류' },
   { id: 'sub-kyoyuk', name: '교육학' },
   { id: 'sub-junggeom', name: '정검' },
 ];
+
+export function countStudiesOn(data: AppData, dateKey: string): number {
+  return data.records.filter((r) => r.studiedOn === dateKey).length;
+}
 
 function newId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -61,11 +68,15 @@ export type CreateStudyInput = {
   memo?: string;
 };
 
-/** Append one study + +1/3/7/15/30/60 review schedules. */
+/** Append one study + +1/3/7/15/30/60 review schedules. No-op at daily max. */
 export function appendStudyWithReviews(
   data: AppData,
   input: CreateStudyInput,
 ): AppData {
+  if (countStudiesOn(data, input.studiedOn) >= MAX_STUDIES_PER_DAY) {
+    return data;
+  }
+
   const existing = data.subjects.find((s) => s.name === input.subjectName);
   const subject: SubjectChip =
     existing ??

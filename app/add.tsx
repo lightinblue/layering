@@ -8,8 +8,10 @@ import {
 import { SheetPanel } from '@/components/ui/BottomSheetModal';
 import {
   appendStudyWithReviews,
+  countStudiesOn,
   DEFAULT_SUBJECTS,
   loadAppData,
+  MAX_STUDIES_PER_DAY,
   saveAppData,
 } from '@/storage/app-data';
 import { todayKey } from '@/utils/date';
@@ -46,11 +48,16 @@ export default function AddRecordSheet() {
     async (payload: AddStudyPayload) => {
       const content = payload.title.trim();
       const memo = payload.memo.trim();
+      const studiedOn = todayKey();
       const data = await loadAppData();
+      if (countStudiesOn(data, studiedOn) >= MAX_STUDIES_PER_DAY) {
+        onClose();
+        return;
+      }
       const next = appendStudyWithReviews(data, {
         subjectName: payload.subject,
         content,
-        studiedOn: todayKey(),
+        studiedOn,
         ...(memo ? { memo } : {}),
       });
       await saveAppData(next);

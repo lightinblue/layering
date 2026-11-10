@@ -276,7 +276,15 @@ export function applyDummyStudy(
     memo?: string;
     intervals?: ReviewIntervalDay[];
   },
+  maxPerDay = 3,
 ): HomeScreenData {
+  const dayStudies =
+    flattenWeeks(data.weeks).find((d) => d.dateKey === input.studiedOn)
+      ?.studies ?? [];
+  if (dayStudies.length >= maxPerDay) {
+    return data;
+  }
+
   const intervals = input.intervals ?? [1, 3, 7, 15, 30, 60];
   const next = cloneHomeData(data);
   const studyId = `dummy-s-${Date.now().toString(36)}`;

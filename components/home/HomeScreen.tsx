@@ -55,6 +55,7 @@ import {
   appendStudyWithReviews,
   DEFAULT_SUBJECTS,
   loadAppData,
+  MAX_STUDIES_PER_DAY,
   saveAppData,
   toggleReviewCompleted,
 } from '@/storage/app-data';
@@ -159,6 +160,8 @@ export default function HomeScreen({
 
   const isFutureDay = selected != null && selected.dateKey > todayKey;
   const isToday = selected != null && selected.dateKey === todayKey;
+  const atStudyCap = studies.length >= MAX_STUDIES_PER_DAY;
+  const allowAdd = !isFutureDay && !atStudyCap;
 
   const frameWidth = Math.min(windowWidth - 16, spacing.frameWidth);
   const contentWidth = Math.min(frameWidth, spacing.contentWidth);
@@ -200,10 +203,10 @@ export default function HomeScreen({
   );
 
   const goAdd = useCallback(() => {
-    if (isFutureDay) return;
+    if (!allowAdd) return;
     setAddKey((k) => k + 1);
     setAddOpen(true);
-  }, [isFutureDay]);
+  }, [allowAdd]);
 
   const closeAdd = useCallback(() => {
     setAddOpen(false);
@@ -211,18 +214,27 @@ export default function HomeScreen({
 
   const onSaveAdd = useCallback(
     (payload: AddStudyPayload) => {
+      if (studies.length >= MAX_STUDIES_PER_DAY) {
+        setAddOpen(false);
+        return;
+      }
+
       const content = payload.title.trim();
       const memo = payload.memo.trim();
       const studiedOn = selectedDateKey;
 
       if (mode === 'dummy' || dataProp) {
         setDummyData((prev) =>
-          applyDummyStudy(prev, {
-            subjectName: payload.subject,
-            content,
-            studiedOn,
-            ...(memo ? { memo } : {}),
-          }),
+          applyDummyStudy(
+            prev,
+            {
+              subjectName: payload.subject,
+              content,
+              studiedOn,
+              ...(memo ? { memo } : {}),
+            },
+            MAX_STUDIES_PER_DAY,
+          ),
         );
         setAddOpen(false);
         return;
@@ -238,7 +250,7 @@ export default function HomeScreen({
       void persistApp(next);
       setAddOpen(false);
     },
-    [mode, dataProp, selectedDateKey, appData, persistApp],
+    [mode, dataProp, selectedDateKey, appData, persistApp, studies.length],
   );
 
   const goCalendar = useCallback(() => {
@@ -360,7 +372,7 @@ export default function HomeScreen({
           <View style={[styles.sections, { maxWidth: contentWidth }]}>
             <StudySection
               studies={studies}
-              allowAdd={!isFutureDay}
+              allowAdd={allowAdd}
               isToday={isToday}
               onAdd={goAdd}
             />
