@@ -358,8 +358,9 @@ function ReviewCard({
                 style={[
                   styles.reviewChip,
                   { backgroundColor: subjectColor(name) },
-                ]}
-              />
+                ]}>
+                <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
+              </View>
             ))}
           </View>
         </View>
@@ -612,6 +613,15 @@ const styles = StyleSheet.create({
     width: sizes.reviewChip.width,
     height: sizes.reviewChip.height,
     borderRadius: radii.reviewChip,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewChipText: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 12,
+    color: colors.white,
+    textAlign: 'center',
+    lineHeight: 16,
   },
   detailRow: {
     flexDirection: 'row',

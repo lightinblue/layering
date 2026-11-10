@@ -47,7 +47,7 @@ export const sizes = {
   studyChip: { width: 77, height: 49 },
   studyBodyHeight: 49,
   reviewCheckbox: 38,
-  /** Review subject marker: solid square, height matches prior chip. */
+  /** Review subject marker: 24×24 color square with first glyph. */
   reviewChip: { width: 24, height: 24 },
   fab: 57,
   fabIcon: 28,
