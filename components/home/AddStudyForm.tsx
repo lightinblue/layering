@@ -99,8 +99,6 @@ type ChipLayout = { x: number; y: number; width: number; height: number };
 
 const LIMIT_HINT = '과목은 최대 10개까지예요';
 const NAME_LENGTH_HINT = '과목 이름은 4자까지예요';
-const CHIP_HINT =
-  '길게 눌러 순서 변경 · 선택한 과목을 다시 누르면 삭제';
 const LONG_PRESS_MS = 380;
 const MOVE_CANCEL_PX = 10;
 const CHIP_SHIFT_ANIM = {
@@ -586,11 +584,9 @@ export function AddStudyForm({
                   accessibilityState={{ selected }}
                   accessibilityLabel={`과목 ${name}`}
                   accessibilityHint={
-                    onReorderSubjects
-                      ? '길게 눌러 순서 변경. 선택한 뒤 다시 누르면 삭제 버튼이 나타나요.'
-                      : onRemoveSubject
-                        ? '선택한 뒤 다시 누르면 삭제 버튼이 나타나요.'
-                        : undefined
+                    onRemoveSubject
+                      ? '선택한 뒤 다시 누르면 삭제 버튼이 나타나요.'
+                      : undefined
                   }
                   style={[
                     styles.subjectChip,
@@ -758,10 +754,6 @@ export function AddStudyForm({
         ) : atLimit ? (
           <Text style={[styles.chipHint, { color: colors.mutedLight }]}>
             {LIMIT_HINT}
-          </Text>
-        ) : (onRemoveSubject || onReorderSubjects) && !adding ? (
-          <Text style={[styles.chipHint, { color: colors.mutedLight }]}>
-            {CHIP_HINT}
           </Text>
         ) : null}
       </View>
