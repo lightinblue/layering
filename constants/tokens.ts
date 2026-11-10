@@ -66,6 +66,7 @@ export const sizes = {
 
 /** Subject chip color map used in Figma mocks / seed chips. */
 export const SUBJECT_COLORS: Record<string, string> = {
+  전공: colors.chipBlue,
   분류: colors.chipBlue,
   교육학: colors.chipGreen,
   정검: colors.chipGray,

@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   SUBJECT_COLOR_OPTIONS,
-  SUBJECT_COLORS,
   colors,
   subjectColor,
 } from '@/constants/tokens';
@@ -25,11 +24,9 @@ export const MAX_SUBJECTS = 10;
 /** Max characters for a subject chip name (enforced on add). */
 export const MAX_SUBJECT_NAME_LENGTH = 4;
 
-/** Seed chips so add sheet works before user-managed subjects land. */
+/** Seed chip for first real-mode load (palette blue). */
 export const DEFAULT_SUBJECTS: SubjectChip[] = [
-  { id: 'sub-bunryu', name: '분류', color: SUBJECT_COLORS['분류'] },
-  { id: 'sub-kyoyuk', name: '교육학', color: SUBJECT_COLORS['교육학'] },
-  { id: 'sub-junggeom', name: '정검', color: SUBJECT_COLORS['정검'] },
+  { id: 'sub-jeongong', name: '전공', color: colors.chipBlue },
 ];
 
 /** Normalize / fill missing chip colors from the name map. */

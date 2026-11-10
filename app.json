@@ -2,16 +2,25 @@
   "expo": {
     "name": "레이어링",
     "slug": "layering",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "layering",
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.lightinblue.layering",
+      "buildNumber": "1",
       "supportsTablet": true,
       "infoPlist": {
         "CFBundleDisplayName": "레이어링"
+      }
+    },
+    "android": {
+      "package": "com.lightinblue.layering",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#FFFFFF"
       }
     },
     "web": {
@@ -32,6 +41,9 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "storeDisplayName": "레이어링 - 규칙적인 복습 스케줄러"
     }
   }
 }

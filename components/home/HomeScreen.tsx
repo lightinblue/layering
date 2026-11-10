@@ -834,7 +834,7 @@ export default function HomeScreen({
             onDetail={onDetail}
           />
 
-          {!dataProp ? (
+          {__DEV__ && !dataProp ? (
             <ModeControl
               active={mode}
               accent={theme.primary}
