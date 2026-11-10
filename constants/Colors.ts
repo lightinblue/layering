@@ -4,7 +4,7 @@ const tint = '#1991ff';
 export default {
   light: {
     text: '#1A1A1A',
-    background: '#fafafa',
+    background: '#ffffff',
     tint,
     tabIconDefault: '#9fb1c1',
     tabIconSelected: tint,

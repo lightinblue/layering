@@ -26,6 +26,10 @@ import {
 import Animated, {
   cancelAnimation,
   Easing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -33,7 +37,7 @@ import Animated, {
 
 import { DUMMY_SUBJECTS } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
-import { durations } from '@/constants/motion';
+import { EASE_OUT_MS, durations } from '@/constants/motion';
 import {
   SUBJECT_COLOR_OPTIONS,
   SUBJECT_COLORS,
@@ -124,8 +128,63 @@ const CHIP_EASE = {
   easing: Easing.out(Easing.cubic),
 } as const;
 
+const ADD_REVEAL = {
+  duration: EASE_OUT_MS,
+  easing: Easing.out(Easing.cubic),
+} as const;
+
+const ADD_SLIDE_PX = 10;
 const CHIP_IDLE_OPACITY = 0.45;
 const CHIP_SELECTED_OPACITY = 1;
+
+const PLUS_ENTER = FadeIn.duration(EASE_OUT_MS).easing(Easing.out(Easing.cubic));
+const PLUS_EXIT = FadeOut.duration(EASE_OUT_MS).easing(Easing.out(Easing.cubic));
+const FIELD_LAYOUT = LinearTransition.duration(EASE_OUT_MS).easing(
+  Easing.out(Easing.cubic),
+);
+
+/**
+ * Subject-add name row + palette: fade + slight vertical settle.
+ * Parent LinearTransition owns height; cancelAnimation for rapid open/close.
+ */
+function SubjectAddReveal({
+  visible,
+  children,
+}: {
+  visible: boolean;
+  children: ReactNode;
+}) {
+  const progress = useSharedValue(visible ? 1 : 0);
+  const [presented, setPresented] = useState(visible);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+
+  const finishHide = useCallback(() => {
+    if (!visibleRef.current) setPresented(false);
+  }, []);
+
+  useEffect(() => {
+    cancelAnimation(progress);
+    if (visible) {
+      setPresented(true);
+      progress.value = withTiming(1, ADD_REVEAL);
+      return;
+    }
+    if (!presented) return;
+    progress.value = withTiming(0, ADD_REVEAL, (finished) => {
+      if (finished) runOnJS(finishHide)();
+    });
+  }, [finishHide, presented, progress, visible]);
+
+  const panelStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ translateY: (1 - progress.value) * -ADD_SLIDE_PX }],
+  }));
+
+  if (!presented) return null;
+
+  return <Animated.View style={panelStyle}>{children}</Animated.View>;
+}
 
 function DraftColorSwatch({
   hex,
@@ -664,7 +723,7 @@ export function AddStudyForm({
         {isEdit ? '공부 기록 수정' : '공부 기록 추가'}
       </Text>
 
-      <View style={styles.field}>
+      <Animated.View style={styles.field} layout={FIELD_LAYOUT}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>과목</Text>
         <View
           ref={rowRef}
@@ -756,30 +815,32 @@ export function AddStudyForm({
           ) : null}
 
           {onAddSubject && !adding ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                atLimit ? '과목 추가 불가, 최대 10개' : '과목 추가'
-              }
-              accessibilityState={{ disabled: atLimit }}
-              onPress={openAdd}
-              style={[
-                styles.subjectChip,
-                styles.addChip,
-                {
-                  borderColor: atLimit ? colors.mutedLight : colors.muted,
-                  backgroundColor: colors.surface,
-                },
-                atLimit && styles.addChipDisabled,
-              ]}>
-              <SoftPlusIcon
-                color={atLimit ? colors.mutedLight : colors.muted}
-              />
-            </Pressable>
+            <Animated.View entering={PLUS_ENTER} exiting={PLUS_EXIT}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  atLimit ? '과목 추가 불가, 최대 10개' : '과목 추가'
+                }
+                accessibilityState={{ disabled: atLimit }}
+                onPress={openAdd}
+                style={[
+                  styles.subjectChip,
+                  styles.addChip,
+                  {
+                    borderColor: atLimit ? colors.mutedLight : colors.muted,
+                    backgroundColor: colors.surface,
+                  },
+                  atLimit && styles.addChipDisabled,
+                ]}>
+                <SoftPlusIcon
+                  color={atLimit ? colors.mutedLight : colors.muted}
+                />
+              </Pressable>
+            </Animated.View>
           ) : null}
         </View>
 
-        {adding ? (
+        <SubjectAddReveal visible={adding}>
           <View style={styles.addBlock}>
             <View style={styles.addRow}>
               <TextInput
@@ -793,7 +854,7 @@ export function AddStudyForm({
                 maxLength={MAX_SUBJECT_NAME_LENGTH}
                 returnKeyType="done"
                 onSubmitEditing={confirmAdd}
-                autoFocus
+                autoFocus={adding}
                 style={[
                   styles.input,
                   styles.addInput,
@@ -834,7 +895,7 @@ export function AddStudyForm({
               ))}
             </View>
           </View>
-        ) : null}
+        </SubjectAddReveal>
 
         {chipHint ? (
           <Text style={[styles.chipHint, { color: colors.muted }]}>
@@ -845,7 +906,7 @@ export function AddStudyForm({
             {LIMIT_HINT}
           </Text>
         ) : null}
-      </View>
+      </Animated.View>
 
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>

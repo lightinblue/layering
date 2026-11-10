@@ -1,7 +1,7 @@
 /** Design tokens from Figma Home (zgjHZrcERnHvzlG6cfxE0Y). */
 
 export const colors = {
-  mainWhite: '#fafafa',
+  mainWhite: '#ffffff',
   white: '#ffffff',
   black: '#000000',
   primary: '#1991ff',
