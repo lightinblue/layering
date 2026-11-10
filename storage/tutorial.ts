@@ -6,7 +6,7 @@ import { STORAGE_KEYS } from '@/storage/keys';
  * Bump this token to force another one-shot clear of tutorial-seen in __DEV__.
  * Each token applies at most once per install (sentinel stored in AsyncStorage).
  */
-const TUTORIAL_RETEST_TOKEN = 'retest-2026-11-10e';
+const TUTORIAL_RETEST_TOKEN = 'retest-2026-11-10f';
 const TUTORIAL_RETEST_SENTINEL = '@bokbok/dev/tutorial-retest-token';
 
 /** Whether the first-launch tutorial has been completed or skipped. */
