@@ -10,6 +10,7 @@ import { fonts } from '@/constants/fonts';
 import { springs } from '@/constants/motion';
 import { PRIMARY_OPTIONS, radii, type PrimaryOption } from '@/constants/tokens';
 import { useTheme } from '@/theme/ThemeProvider';
+import { haptics } from '@/utils/haptics';
 
 /**
  * Minimal settings body: review-interval stub + accent color picker.
@@ -49,7 +50,10 @@ export function SettingsSheet() {
               hex={hex}
               selected={hex === primary}
               borderColor={colors.black}
-              onPress={() => setPrimary(hex as PrimaryOption)}
+              onPress={() => {
+                haptics.themePick();
+                setPrimary(hex as PrimaryOption);
+              }}
             />
           ))}
         </View>

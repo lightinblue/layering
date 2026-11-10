@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { durations, rnSprings } from '@/constants/motion';
 import { colors, radii } from '@/constants/tokens';
+import { haptics } from '@/utils/haptics';
 
 const CLOSE_MS = durations.sheetClose;
 const BACKDROP_OPEN_MS = durations.backdropOpen;
@@ -147,7 +148,10 @@ export function SheetPanel({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="닫기"
-        onPress={onClose}
+        onPress={() => {
+          haptics.sheetClose();
+          onClose();
+        }}
         style={styles.backdropHit}
       />
       {/*
@@ -224,6 +228,7 @@ export function BottomSheetModal({
       setPresented(true);
       backdropOpacity.setValue(0);
       sheetTranslateY.setValue(SHEET_OFFSCREEN);
+      haptics.sheetOpen();
       Animated.parallel([
         Animated.timing(backdropOpacity, {
           toValue: 1,
@@ -269,7 +274,10 @@ export function BottomSheetModal({
       transparent
       animationType="none"
       statusBarTranslucent
-      onRequestClose={onClose}>
+      onRequestClose={() => {
+        haptics.sheetClose();
+        onClose();
+      }}>
       <SheetPanel
         onClose={onClose}
         sheetStyle={sheetStyle}

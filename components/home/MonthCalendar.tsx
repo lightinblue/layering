@@ -28,6 +28,7 @@ import {
   shiftMonth,
   type MonthCell,
 } from '@/utils/month-grid';
+import { haptics } from '@/utils/haptics';
 
 const DOT = 8;
 /** Month nav chevron — slightly larger than home 「자세히」 arrow. */
@@ -66,10 +67,12 @@ export function MonthCalendar({
   const cellWidth = frameWidth / 7;
 
   const goPrev = () => {
+    haptics.monthChange();
     const next = shiftMonth(year, monthIndex, -1);
     onMonthChange(next.year, next.monthIndex);
   };
   const goNext = () => {
+    haptics.monthChange();
     const next = shiftMonth(year, monthIndex, 1);
     onMonthChange(next.year, next.monthIndex);
   };
@@ -185,7 +188,10 @@ function DayCell({
       accessibilityLabel={`${cell.day}일`}
       accessibilityState={{ selected: isFocus }}
       disabled={!cell.inMonth}
-      onPress={() => onPress(cell.dateKey)}
+      onPress={() => {
+        haptics.select();
+        onPress(cell.dateKey);
+      }}
       style={[styles.dayCell, { width }]}>
       <Animated.View
         style={[

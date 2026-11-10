@@ -52,6 +52,7 @@ import {
   MAX_SUBJECTS,
 } from '@/storage/app-data';
 import { useThemeColors } from '@/theme/ThemeProvider';
+import { haptics } from '@/utils/haptics';
 
 export type AddStudyPayload = {
   subject: string;
@@ -383,11 +384,13 @@ export function AddStudyForm({
     (name: string) => {
       setChipHint(null);
       if (subjectPick !== name) {
+        haptics.select();
         setSubjectPick(name);
         setDeleteArmed(null);
         return;
       }
       if (!onRemoveSubject) return;
+      haptics.subjectDelete();
       setDeleteArmed((prev) => (prev === name ? null : name));
     },
     [subjectPick, onRemoveSubject],
@@ -396,6 +399,7 @@ export function AddStudyForm({
   const requestRemove = useCallback(
     (name: string) => {
       if (!onRemoveSubject) return;
+      haptics.subjectDelete();
       Alert.alert(
         '과목 삭제',
         `‘${name}’ 과목을 삭제할까요?\n이미 기록한 내용은 그대로 남아요.`,
@@ -405,6 +409,7 @@ export function AddStudyForm({
             text: '삭제',
             style: 'destructive',
             onPress: () => {
+              haptics.delete();
               onRemoveSubject(name);
               setChipHint(null);
               setDeleteArmed(null);
@@ -434,6 +439,7 @@ export function AddStudyForm({
       dragActivatedRef.current = true;
       draggingRef.current = name;
       dragOriginRef.current = [...orderedNamesRef.current];
+      haptics.subjectReorderStart();
       setDraggingName(name);
       setDeleteArmed(null);
       setDragLocal({ x: layout.x, y: layout.y });
@@ -455,6 +461,7 @@ export function AddStudyForm({
       if (namesSignature(next) === namesSignature(orderedNamesRef.current)) {
         return;
       }
+      haptics.subjectReorderTick();
       LayoutAnimation.configureNext(CHIP_SHIFT_ANIM);
       orderedNamesRef.current = next;
       setOrderedNames(next);
@@ -573,6 +580,7 @@ export function AddStudyForm({
 
   const requestDelete = useCallback(() => {
     if (!onDelete) return;
+    haptics.subjectDelete();
     Alert.alert(
       '공부 기록 삭제',
       '이 공부 기록과 연결된 복습 일정도 함께 삭제돼요.',
@@ -590,9 +598,11 @@ export function AddStudyForm({
   const openAdd = useCallback(() => {
     if (!onAddSubject) return;
     if (atLimit) {
+      haptics.reject();
       setChipHint(LIMIT_HINT);
       return;
     }
+    haptics.fab();
     setChipHint(null);
     setDeleteArmed(null);
     setDraftName('');
@@ -601,6 +611,7 @@ export function AddStudyForm({
   }, [onAddSubject, atLimit]);
 
   const cancelAdd = useCallback(() => {
+    haptics.sheetClose();
     setAdding(false);
     setDraftName('');
   }, []);
@@ -615,10 +626,12 @@ export function AddStudyForm({
           : { ok: false, reason: 'empty' }
         : result;
     if (!normalized.ok) {
+      haptics.reject();
       setChipHint(subjectAddErrorMessage(normalized.reason));
       return;
     }
     const name = draftName.trim().replace(/\s+/g, ' ');
+    haptics.subjectAdd();
     setSubjectPick(name);
     setDeleteArmed(null);
     setAdding(false);
@@ -811,7 +824,10 @@ export function AddStudyForm({
                   hex={hex}
                   selected={draftColor === hex}
                   borderColor={colors.black}
-                  onPress={() => setDraftColor(hex)}
+                  onPress={() => {
+                    haptics.themePick();
+                    setDraftColor(hex);
+                  }}
                 />
               ))}
             </View>

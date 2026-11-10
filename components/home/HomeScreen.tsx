@@ -116,6 +116,7 @@ import {
   homeScreenDataFromAppData,
   WEEKS_BEFORE,
 } from '@/utils/home-from-app-data';
+import { haptics } from '@/utils/haptics';
 
 const REVIEW_COLS = 3;
 
@@ -404,6 +405,8 @@ export default function HomeScreen({
 
   const toggleReview = useCallback(
     (dateKey: string, card: HomeReviewCard) => {
+      if (card.completed) haptics.checkOff();
+      else haptics.checkOn();
       if (mode === 'dummy' || dataProp) {
         setDummyData((prev) => toggleDummyReview(prev, dateKey, card.id));
         return;
@@ -473,6 +476,7 @@ export default function HomeScreen({
               MAX_STUDIES_PER_DAY,
             ),
           );
+          haptics.save();
           setAddOpen(false);
           setEditingStudy(null);
           return;
@@ -485,12 +489,14 @@ export default function HomeScreen({
           ...(memo ? { memo } : {}),
         });
         void persistApp(next);
+        haptics.save();
         setAddOpen(false);
         setEditingStudy(null);
         return;
       }
 
       if (studies.length >= MAX_STUDIES_PER_DAY) {
+        haptics.reject();
         setAddOpen(false);
         return;
       }
@@ -508,6 +514,7 @@ export default function HomeScreen({
             MAX_STUDIES_PER_DAY,
           ),
         );
+        haptics.save();
         setAddOpen(false);
         return;
       }
@@ -520,6 +527,7 @@ export default function HomeScreen({
         ...(memo ? { memo } : {}),
       });
       void persistApp(next);
+      haptics.save();
       setAddOpen(false);
     },
     [
@@ -538,12 +546,14 @@ export default function HomeScreen({
     const studyId = editingStudy.id;
     if (mode === 'dummy' || dataProp) {
       setDummyData((prev) => removeDummyStudy(prev, studyId));
+      haptics.delete();
       setAddOpen(false);
       setEditingStudy(null);
       return;
     }
     if (!appData) return;
     void persistApp(deleteStudyWithReviews(appData, studyId));
+    haptics.delete();
     setAddOpen(false);
     setEditingStudy(null);
   }, [editingStudy, mode, dataProp, appData, persistApp]);
@@ -622,6 +632,7 @@ export default function HomeScreen({
   );
 
   const goCalendar = useCallback(() => {
+    haptics.calendarOpen();
     router.push({
       pathname: '/calendar',
       params: { focus: selectedDateKey },
@@ -652,6 +663,7 @@ export default function HomeScreen({
 
   const selectDay = useCallback(
     (dateKey: string) => {
+      haptics.select();
       setSelectedKey(dateKey);
       setWeekIndex(weekIndexForDate(base, dateKey));
     },
@@ -679,6 +691,7 @@ export default function HomeScreen({
   );
 
   const goToday = useCallback(() => {
+    haptics.todayJump();
     selectDayFromCalendar(todayKey);
   }, [selectDayFromCalendar, todayKey]);
 
@@ -699,6 +712,7 @@ export default function HomeScreen({
       const week = base.weeks[nextIndex];
       if (!week) return;
       const nextDay = week[weekdayIndex] ?? week[0];
+      haptics.weekPage();
       setWeekIndex(nextIndex);
       setSelectedKey(nextDay.dateKey);
     },
@@ -709,6 +723,7 @@ export default function HomeScreen({
     (nextIndex: number) => {
       const day = allDays[nextIndex];
       if (!day) return;
+      haptics.daySwipe();
       setSelectedKey(day.dateKey);
       setWeekIndex(weekIndexForDate(base, day.dateKey));
     },
@@ -718,6 +733,7 @@ export default function HomeScreen({
   const selectMode = useCallback(
     async (next: DataMode) => {
       if (dataProp) return;
+      haptics.select();
       setMode(next);
       await saveDataMode(next);
       setWeekAnchorKey(null);

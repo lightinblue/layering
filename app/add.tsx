@@ -24,6 +24,7 @@ import {
 } from '@/storage/app-data';
 import type { AppData } from '@/types/domain';
 import { todayKey } from '@/utils/date';
+import { haptics } from '@/utils/haptics';
 
 function toOptions(data: AppData): SubjectOption[] {
   const chips =
@@ -78,6 +79,7 @@ export default function AddRecordSheet() {
       const studiedOn = todayKey();
       const data = appData ?? (await loadAppData());
       if (countStudiesOn(data, studiedOn) >= MAX_STUDIES_PER_DAY) {
+        haptics.reject();
         onClose();
         return;
       }
@@ -88,6 +90,7 @@ export default function AddRecordSheet() {
         ...(memo ? { memo } : {}),
       });
       await persist(next);
+      haptics.save();
       onClose();
     },
     [appData, persist, onClose],
