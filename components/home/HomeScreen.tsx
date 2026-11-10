@@ -1420,19 +1420,13 @@ function ReviewCheck({
     [accent],
   );
 
-  const iconStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-  }));
-
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked: completed }}
       onPress={onToggle}>
       <Animated.View style={[styles.checkbox, boxStyle]}>
-        <Animated.View style={iconStyle}>
-          <CheckIcon />
-        </Animated.View>
+        <CheckIcon />
       </Animated.View>
     </Pressable>
   );

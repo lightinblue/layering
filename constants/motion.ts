@@ -48,7 +48,7 @@ export const durations = {
   fadeIn: 180,
   fadeOut: 140,
   /** Review checkbox / card accent fill (스륵). */
-  fill: 160,
+  fill: 90,
   /** Calendar FAB ↔ today-arrow icon crossfade. */
   crossfade: 160,
   sheetClose: 180,
