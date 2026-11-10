@@ -18,6 +18,7 @@ import {
   AddStudyForm,
   type AddStudyPayload,
   type SubjectAddResult,
+  type SubjectOption,
 } from '@/components/home/AddStudyForm';
 import { ReviewDetailContent } from '@/components/home/ReviewDetailContent';
 import { SettingsSheet } from '@/components/home/SettingsSheet';
@@ -48,6 +49,7 @@ import {
 } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
 import {
+  SUBJECT_COLORS,
   colors,
   radii,
   sizes,
@@ -64,7 +66,9 @@ import {
   normalizeSubjectName,
   removeSubject,
   saveAppData,
+  subjectColorMap,
   toggleReviewCompleted,
+  withSubjectColor,
 } from '@/storage/app-data';
 import {
   DATA_MODE_LABEL,
@@ -99,6 +103,13 @@ function isDateKey(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
+function seedSubjectOptions(): SubjectOption[] {
+  return DUMMY_SUBJECTS.map((name) => ({
+    name,
+    color: SUBJECT_COLORS[name] ?? subjectColor(name),
+  }));
+}
+
 export default function HomeScreen({
   data: dataProp,
   initialMode = DEFAULT_DATA_MODE,
@@ -117,9 +128,9 @@ export default function HomeScreen({
     cloneHomeData(HOME_DUMMY),
   );
   /** In-session subject chips for 더미 mode (not AsyncStorage). */
-  const [dummySubjects, setDummySubjects] = useState<string[]>(() => [
-    ...DUMMY_SUBJECTS,
-  ]);
+  const [dummySubjects, setDummySubjects] = useState<SubjectOption[]>(() =>
+    seedSubjectOptions(),
+  );
   /** When set, week strip is recentered on this date (calendar jump). */
   const [weekAnchorKey, setWeekAnchorKey] = useState<string | null>(null);
   const appliedDayRef = useRef<string | null>(null);
@@ -156,7 +167,7 @@ export default function HomeScreen({
         setWeekIndex(screen.currentWeekIndex);
       } else {
         setDummyData(cloneHomeData(HOME_DUMMY));
-        setDummySubjects([...DUMMY_SUBJECTS]);
+        setDummySubjects(seedSubjectOptions());
         setSelectedKey(HOME_DUMMY.todayKey);
         setWeekIndex(HOME_DUMMY.currentWeekIndex);
       }
@@ -208,12 +219,20 @@ export default function HomeScreen({
     return (contentWidth - gaps) / REVIEW_COLS;
   }, [contentWidth]);
 
-  const subjectNames = useMemo(() => {
+  const subjectOptions = useMemo((): SubjectOption[] => {
     if (mode === 'real' && appData) {
-      return appData.subjects.map((s) => s.name);
+      return appData.subjects.map((s) => {
+        const chip = withSubjectColor(s);
+        return { name: chip.name, color: chip.color ?? subjectColor(chip.name) };
+      });
     }
     return dummySubjects;
   }, [mode, appData, dummySubjects]);
+
+  const colorByName = useMemo(
+    () => subjectColorMap(subjectOptions),
+    [subjectOptions],
+  );
 
   const persistApp = useCallback(async (next: AppData) => {
     setAppData(next);
@@ -292,21 +311,21 @@ export default function HomeScreen({
   );
 
   const onAddSubject = useCallback(
-    (rawName: string): SubjectAddResult => {
+    (rawName: string, color: string): SubjectAddResult => {
       if (mode === 'dummy' || dataProp) {
         const name = normalizeSubjectName(rawName);
         if (!name) return { ok: false, reason: 'empty' };
-        if (dummySubjects.includes(name)) {
+        if (dummySubjects.some((s) => s.name === name)) {
           return { ok: false, reason: 'duplicate' };
         }
         if (dummySubjects.length >= MAX_SUBJECTS) {
           return { ok: false, reason: 'limit' };
         }
-        setDummySubjects((prev) => [...prev, name]);
+        setDummySubjects((prev) => [...prev, { name, color }]);
         return { ok: true };
       }
       if (!appData) return { ok: false, reason: 'empty' };
-      const result = addSubject(appData, rawName);
+      const result = addSubject(appData, rawName, color);
       if (!result.ok) {
         return {
           ok: false,
@@ -322,7 +341,7 @@ export default function HomeScreen({
   const onRemoveSubject = useCallback(
     (name: string) => {
       if (mode === 'dummy' || dataProp) {
-        setDummySubjects((prev) => prev.filter((s) => s !== name));
+        setDummySubjects((prev) => prev.filter((s) => s.name !== name));
         return;
       }
       if (!appData) return;
@@ -423,7 +442,7 @@ export default function HomeScreen({
       if (next === 'dummy') {
         const fresh = cloneHomeData(HOME_DUMMY);
         setDummyData(fresh);
-        setDummySubjects([...DUMMY_SUBJECTS]);
+        setDummySubjects(seedSubjectOptions());
         setSelectedKey(fresh.todayKey);
         setWeekIndex(fresh.currentWeekIndex);
         return;
@@ -496,6 +515,7 @@ export default function HomeScreen({
               studies={studies}
               allowAdd={allowAdd}
               isToday={isToday}
+              colorByName={colorByName}
               onAdd={goAdd}
             />
             <ReviewSection
@@ -504,6 +524,7 @@ export default function HomeScreen({
               isToday={isToday}
               accent={theme.primary}
               accentSoft={theme.primarySoft}
+              colorByName={colorByName}
               onToggle={toggleReview}
               onDetail={onDetail}
             />
@@ -558,9 +579,12 @@ export default function HomeScreen({
         <AddStudyForm
           key={addKey}
           subjects={
-            subjectNames.length > 0
-              ? subjectNames
-              : DEFAULT_SUBJECTS.map((s) => s.name)
+            subjectOptions.length > 0
+              ? subjectOptions
+              : DEFAULT_SUBJECTS.map((s) => ({
+                  name: s.name,
+                  color: s.color ?? subjectColor(s.name),
+                }))
           }
           onSave={onSaveAdd}
           onAddSubject={onAddSubject}
@@ -578,6 +602,7 @@ export default function HomeScreen({
           <ReviewDetailContent
             intervalLabel={`${reviewOpen.intervalDays}일 전`}
             studies={reviewOpen.studies}
+            colorByName={colorByName}
           />
         ) : null}
       </BottomSheetModal>
@@ -737,11 +762,13 @@ function StudySection({
   studies,
   allowAdd,
   isToday,
+  colorByName,
   onAdd,
 }: {
   studies: HomeStudyRow[];
   allowAdd: boolean;
   isToday: boolean;
+  colorByName: Record<string, string>;
   onAdd: () => void;
 }) {
   return (
@@ -770,7 +797,7 @@ function StudySection({
         ) : (
           <>
             {studies.map((row) => (
-              <StudyRow key={row.id} row={row} />
+              <StudyRow key={row.id} row={row} colorByName={colorByName} />
             ))}
             {allowAdd ? (
               <Pressable
@@ -789,13 +816,19 @@ function StudySection({
   );
 }
 
-function StudyRow({ row }: { row: HomeStudyRow }) {
+function StudyRow({
+  row,
+  colorByName,
+}: {
+  row: HomeStudyRow;
+  colorByName: Record<string, string>;
+}) {
   return (
     <View style={styles.studyRow}>
       <View
         style={[
           styles.studyChip,
-          { backgroundColor: subjectColor(row.subjectName) },
+          { backgroundColor: subjectColor(row.subjectName, colorByName) },
         ]}>
         <Text style={styles.studyChipText}>{row.subjectName}</Text>
       </View>
@@ -814,6 +847,7 @@ function ReviewSection({
   isToday,
   accent,
   accentSoft,
+  colorByName,
   onToggle,
   onDetail,
 }: {
@@ -822,6 +856,7 @@ function ReviewSection({
   isToday: boolean;
   accent: string;
   accentSoft: string;
+  colorByName: Record<string, string>;
   onToggle: (card: HomeReviewCard) => void;
   onDetail: (card: HomeReviewCard) => void;
 }) {
@@ -850,6 +885,7 @@ function ReviewSection({
               width={cardWidth}
               accent={accent}
               accentSoft={accentSoft}
+              colorByName={colorByName}
               onToggle={() => onToggle(card)}
               onDetail={() => onDetail(card)}
             />
@@ -865,6 +901,7 @@ function ReviewCard({
   width,
   accent,
   accentSoft,
+  colorByName,
   onToggle,
   onDetail,
 }: {
@@ -872,6 +909,7 @@ function ReviewCard({
   width: number;
   accent: string;
   accentSoft: string;
+  colorByName: Record<string, string>;
   onToggle: () => void;
   onDetail: () => void;
 }) {
@@ -914,7 +952,7 @@ function ReviewCard({
                 accessibilityLabel={name}
                 style={[
                   styles.reviewChip,
-                  { backgroundColor: subjectColor(name) },
+                  { backgroundColor: subjectColor(name, colorByName) },
                 ]}>
                 <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
               </View>

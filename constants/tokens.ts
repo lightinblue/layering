@@ -60,14 +60,41 @@ export const sizes = {
   plus: 19.2,
 } as const;
 
-/** Subject chip color map used in Figma mocks. */
+/** Subject chip color map used in Figma mocks / seed chips. */
 export const SUBJECT_COLORS: Record<string, string> = {
   분류: colors.chipBlue,
   교육학: colors.chipGreen,
   정검: colors.chipGray,
 };
 
-export function subjectColor(name: string): string {
+/**
+ * Palette for new subject chips: existing Figma solids + settings accents.
+ * Deduped so blue/green aren't listed twice.
+ */
+export const SUBJECT_COLOR_OPTIONS: readonly string[] = [
+  ...new Set<string>([
+    colors.chipBlue,
+    colors.chipGreen,
+    colors.chipGray,
+    '#1991ff',
+    '#45c775',
+    '#ff7a45',
+    '#ef5b7a',
+    '#2bb8a8',
+  ]),
+];
+
+/** Resolve chip fill: explicit override → name map → gray. */
+export function subjectColor(
+  name: string,
+  colorByName?: Record<string, string> | string | null,
+): string {
+  if (typeof colorByName === 'string' && colorByName.length > 0) {
+    return colorByName;
+  }
+  if (colorByName && typeof colorByName === 'object' && colorByName[name]) {
+    return colorByName[name];
+  }
   return SUBJECT_COLORS[name] ?? colors.chipGray;
 }
 
@@ -122,8 +149,11 @@ export function softFromPrimary(hex: string, whiteMix = 0.86): string {
   });
 }
 
-export function subjectBorderColor(name: string): string {
-  return darkenHex(subjectColor(name));
+export function subjectBorderColor(
+  name: string,
+  colorByName?: Record<string, string> | string | null,
+): string {
+  return darkenHex(subjectColor(name, colorByName));
 }
 
 /** Solid accent options for Settings → 색상 (first = default blue). */

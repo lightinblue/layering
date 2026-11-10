@@ -7,12 +7,15 @@ import { colors, radii, subjectColor } from '@/constants/tokens';
 export type ReviewDetailContentProps = {
   intervalLabel: string;
   studies: HomeReviewStudy[];
+  /** Optional chip fills from current subject list. */
+  colorByName?: Record<string, string>;
 };
 
 /** 「복습 내용」 sheet — that day’s study content for the selected reviews. */
 export function ReviewDetailContent({
   intervalLabel,
   studies,
+  colorByName,
 }: ReviewDetailContentProps) {
   return (
     <View style={styles.body}>
@@ -26,7 +29,7 @@ export function ReviewDetailContent({
               key={name}
               style={[
                 styles.subjectChip,
-                { backgroundColor: subjectColor(name) },
+                { backgroundColor: subjectColor(name, colorByName) },
               ]}>
               <Text style={styles.subjectChipText}>{name}</Text>
             </View>

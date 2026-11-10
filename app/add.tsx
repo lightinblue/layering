@@ -5,8 +5,10 @@ import {
   AddStudyForm,
   type AddStudyPayload,
   type SubjectAddResult,
+  type SubjectOption,
 } from '@/components/home/AddStudyForm';
 import { SheetPanel } from '@/components/ui/BottomSheetModal';
+import { subjectColor } from '@/constants/tokens';
 import {
   addSubject,
   appendStudyWithReviews,
@@ -17,9 +19,19 @@ import {
   MAX_SUBJECTS,
   removeSubject,
   saveAppData,
+  withSubjectColor,
 } from '@/storage/app-data';
 import type { AppData } from '@/types/domain';
 import { todayKey } from '@/utils/date';
+
+function toOptions(data: AppData): SubjectOption[] {
+  const chips =
+    data.subjects.length > 0 ? data.subjects : [...DEFAULT_SUBJECTS];
+  return chips.map((s) => {
+    const chip = withSubjectColor(s);
+    return { name: chip.name, color: chip.color ?? subjectColor(chip.name) };
+  });
+}
 
 /**
  * Route fallback for 「공부 기록 추가」 (transparentModal + SheetPanel).
@@ -28,8 +40,11 @@ import { todayKey } from '@/utils/date';
 export default function AddRecordSheet() {
   const router = useRouter();
   const [appData, setAppData] = useState<AppData | null>(null);
-  const [subjects, setSubjects] = useState(
-    DEFAULT_SUBJECTS.map((s) => s.name),
+  const [subjects, setSubjects] = useState<SubjectOption[]>(() =>
+    DEFAULT_SUBJECTS.map((s) => ({
+      name: s.name,
+      color: s.color ?? subjectColor(s.name),
+    })),
   );
 
   useEffect(() => {
@@ -38,11 +53,7 @@ export default function AddRecordSheet() {
       const data = await loadAppData();
       if (cancelled) return;
       setAppData(data);
-      setSubjects(
-        data.subjects.length > 0
-          ? data.subjects.map((s) => s.name)
-          : DEFAULT_SUBJECTS.map((s) => s.name),
-      );
+      setSubjects(toOptions(data));
     })();
     return () => {
       cancelled = true;
@@ -55,7 +66,7 @@ export default function AddRecordSheet() {
 
   const persist = useCallback(async (next: AppData) => {
     setAppData(next);
-    setSubjects(next.subjects.map((s) => s.name));
+    setSubjects(toOptions(next));
     await saveAppData(next);
   }, []);
 
@@ -82,9 +93,9 @@ export default function AddRecordSheet() {
   );
 
   const onAddSubject = useCallback(
-    (rawName: string): SubjectAddResult => {
+    (rawName: string, color: string): SubjectAddResult => {
       if (!appData) return { ok: false, reason: 'empty' };
-      const result = addSubject(appData, rawName);
+      const result = addSubject(appData, rawName, color);
       if (!result.ok) {
         return {
           ok: false,

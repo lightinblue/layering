@@ -12,6 +12,8 @@ import {
 import { DUMMY_SUBJECTS } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
 import {
+  SUBJECT_COLOR_OPTIONS,
+  SUBJECT_COLORS,
   radii,
   subjectBorderColor,
   subjectColor,
@@ -25,6 +27,11 @@ export type AddStudyPayload = {
   memo: string;
 };
 
+export type SubjectOption = {
+  name: string;
+  color: string;
+};
+
 export type SubjectAddFailReason = 'empty' | 'duplicate' | 'limit';
 
 export type SubjectAddResult =
@@ -33,10 +40,10 @@ export type SubjectAddResult =
 
 type AddStudyFormProps = {
   onSave: (payload: AddStudyPayload) => void;
-  /** Subject chip names (defaults to demo list). */
-  subjects?: string[];
-  /** Persist a new chip; return failure reason for inline UX. */
-  onAddSubject?: (name: string) => SubjectAddResult | boolean;
+  /** Subject chips (defaults to demo list with Figma colors). */
+  subjects?: SubjectOption[];
+  /** Persist a new chip with chosen color; return failure reason for inline UX. */
+  onAddSubject?: (name: string, color: string) => SubjectAddResult | boolean;
   /** Remove a chip only (must not delete study/review history). */
   onRemoveSubject?: (name: string) => void;
   /** Cap for chip list (default MAX_SUBJECTS). */
@@ -44,6 +51,11 @@ type AddStudyFormProps = {
 };
 
 const LIMIT_HINT = '과목은 최대 10개까지예요';
+
+const DEFAULT_SUBJECT_OPTIONS: SubjectOption[] = DUMMY_SUBJECTS.map((name) => ({
+  name,
+  color: SUBJECT_COLORS[name] ?? subjectColor(name),
+}));
 
 function subjectAddErrorMessage(reason: SubjectAddFailReason): string {
   switch (reason) {
@@ -59,12 +71,12 @@ function subjectAddErrorMessage(reason: SubjectAddFailReason): string {
 
 /**
  * 「공부 기록 추가」 form body (subject · title · optional memo).
- * Subject chips: tap select · long-press delete · 「+」 add (max 10).
+ * Subject chips: tap select · long-press delete · 「+」 add with color pick (max 10).
  * Mounted inside BottomSheetModal so Expo Go always lays out content.
  */
 export function AddStudyForm({
   onSave,
-  subjects = [...DUMMY_SUBJECTS],
+  subjects = DEFAULT_SUBJECT_OPTIONS,
   onAddSubject,
   onRemoveSubject,
   maxSubjects = MAX_SUBJECTS,
@@ -75,12 +87,20 @@ export function AddStudyForm({
   const [memo, setMemo] = useState('');
   const [adding, setAdding] = useState(false);
   const [draftName, setDraftName] = useState('');
+  const [draftColor, setDraftColor] = useState<string>(SUBJECT_COLOR_OPTIONS[0]);
   const [chipHint, setChipHint] = useState<string | null>(null);
 
   const atLimit = subjects.length >= maxSubjects;
-  const canManage = onAddSubject != null || onRemoveSubject != null;
+  const subjectNames = useMemo(() => subjects.map((s) => s.name), [subjects]);
+  const colorByName = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const s of subjects) map[s.name] = s.color;
+    return map;
+  }, [subjects]);
   const subject =
-    subjectPick != null && subjects.includes(subjectPick) ? subjectPick : null;
+    subjectPick != null && subjectNames.includes(subjectPick)
+      ? subjectPick
+      : null;
 
   const canSave = useMemo(
     () => subject != null && title.trim().length > 0,
@@ -104,6 +124,7 @@ export function AddStudyForm({
     }
     setChipHint(null);
     setDraftName('');
+    setDraftColor(SUBJECT_COLOR_OPTIONS[0]);
     setAdding(true);
   }, [onAddSubject, atLimit]);
 
@@ -114,7 +135,7 @@ export function AddStudyForm({
 
   const confirmAdd = useCallback(() => {
     if (!onAddSubject) return;
-    const result = onAddSubject(draftName);
+    const result = onAddSubject(draftName, draftColor);
     const normalized: SubjectAddResult =
       typeof result === 'boolean'
         ? result
@@ -130,7 +151,7 @@ export function AddStudyForm({
     setAdding(false);
     setDraftName('');
     setChipHint(null);
-  }, [onAddSubject, draftName]);
+  }, [onAddSubject, draftName, draftColor]);
 
   const requestRemove = useCallback(
     (name: string) => {
@@ -166,8 +187,9 @@ export function AddStudyForm({
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>과목</Text>
         <View style={styles.chipRow}>
-          {subjects.map((name) => {
+          {subjects.map(({ name, color }) => {
             const selected = subject === name;
+            const fill = color || subjectColor(name, colorByName);
             return (
               <Pressable
                 key={name}
@@ -188,8 +210,8 @@ export function AddStudyForm({
                 style={[
                   styles.subjectChip,
                   {
-                    backgroundColor: subjectColor(name),
-                    borderColor: subjectBorderColor(name),
+                    backgroundColor: fill,
+                    borderColor: subjectBorderColor(name, fill),
                   },
                   selected && styles.subjectChipSelected,
                   !selected && styles.subjectChipIdle,
@@ -211,7 +233,7 @@ export function AddStudyForm({
                 styles.subjectChip,
                 styles.addChip,
                 {
-                  borderColor: atLimit ? colors.mutedLight : colors.primary,
+                  borderColor: atLimit ? colors.mutedLight : colors.muted,
                   backgroundColor: colors.surface,
                 },
                 atLimit && styles.addChipDisabled,
@@ -219,7 +241,7 @@ export function AddStudyForm({
               <Text
                 style={[
                   styles.addChipText,
-                  { color: atLimit ? colors.mutedLight : colors.primary },
+                  { color: atLimit ? colors.mutedLight : colors.muted },
                 ]}>
                 +
               </Text>
@@ -228,42 +250,67 @@ export function AddStudyForm({
         </View>
 
         {adding ? (
-          <View style={styles.addRow}>
-            <TextInput
-              value={draftName}
-              onChangeText={(text) => {
-                setDraftName(text);
-                if (chipHint) setChipHint(null);
-              }}
-              placeholder="과목 이름"
-              placeholderTextColor={colors.mutedLight}
-              maxLength={12}
-              returnKeyType="done"
-              onSubmitEditing={confirmAdd}
-              autoFocus
-              style={[
-                styles.input,
-                styles.addInput,
-                { backgroundColor: colors.surface, color: colors.body },
-              ]}
-              accessibilityLabel="새 과목 이름"
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="과목 추가 확인"
-              onPress={confirmAdd}
-              style={[styles.addConfirm, { backgroundColor: colors.primary }]}>
-              <Text style={styles.addConfirmText}>추가</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="과목 추가 취소"
-              onPress={cancelAdd}
-              style={[styles.addCancel, { backgroundColor: colors.surface }]}>
-              <Text style={[styles.addCancelText, { color: colors.muted }]}>
-                취소
-              </Text>
-            </Pressable>
+          <View style={styles.addBlock}>
+            <View style={styles.addRow}>
+              <TextInput
+                value={draftName}
+                onChangeText={(text) => {
+                  setDraftName(text);
+                  if (chipHint) setChipHint(null);
+                }}
+                placeholder="과목 이름"
+                placeholderTextColor={colors.mutedLight}
+                maxLength={12}
+                returnKeyType="done"
+                onSubmitEditing={confirmAdd}
+                autoFocus
+                style={[
+                  styles.input,
+                  styles.addInput,
+                  { backgroundColor: colors.surface, color: colors.body },
+                ]}
+                accessibilityLabel="새 과목 이름"
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="과목 추가 확인"
+                onPress={confirmAdd}
+                style={[styles.addConfirm, { backgroundColor: colors.primary }]}>
+                <Text style={styles.addConfirmText}>추가</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="과목 추가 취소"
+                onPress={cancelAdd}
+                style={[styles.addCancel, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.addCancelText, { color: colors.muted }]}>
+                  취소
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.swatchRow}>
+              {SUBJECT_COLOR_OPTIONS.map((hex) => {
+                const selected = draftColor === hex;
+                return (
+                  <Pressable
+                    key={hex}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={`과목 색상 ${hex}`}
+                    onPress={() => setDraftColor(hex)}
+                    style={[
+                      styles.swatch,
+                      { backgroundColor: hex },
+                      selected && {
+                        borderColor: colors.black,
+                        borderWidth: 2,
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
           </View>
         ) : null}
 
@@ -271,13 +318,13 @@ export function AddStudyForm({
           <Text style={[styles.chipHint, { color: colors.muted }]}>
             {chipHint}
           </Text>
-        ) : canManage && !adding ? (
+        ) : atLimit ? (
           <Text style={[styles.chipHint, { color: colors.mutedLight }]}>
-            {atLimit
-              ? LIMIT_HINT
-              : onRemoveSubject
-                ? '길게 누르면 삭제 · + 로 추가'
-                : '+ 로 과목 추가'}
+            {LIMIT_HINT}
+          </Text>
+        ) : onRemoveSubject && !adding ? (
+          <Text style={[styles.chipHint, { color: colors.mutedLight }]}>
+            길게 누르면 삭제
           </Text>
         ) : null}
       </View>
@@ -392,6 +439,9 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 26,
   },
+  addBlock: {
+    gap: 10,
+  },
   addRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -424,6 +474,18 @@ const styles = StyleSheet.create({
   addCancelText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
+  },
+  swatchRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  swatch: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   chipHint: {
     fontFamily: fonts.nexonRegular,

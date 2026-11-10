@@ -4,6 +4,8 @@ import type { ReviewIntervalDay } from '@/constants/review';
 export type SubjectChip = {
   id: string;
   name: string;
+  /** Chip fill hex; falls back to name map / gray when missing. */
+  color?: string;
 };
 
 /** 학습 기록 — 과목, 학습 내용, 학습일. */

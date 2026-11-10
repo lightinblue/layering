@@ -1,5 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import {
+  SUBJECT_COLOR_OPTIONS,
+  SUBJECT_COLORS,
+  colors,
+  subjectColor,
+} from '@/constants/tokens';
 import type { AppData, ReviewSchedule, StudyRecord, SubjectChip } from '@/types/domain';
 import { STORAGE_KEYS } from '@/storage/keys';
 import { buildReviewDueDates } from '@/utils/review-schedule';
@@ -18,10 +24,37 @@ export const MAX_SUBJECTS = 10;
 
 /** Seed chips so add sheet works before user-managed subjects land. */
 export const DEFAULT_SUBJECTS: SubjectChip[] = [
-  { id: 'sub-bunryu', name: '분류' },
-  { id: 'sub-kyoyuk', name: '교육학' },
-  { id: 'sub-junggeom', name: '정검' },
+  { id: 'sub-bunryu', name: '분류', color: SUBJECT_COLORS['분류'] },
+  { id: 'sub-kyoyuk', name: '교육학', color: SUBJECT_COLORS['교육학'] },
+  { id: 'sub-junggeom', name: '정검', color: SUBJECT_COLORS['정검'] },
 ];
+
+/** Normalize / fill missing chip colors from the name map. */
+export function withSubjectColor(chip: SubjectChip): SubjectChip {
+  const color = chip.color?.trim() || subjectColor(chip.name);
+  return color === chip.color ? chip : { ...chip, color };
+}
+
+export function subjectColorMap(
+  subjects: readonly SubjectChip[] | readonly { name: string; color?: string }[],
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const s of subjects) {
+    map[s.name] = s.color?.trim() || subjectColor(s.name);
+  }
+  return map;
+}
+
+function normalizeSubjectColor(raw?: string): string {
+  const hex = raw?.trim().toLowerCase();
+  if (hex && /^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(hex)) {
+    if (hex.length === 4) {
+      return `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+    }
+    return hex;
+  }
+  return SUBJECT_COLOR_OPTIONS[0] ?? colors.chipBlue;
+}
 
 export function countStudiesOn(data: AppData, dateKey: string): number {
   return data.records.filter((r) => r.studiedOn === dateKey).length;
@@ -45,7 +78,11 @@ export function normalizeSubjectName(raw: string): string | null {
  * Append a subject chip. Does not touch records/schedules.
  * Caps at MAX_SUBJECTS; rejects empty / duplicate names.
  */
-export function addSubject(data: AppData, rawName: string): SubjectMutationResult {
+export function addSubject(
+  data: AppData,
+  rawName: string,
+  rawColor?: string,
+): SubjectMutationResult {
   const name = normalizeSubjectName(rawName);
   if (!name) return { ok: false, reason: 'empty' };
   if (data.subjects.some((s) => s.name === name)) {
@@ -58,7 +95,10 @@ export function addSubject(data: AppData, rawName: string): SubjectMutationResul
     ok: true,
     data: {
       ...data,
-      subjects: [...data.subjects, { id: newId('sub'), name }],
+      subjects: [
+        ...data.subjects,
+        { id: newId('sub'), name, color: normalizeSubjectColor(rawColor) },
+      ],
     },
   };
 }
@@ -98,7 +138,7 @@ export async function loadAppData(): Promise<AppData> {
     const parsed = JSON.parse(raw) as AppData;
     const subjects =
       parsed.subjects && parsed.subjects.length > 0
-        ? parsed.subjects
+        ? parsed.subjects.map(withSubjectColor)
         : [...DEFAULT_SUBJECTS];
     return {
       subjects,
