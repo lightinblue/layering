@@ -7,8 +7,10 @@ import {
 } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
+import { LaunchScreen } from '@/components/launch-screen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fonts } from '@/constants/fonts';
 import {
@@ -22,7 +24,9 @@ export const unstable_settings = {
   anchor: 'index',
 };
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {
+  // Already hidden or unavailable — avoid an unhandled rejection on launch.
+});
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -41,22 +45,25 @@ export default function RootLayout() {
     if (error) throw error;
   }, [error]);
 
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
-
   if (!loaded) {
     return null;
   }
 
   return (
     <ThemeProvider>
-      <RootLayoutNav />
+      <View style={styles.root}>
+        <LaunchScreen />
+        <RootLayoutNav />
+      </View>
     </ThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();

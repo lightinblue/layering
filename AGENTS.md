@@ -1,4 +1,4 @@
-# 복복 (bokbok)
+# 레이어링 (layering)
 
 Expo / React Native iOS 앱. MVP: 오늘 · 기록 추가 · 캘린더. 로컬 저장만 (AsyncStorage).
 

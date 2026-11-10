@@ -1,15 +1,18 @@
 {
   "expo": {
-    "name": "복복",
-    "slug": "bokbok",
+    "name": "레이어링 - 규칙적인 복습 스케줄러",
+    "slug": "layering",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "bokbok",
+    "scheme": "layering",
     "userInterfaceStyle": "light",
     "ios": {
-      "bundleIdentifier": "com.lightinblue.bokbok",
-      "supportsTablet": true
+      "bundleIdentifier": "com.lightinblue.layering",
+      "supportsTablet": true,
+      "infoPlist": {
+        "CFBundleDisplayName": "레이어링"
+      }
     },
     "web": {
       "bundler": "metro",
