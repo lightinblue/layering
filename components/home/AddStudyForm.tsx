@@ -428,31 +428,45 @@ export function AddStudyForm({
         />
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={isEdit ? '수정' : '저장'}
-        accessibilityState={{ disabled: !canSave }}
-        disabled={!canSave}
-        onPress={handleSave}
-        style={[
-          styles.saveBtn,
-          { backgroundColor: colors.primary },
-          !canSave && { backgroundColor: colors.mutedLight },
-        ]}>
-        <Text style={styles.saveBtnText}>{isEdit ? '수정' : '저장'}</Text>
-      </Pressable>
-
       {isEdit && onDelete ? (
+        <View style={styles.actionRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="수정"
+            accessibilityState={{ disabled: !canSave }}
+            disabled={!canSave}
+            onPress={handleSave}
+            style={[
+              styles.saveBtn,
+              styles.actionBtn,
+              { backgroundColor: colors.primary },
+              !canSave && { backgroundColor: colors.mutedLight },
+            ]}>
+            <Text style={styles.saveBtnText}>수정</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="삭제"
+            onPress={requestDelete}
+            style={[styles.deleteBtn, styles.actionBtn]}>
+            <Text style={styles.deleteBtnText}>삭제</Text>
+          </Pressable>
+        </View>
+      ) : (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="삭제"
-          onPress={requestDelete}
-          style={[styles.deleteBtn, { borderColor: colors.mutedLight }]}>
-          <Text style={[styles.deleteBtnText, { color: colors.muted }]}>
-            삭제
-          </Text>
+          accessibilityLabel="저장"
+          accessibilityState={{ disabled: !canSave }}
+          disabled={!canSave}
+          onPress={handleSave}
+          style={[
+            styles.saveBtn,
+            { backgroundColor: colors.primary },
+            !canSave && { backgroundColor: colors.mutedLight },
+          ]}>
+          <Text style={styles.saveBtnText}>저장</Text>
         </Pressable>
-      ) : null}
+      )}
     </ScrollView>
   );
 }
@@ -579,6 +593,15 @@ const styles = StyleSheet.create({
     minHeight: 96,
     paddingTop: 14,
   },
+  actionRow: {
+    marginTop: 4,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  actionBtn: {
+    flex: 1,
+    marginTop: 0,
+  },
   saveBtn: {
     marginTop: 4,
     height: 52,
@@ -592,15 +615,18 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   deleteBtn: {
-    height: 48,
+    marginTop: 0,
+    height: 52,
     borderRadius: radii.chip,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
+    borderColor: '#e5484d',
     backgroundColor: 'transparent',
   },
   deleteBtnText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 15,
+    fontSize: 16,
+    color: '#e5484d',
   },
 });
