@@ -451,7 +451,11 @@ export default function HomeScreen({
   );
 
   const closeAdd = useCallback(() => {
+    // Keep editingStudy until dismiss finishes so edit UI does not flip mid-close.
     setAddOpen(false);
+  }, []);
+
+  const onAddDismissed = useCallback(() => {
     setEditingStudy(null);
   }, []);
 
@@ -478,7 +482,6 @@ export default function HomeScreen({
           );
           haptics.save();
           setAddOpen(false);
-          setEditingStudy(null);
           return;
         }
         if (!appData) return;
@@ -491,7 +494,6 @@ export default function HomeScreen({
         void persistApp(next);
         haptics.save();
         setAddOpen(false);
-        setEditingStudy(null);
         return;
       }
 
@@ -548,14 +550,12 @@ export default function HomeScreen({
       setDummyData((prev) => removeDummyStudy(prev, studyId));
       haptics.delete();
       setAddOpen(false);
-      setEditingStudy(null);
       return;
     }
     if (!appData) return;
     void persistApp(deleteStudyWithReviews(appData, studyId));
     haptics.delete();
     setAddOpen(false);
-    setEditingStudy(null);
   }, [editingStudy, mode, dataProp, appData, persistApp]);
 
   const onAddSubject = useCallback(
@@ -871,7 +871,10 @@ export default function HomeScreen({
         <CalendarTodayFabIcon showCalendar={isToday} />
       </SpringFab>
 
-      <BottomSheetModal visible={addOpen} onClose={closeAdd}>
+      <BottomSheetModal
+        visible={addOpen}
+        onClose={closeAdd}
+        onDismissed={onAddDismissed}>
         <AddStudyForm
           key={addKey}
           mode={editingStudy ? 'edit' : 'create'}

@@ -199,6 +199,8 @@ export function SheetPanel({
 
 type BottomSheetModalProps = SheetPanelProps & {
   visible: boolean;
+  /** Fires after the close animation finishes (not when reopened mid-close). */
+  onDismissed?: () => void;
 };
 
 /**
@@ -209,6 +211,7 @@ type BottomSheetModalProps = SheetPanelProps & {
 export function BottomSheetModal({
   visible,
   onClose,
+  onDismissed,
   children,
   sheetStyle,
 }: BottomSheetModalProps) {
@@ -217,6 +220,8 @@ export function BottomSheetModal({
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(SHEET_OFFSCREEN)).current;
   const closingRef = useRef(false);
+  const onDismissedRef = useRef(onDismissed);
+  onDismissedRef.current = onDismissed;
 
   useEffect(() => {
     if (visible) {
@@ -261,6 +266,7 @@ export function BottomSheetModal({
       if (finished && closingRef.current) {
         presentedRef.current = false;
         setPresented(false);
+        onDismissedRef.current?.();
       }
     });
   }, [visible, backdropOpacity, sheetTranslateY]);
