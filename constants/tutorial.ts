@@ -16,7 +16,7 @@ export const TUTORIAL_PAGES: readonly TutorialPage[] = [
   {
     eyebrow: '어떻게?',
     title: '에빙하우스의 망각곡선,\n주기를 따라 철저히 복습해요',
-    body: '그 타이밍에 이론에 맞춰 들여다보면 절대 잊지 않을 수 있어요.\n그래서 우리는 이 주기를 사용해 여섯 레이어를 만듭니다.',
+    body: '이론에 맞춰 들여다보면 절대 잊지 않을 수 있어요.\n그래서 우리는 이 주기를 사용해 여섯 레이어를 만듭니다.',
     accent: INTERVAL_LABEL,
   },
   {
