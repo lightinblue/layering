@@ -27,8 +27,11 @@ export default function ReviewDetailSheet() {
       : '복습';
 
   return (
-    <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-      <View style={styles.grabber} accessibilityElementsHidden />
+    <View
+      style={[
+        styles.sheet,
+        { paddingBottom: Math.max(insets.bottom, 24) },
+      ]}>
       <Text style={styles.title}>복습 자세히</Text>
       <Text style={styles.meta}>{intervalLabel}</Text>
 
@@ -64,18 +67,12 @@ export default function ReviewDetailSheet() {
 
 const styles = StyleSheet.create({
   sheet: {
+    flex: 1,
     backgroundColor: colors.white,
     paddingHorizontal: 24,
-    paddingTop: 12,
+    // System grabber (sheetGrabberVisible) sits above content.
+    paddingTop: 20,
     gap: 14,
-  },
-  grabber: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.mutedLight,
-    marginBottom: 4,
   },
   title: {
     fontFamily: fonts.nexonMedium,
