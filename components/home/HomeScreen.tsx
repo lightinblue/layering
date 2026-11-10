@@ -24,6 +24,7 @@ import {
 import Animated, {
   Easing,
   FadeIn,
+  FadeInUp,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -138,7 +139,16 @@ function seedSubjectOptions(): SubjectOption[] {
   }));
 }
 
-/** Day number — remount + quick soft→sharp opacity fade on date change. */
+/** Soft→sharp date enter — short travel so opacity fade reads on device. */
+const dateNumberEnter = FadeInUp.duration(durations.fadeQuick)
+  .easing(Easing.out(Easing.cubic))
+  .withInitialValues({ opacity: 0, translateY: 10 });
+
+const dateMetaEnter = FadeIn.duration(durations.fadeQuick).easing(
+  Easing.out(Easing.cubic),
+);
+
+/** Day number — remount + soft→sharp fade/slide on date change. */
 function AnimatedDayNumber({
   dateKey,
   dayNumber,
@@ -149,9 +159,7 @@ function AnimatedDayNumber({
   return (
     <Animated.Text
       key={dateKey}
-      entering={FadeIn.duration(durations.fadeQuick).easing(
-        Easing.out(Easing.cubic),
-      )}
+      entering={dateNumberEnter}
       style={styles.dayNumber}
       numberOfLines={1}>
       {dayNumber}
@@ -173,9 +181,7 @@ function AnimatedDateMeta({
     <View style={styles.dateMeta}>
       <Animated.Text
         key={`wd-${dateKey}`}
-        entering={FadeIn.duration(durations.fadeQuick).easing(
-          Easing.out(Easing.cubic),
-        )}
+        entering={dateMetaEnter}
         style={styles.weekday}>
         {weekdayLabel}
       </Animated.Text>

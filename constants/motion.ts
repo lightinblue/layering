@@ -42,16 +42,16 @@ export const rnSprings = {
   },
 } as const;
 
-/** Timing durations (ms). */
+/** Timing durations (ms). Keep fades ≥~120ms so opacity-only motion reads on device. */
 export const durations = {
-  fadeQuick: 55,
-  fadeIn: 110,
-  fadeOut: 90,
-  sheetClose: 140,
-  backdropOpen: 140,
-  backdropClose: 110,
-  monthChange: 130,
-  chipShift: 140,
+  fadeQuick: 140,
+  fadeIn: 180,
+  fadeOut: 140,
+  sheetClose: 180,
+  backdropOpen: 180,
+  backdropClose: 140,
+  monthChange: 180,
+  chipShift: 180,
 } as const;
 
 /** Max day-pager index delta that still scrolls animated (슈루룩). */
