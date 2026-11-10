@@ -12,7 +12,7 @@ import {
   startOfWeek,
   toKey,
 } from '@/utils/date';
-import { WEEK_RANGE } from '@/utils/home-from-app-data';
+import { WEEKS_AFTER, WEEKS_BEFORE } from '@/utils/home-from-app-data';
 
 export type {
   HomeReviewCard,
@@ -242,7 +242,7 @@ function buildWeeksAround(
 ): HomeWeekDay[][] {
   const anchorStart = startOfWeek(weekAnchor);
   const weeks: HomeWeekDay[][] = [];
-  for (let offset = -WEEK_RANGE; offset <= WEEK_RANGE; offset += 1) {
+  for (let offset = -WEEKS_BEFORE; offset <= WEEKS_AFTER; offset += 1) {
     weeks.push(
       buildWeek(addDaysToDate(anchorStart, offset * 7), todayContent),
     );
@@ -259,7 +259,7 @@ export function buildDummyHomeData(
 ): HomeScreenData {
   return {
     todayKey: HOME_TODAY_KEY,
-    currentWeekIndex: WEEK_RANGE,
+    currentWeekIndex: WEEKS_BEFORE,
     weeks: buildWeeksAround(weekAnchor, DEFAULT_TODAY_CONTENT),
   };
 }

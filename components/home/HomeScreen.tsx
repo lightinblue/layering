@@ -74,7 +74,7 @@ import type { AppData } from '@/types/domain';
 import { parseKey } from '@/utils/date';
 import {
   homeScreenDataFromAppData,
-  WEEK_RANGE,
+  WEEKS_BEFORE,
 } from '@/utils/home-from-app-data';
 
 const REVIEW_COLS = 3;
@@ -326,7 +326,7 @@ export default function HomeScreen({
       }
       setWeekAnchorKey(dateKey);
       setSelectedKey(dateKey);
-      setWeekIndex(WEEK_RANGE);
+      setWeekIndex(WEEKS_BEFORE);
       if (mode === 'dummy' && !dataProp) {
         setDummyData(buildDummyHomeData(parseKey(dateKey)));
       }

@@ -15,8 +15,10 @@ import {
   toKey,
 } from '@/utils/date';
 
-/** Weeks before/after the current week available for swipe paging (±1 year). */
-export const WEEK_RANGE = 52;
+/** Weeks before the current week available for swipe paging (~3 months). */
+export const WEEKS_BEFORE = 13;
+/** Weeks after the current week available for swipe paging. */
+export const WEEKS_AFTER = 2;
 
 export type ReviewStudyDetail = {
   subjectName: string;
@@ -108,12 +110,12 @@ export function homeScreenDataFromAppData(
   const today = todayKey(now);
   const currentStart = startOfWeek(options?.weekAnchor ?? now);
   const weeks: HomeWeekDay[][] = [];
-  for (let offset = -WEEK_RANGE; offset <= WEEK_RANGE; offset += 1) {
+  for (let offset = -WEEKS_BEFORE; offset <= WEEKS_AFTER; offset += 1) {
     weeks.push(buildWeek(addDaysToDate(currentStart, offset * 7), data));
   }
   return {
     todayKey: today,
-    currentWeekIndex: WEEK_RANGE,
+    currentWeekIndex: WEEKS_BEFORE,
     weeks,
   };
 }
