@@ -711,7 +711,8 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       <BottomSheetModal
         visible={addOpen}
         onClose={closeAdd}
-        onDismissed={onAddDismissed}>
+        onDismissed={onAddDismissed}
+        sheetStyle={{ backgroundColor: colors.surfaceLight }}>
         <AddStudyForm
           key={addKey}
           mode={editingStudy ? 'edit' : 'create'}
@@ -1509,7 +1510,7 @@ const styles = StyleSheet.create({
   },
   studyChipText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.white,
     textAlign: 'center',
   },
@@ -1525,7 +1526,7 @@ const styles = StyleSheet.create({
   },
   studyBodyText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 13,
+    fontSize: 15,
     color: colors.body,
   },
   addStudyBtn: {
