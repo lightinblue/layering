@@ -1,13 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  PanResponder,
   Pressable,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
-  type GestureResponderEvent,
-  type PanResponderGestureState,
 } from 'react-native';
 import Animated, {
   Easing,
@@ -28,19 +25,16 @@ type TutorialScreenProps = {
   onFinished: () => void;
 };
 
-const SWIPE_THRESHOLD = 56;
-
 /**
  * Minimal first-launch intro: forgetting curve → how to use.
  * Skip is always available; finish lands on home.
- * Previous page is weakly available (subtle back + swipe).
+ * Previous page is weakly available via muted 「이전」 only (no swipe).
  */
 export function TutorialScreen({ onFinished }: TutorialScreenProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [index, setIndex] = useState(0);
-  const indexRef = useRef(0);
   const page = TUTORIAL_PAGES[index];
   const isFirst = index <= 0;
   const isLast = index >= TUTORIAL_PAGES.length - 1;
@@ -52,57 +46,24 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
   }, [onFinished]);
 
   const goNext = useCallback(() => {
-    if (indexRef.current >= TUTORIAL_PAGES.length - 1) {
+    if (isLast) {
       finish();
       return;
     }
     haptics.select();
-    setIndex((i) => {
-      const next = Math.min(i + 1, TUTORIAL_PAGES.length - 1);
-      indexRef.current = next;
-      return next;
-    });
-  }, [finish]);
+    setIndex((i) => Math.min(i + 1, TUTORIAL_PAGES.length - 1));
+  }, [finish, isLast]);
 
   const goPrev = useCallback(() => {
-    if (indexRef.current <= 0) return;
+    if (isFirst) return;
     haptics.select();
-    setIndex((i) => {
-      const prev = Math.max(i - 1, 0);
-      indexRef.current = prev;
-      return prev;
-    });
-  }, []);
+    setIndex((i) => Math.max(i - 1, 0));
+  }, [isFirst]);
 
   const skip = useCallback(() => {
     haptics.sheetOpen();
     onFinished();
   }, [onFinished]);
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (
-          _event: GestureResponderEvent,
-          gesture: PanResponderGestureState,
-        ) =>
-          Math.abs(gesture.dx) > 12 &&
-          Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
-        onPanResponderRelease: (
-          _event: GestureResponderEvent,
-          gesture: PanResponderGestureState,
-        ) => {
-          if (gesture.dx <= -SWIPE_THRESHOLD) {
-            goNext();
-            return;
-          }
-          if (gesture.dx >= SWIPE_THRESHOLD) {
-            goPrev();
-          }
-        },
-      }),
-    [goNext, goPrev],
-  );
 
   return (
     <View
@@ -113,8 +74,7 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
           paddingTop: insets.top + 12,
           paddingBottom: Math.max(insets.bottom, 20) + 8,
         },
-      ]}
-      {...panResponder.panHandlers}>
+      ]}>
       <View style={[styles.topBar, { width: contentWidth }]}>
         <View style={styles.topLeft}>
           {!isFirst ? (
