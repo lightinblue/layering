@@ -14,7 +14,9 @@ export type HomeReviewCard = {
 };
 
 export type HomeWeekDay = {
-  /** Calendar day-of-month within the demo week. */
+  /** ISO date YYYY-MM-DD (unique across weeks). */
+  dateKey: string;
+  /** Calendar day-of-month. */
   day: number;
   dow: string;
   weekdayLabel: string;
@@ -25,65 +27,34 @@ export type HomeWeekDay = {
 };
 
 export type HomeScreenData = {
-  /** Demo “today” day-of-month (selection baseline for future checks). */
-  todayDay: number;
-  weekDays: HomeWeekDay[];
+  /** Demo “today” ISO date (selection baseline for today/future checks). */
+  todayKey: string;
+  /** Index of the current (demo) week inside `weeks`. */
+  currentWeekIndex: number;
+  /** Contiguous Sun–Sat weeks around the demo week. */
+  weeks: HomeWeekDay[][];
 };
 
-/** Demo week: Sun 8 – Sat 14 Nov; “today” = Mon 9. */
-export const HOME_TODAY_DAY = 9;
+const DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
+const WEEKDAY_LABELS = [
+  '일요일',
+  '월요일',
+  '화요일',
+  '수요일',
+  '목요일',
+  '금요일',
+  '토요일',
+] as const;
 
-const WEEK_META: Omit<HomeWeekDay, 'studies' | 'reviews'>[] = [
-  {
-    day: 8,
-    dow: 'SUN',
-    dayNumber: '08',
-    weekdayLabel: '일요일',
-    dateLabel: '11월 8일',
-  },
-  {
-    day: 9,
-    dow: 'MON',
-    dayNumber: '09',
-    weekdayLabel: '월요일',
-    dateLabel: '11월 9일',
-  },
-  {
-    day: 10,
-    dow: 'TUE',
-    dayNumber: '10',
-    weekdayLabel: '화요일',
-    dateLabel: '11월 10일',
-  },
-  {
-    day: 11,
-    dow: 'WED',
-    dayNumber: '11',
-    weekdayLabel: '수요일',
-    dateLabel: '11월 11일',
-  },
-  {
-    day: 12,
-    dow: 'THU',
-    dayNumber: '12',
-    weekdayLabel: '목요일',
-    dateLabel: '11월 12일',
-  },
-  {
-    day: 13,
-    dow: 'FRI',
-    dayNumber: '13',
-    weekdayLabel: '금요일',
-    dateLabel: '11월 13일',
-  },
-  {
-    day: 14,
-    dow: 'SAT',
-    dayNumber: '14',
-    weekdayLabel: '토요일',
-    dateLabel: '11월 14일',
-  },
-];
+/** Demo “today” = Mon 9 Nov 2026. */
+export const HOME_TODAY_KEY = '2026-11-09';
+/** Demo week Sunday start. */
+export const DEMO_WEEK_START_KEY = '2026-11-08';
+/** Weeks before/after the demo week available for swipe paging. */
+export const WEEK_RANGE = 2;
+
+/** @deprecated Prefer HOME_TODAY_KEY; kept for day-of-month display helpers. */
+export const HOME_TODAY_DAY = 9;
 
 const FULL_STUDIES: HomeStudyRow[] = [
   { id: 's1', subjectName: '분류', content: '1-2단원 필기' },
@@ -142,13 +113,12 @@ const FEW_REVIEWS: HomeReviewCard[] = [
   },
 ];
 
-/** Per-day mock payloads keyed by day-of-month (demo week). */
-const DAY_CONTENT: Record<
-  number,
+/** Per-day mock payloads for the demo week (keyed by ISO date). */
+const DEMO_DAY_CONTENT: Record<
+  string,
   { studies: HomeStudyRow[]; reviews: HomeReviewCard[] }
 > = {
-  // Past: lighter day
-  8: {
+  '2026-11-08': {
     studies: [{ id: 's8', subjectName: '정검', content: '기출 10문항' }],
     reviews: [
       {
@@ -165,24 +135,107 @@ const DAY_CONTENT: Record<
       },
     ],
   },
-  // Today — filled by demo state (full / few / empty)
-  9: { studies: FULL_STUDIES, reviews: FULL_REVIEWS },
-  // Future days: empty (no add CTA when selected)
-  10: { studies: [], reviews: [] },
-  11: { studies: [], reviews: [] },
-  12: { studies: [], reviews: [] },
-  13: { studies: [], reviews: [] },
-  14: { studies: [], reviews: [] },
+  // Today filled by demo state (full / few / empty)
+  '2026-11-09': { studies: FULL_STUDIES, reviews: FULL_REVIEWS },
+  '2026-11-10': { studies: [], reviews: [] },
+  '2026-11-11': { studies: [], reviews: [] },
+  '2026-11-12': { studies: [], reviews: [] },
+  '2026-11-13': { studies: [], reviews: [] },
+  '2026-11-14': { studies: [], reviews: [] },
 };
 
+/** Light demo content for adjacent weeks (not the current demo week). */
+function adjacentDemoContent(
+  dateKey: string,
+  weekdayIndex: number,
+): { studies: HomeStudyRow[]; reviews: HomeReviewCard[] } {
+  // Sparse placeholders so other weeks feel inhabited.
+  if (weekdayIndex === 1) {
+    return {
+      studies: [
+        {
+          id: `s-${dateKey}`,
+          subjectName: '분류',
+          content: '복습 노트 정리',
+        },
+      ],
+      reviews: [
+        {
+          id: `r-${dateKey}`,
+          intervalDays: 1,
+          subjectNames: ['분류'],
+          completed: false,
+        },
+      ],
+    };
+  }
+  if (weekdayIndex === 3) {
+    return {
+      studies: [
+        {
+          id: `s-${dateKey}`,
+          subjectName: '교육학',
+          content: '요약 암기',
+        },
+      ],
+      reviews: [],
+    };
+  }
+  return { studies: [], reviews: [] };
+}
+
+function parseKey(key: string): Date {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function toKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function metaForDate(date: Date): Omit<HomeWeekDay, 'studies' | 'reviews'> {
+  const weekdayIndex = date.getDay();
+  const day = date.getDate();
+  return {
+    dateKey: toKey(date),
+    day,
+    dow: DOW[weekdayIndex],
+    weekdayLabel: WEEKDAY_LABELS[weekdayIndex],
+    dateLabel: `${date.getMonth() + 1}월 ${day}일`,
+    dayNumber: String(day).padStart(2, '0'),
+  };
+}
+
 function buildWeek(
+  weekStart: Date,
   todayContent: { studies: HomeStudyRow[]; reviews: HomeReviewCard[] },
 ): HomeWeekDay[] {
-  return WEEK_META.map((meta) => {
-    const content =
-      meta.day === HOME_TODAY_DAY
-        ? todayContent
-        : (DAY_CONTENT[meta.day] ?? { studies: [], reviews: [] });
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(weekStart, i);
+    const meta = metaForDate(date);
+    const isDemoWeek =
+      toKey(weekStart) === DEMO_WEEK_START_KEY;
+    let content: { studies: HomeStudyRow[]; reviews: HomeReviewCard[] };
+    if (isDemoWeek) {
+      content =
+        meta.dateKey === HOME_TODAY_KEY
+          ? todayContent
+          : (DEMO_DAY_CONTENT[meta.dateKey] ?? {
+              studies: [],
+              reviews: [],
+            });
+    } else {
+      content = adjacentDemoContent(meta.dateKey, i);
+    }
     return {
       ...meta,
       studies: content.studies,
@@ -191,25 +244,44 @@ function buildWeek(
   });
 }
 
+function buildWeeks(
+  todayContent: { studies: HomeStudyRow[]; reviews: HomeReviewCard[] },
+): HomeWeekDay[][] {
+  const demoStart = parseKey(DEMO_WEEK_START_KEY);
+  const weeks: HomeWeekDay[][] = [];
+  for (let offset = -WEEK_RANGE; offset <= WEEK_RANGE; offset += 1) {
+    weeks.push(buildWeek(addDays(demoStart, offset * 7), todayContent));
+  }
+  return weeks;
+}
+
 export type HomeDemoState = 'full' | 'few' | 'empty';
 
 export const HOME_DEMO_STATES: HomeDemoState[] = ['full', 'few', 'empty'];
 
 export const HOME_MOCK: Record<HomeDemoState, HomeScreenData> = {
   full: {
-    todayDay: HOME_TODAY_DAY,
-    weekDays: buildWeek({ studies: FULL_STUDIES, reviews: FULL_REVIEWS }),
+    todayKey: HOME_TODAY_KEY,
+    currentWeekIndex: WEEK_RANGE,
+    weeks: buildWeeks({ studies: FULL_STUDIES, reviews: FULL_REVIEWS }),
   },
   few: {
-    todayDay: HOME_TODAY_DAY,
-    weekDays: buildWeek({ studies: FEW_STUDIES, reviews: FEW_REVIEWS }),
+    todayKey: HOME_TODAY_KEY,
+    currentWeekIndex: WEEK_RANGE,
+    weeks: buildWeeks({ studies: FEW_STUDIES, reviews: FEW_REVIEWS }),
   },
   empty: {
-    todayDay: HOME_TODAY_DAY,
-    weekDays: buildWeek({ studies: [], reviews: [] }),
+    todayKey: HOME_TODAY_KEY,
+    currentWeekIndex: WEEK_RANGE,
+    weeks: buildWeeks({ studies: [], reviews: [] }),
   },
 };
 
 export function intervalLabel(days: ReviewIntervalDay): string {
   return `${days}일 전`;
+}
+
+/** Flat list of all days across weeks (for lookups). */
+export function flattenWeeks(weeks: HomeWeekDay[][]): HomeWeekDay[] {
+  return weeks.flat();
 }

@@ -1,7 +1,10 @@
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  FlatList,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   StyleSheet,
   Text,
@@ -18,9 +21,10 @@ import {
   PlusIcon,
 } from '@/components/icons/HomeIcons';
 import {
+  flattenWeeks,
   HOME_DEMO_STATES,
   HOME_MOCK,
-  HOME_TODAY_DAY,
+  HOME_TODAY_KEY,
   intervalLabel,
   type HomeDemoState,
   type HomeReviewCard,
@@ -54,21 +58,25 @@ export default function HomeScreen({
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const [demoState, setDemoState] = useState<HomeDemoState>(initialDemoState);
-  const [selectedDay, setSelectedDay] = useState(HOME_TODAY_DAY);
+  const [selectedKey, setSelectedKey] = useState(HOME_TODAY_KEY);
+  const [weekIndex, setWeekIndex] = useState(
+    () => (dataProp ?? HOME_MOCK[initialDemoState]).currentWeekIndex,
+  );
   const [completedOverrides, setCompletedOverrides] = useState<
     Record<string, boolean>
   >({});
 
   const base = dataProp ?? HOME_MOCK[demoState];
-  const todayDay = base.todayDay;
+  const todayKey = base.todayKey;
+  const allDays = useMemo(() => flattenWeeks(base.weeks), [base.weeks]);
 
   const selected = useMemo(() => {
     return (
-      base.weekDays.find((d) => d.day === selectedDay) ??
-      base.weekDays.find((d) => d.day === todayDay) ??
-      base.weekDays[0]
+      allDays.find((d) => d.dateKey === selectedKey) ??
+      allDays.find((d) => d.dateKey === todayKey) ??
+      allDays[0]
     );
-  }, [base.weekDays, selectedDay, todayDay]);
+  }, [allDays, selectedKey, todayKey]);
 
   const reviews = useMemo(
     () =>
@@ -79,16 +87,8 @@ export default function HomeScreen({
     [selected.reviews, completedOverrides],
   );
 
-  const isFutureDay = selected.day > todayDay;
-  const isToday = selected.day === todayDay;
-  const weekDays = useMemo(
-    () =>
-      base.weekDays.map((d) => ({
-        ...d,
-        selected: d.day === selected.day,
-      })),
-    [base.weekDays, selected.day],
-  );
+  const isFutureDay = selected.dateKey > todayKey;
+  const isToday = selected.dateKey === todayKey;
 
   const frameWidth = Math.min(windowWidth - 16, spacing.frameWidth);
   const contentWidth = Math.min(frameWidth, spacing.contentWidth);
@@ -122,20 +122,41 @@ export default function HomeScreen({
     router.push('/add');
   }, [router]);
 
-  const selectDay = useCallback((day: number) => {
+  const selectDay = useCallback((dateKey: string) => {
     setCompletedOverrides({});
-    setSelectedDay(day);
+    setSelectedKey(dateKey);
   }, []);
+
+  const onWeekChange = useCallback(
+    (nextIndex: number, weekdayIndex: number) => {
+      const week = base.weeks[nextIndex];
+      if (!week) return;
+      const nextDay = week[weekdayIndex] ?? week[0];
+      setWeekIndex(nextIndex);
+      setCompletedOverrides({});
+      setSelectedKey(nextDay.dateKey);
+    },
+    [base.weeks],
+  );
 
   const selectDemo = useCallback(
     (next: HomeDemoState) => {
       if (dataProp) return;
+      const mock = HOME_MOCK[next];
       setCompletedOverrides({});
-      setSelectedDay(HOME_TODAY_DAY);
+      setSelectedKey(HOME_TODAY_KEY);
+      setWeekIndex(mock.currentWeekIndex);
       setDemoState(next);
     },
     [dataProp],
   );
+
+  const selectedWeekdayIndex = useMemo(() => {
+    const week = base.weeks[weekIndex];
+    if (!week) return 0;
+    const idx = week.findIndex((d) => d.dateKey === selected.dateKey);
+    return idx >= 0 ? idx : 0;
+  }, [base.weeks, weekIndex, selected.dateKey]);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -160,7 +181,16 @@ export default function HomeScreen({
               </View>
             </View>
 
-            <WeekStrip days={weekDays} onSelectDay={selectDay} />
+            <WeekStripPager
+              key={`${demoState}:${base.currentWeekIndex}`}
+              weeks={base.weeks}
+              weekIndex={weekIndex}
+              selectedKey={selected.dateKey}
+              weekdayIndex={selectedWeekdayIndex}
+              width={frameWidth}
+              onSelectDay={selectDay}
+              onWeekChange={onWeekChange}
+            />
           </View>
 
           <View style={[styles.sections, { maxWidth: contentWidth }]}>
@@ -239,32 +269,100 @@ function DemoStateControl({
   );
 }
 
-function WeekStrip({
-  days,
+function WeekStripPager({
+  weeks,
+  weekIndex,
+  selectedKey,
+  weekdayIndex,
+  width,
   onSelectDay,
+  onWeekChange,
 }: {
-  days: (HomeWeekDay & { selected: boolean })[];
-  onSelectDay: (day: number) => void;
+  weeks: HomeWeekDay[][];
+  weekIndex: number;
+  selectedKey: string;
+  weekdayIndex: number;
+  width: number;
+  onSelectDay: (dateKey: string) => void;
+  onWeekChange: (weekIndex: number, weekdayIndex: number) => void;
 }) {
+  const listRef = useRef<FlatList<HomeWeekDay[]>>(null);
+
+  const onMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (width <= 0) return;
+      const next = Math.round(e.nativeEvent.contentOffset.x / width);
+      const clamped = Math.max(0, Math.min(weeks.length - 1, next));
+      if (clamped !== weekIndex) {
+        onWeekChange(clamped, weekdayIndex);
+      }
+    },
+    [onWeekChange, weekIndex, weekdayIndex, weeks.length, width],
+  );
+
+  const getItemLayout = useCallback(
+    (_: ArrayLike<HomeWeekDay[]> | null | undefined, index: number) => ({
+      length: width,
+      offset: width * index,
+      index,
+    }),
+    [width],
+  );
+
+  const renderWeek = useCallback(
+    ({ item: days }: { item: HomeWeekDay[] }) => (
+      <View style={[styles.weekPage, { width }]}>
+        {days.map((d) => {
+          const selected = d.dateKey === selectedKey;
+          return (
+            <Pressable
+              key={d.dateKey}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              accessibilityLabel={`${d.weekdayLabel} ${d.dateLabel}`}
+              onPress={() => onSelectDay(d.dateKey)}
+              style={[styles.weekCell, selected && styles.weekCellSelected]}>
+              <Text
+                style={[
+                  styles.weekDayNum,
+                  selected && styles.weekDayNumSelected,
+                ]}>
+                {d.day}
+              </Text>
+              <Text
+                style={[styles.weekDow, selected && styles.weekDowSelected]}>
+                {d.dow}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    ),
+    [onSelectDay, selectedKey, width],
+  );
+
   return (
-    <View style={styles.weekStrip}>
-      {days.map((d) => (
-        <Pressable
-          key={`${d.day}-${d.dow}`}
-          accessibilityRole="button"
-          accessibilityState={{ selected: d.selected }}
-          accessibilityLabel={`${d.weekdayLabel} ${d.dateLabel}`}
-          onPress={() => onSelectDay(d.day)}
-          style={[styles.weekCell, d.selected && styles.weekCellSelected]}>
-          <Text style={[styles.weekDayNum, d.selected && styles.weekDayNumSelected]}>
-            {d.day}
-          </Text>
-          <Text style={[styles.weekDow, d.selected && styles.weekDowSelected]}>
-            {d.dow}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
+    <FlatList
+      ref={listRef}
+      data={weeks}
+      horizontal
+      pagingEnabled
+      bounces={false}
+      showsHorizontalScrollIndicator={false}
+      decelerationRate="fast"
+      keyExtractor={(_, index) => `week-${index}`}
+      renderItem={renderWeek}
+      getItemLayout={getItemLayout}
+      initialScrollIndex={weekIndex}
+      onMomentumScrollEnd={onMomentumScrollEnd}
+      onScrollToIndexFailed={({ index }) => {
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToIndex({ index, animated: false });
+        });
+      }}
+      style={[styles.weekPager, { width }]}
+      extraData={`${selectedKey}:${weekIndex}`}
+    />
   );
 }
 
@@ -442,7 +540,8 @@ const styles = StyleSheet.create({
     maxWidth: spacing.frameWidth,
     gap: spacing.blockGap,
     alignItems: 'center',
-    paddingTop: 6,
+    /** Nudge date block slightly below safe area. */
+    paddingTop: 12,
   },
   /** Header + week: tighter than frame blockGap. */
   topBlock: {
@@ -492,9 +591,11 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     width: '100%',
   },
-  weekStrip: {
-    width: '100%',
+  weekPager: {
     maxWidth: spacing.frameWidth,
+    flexGrow: 0,
+  },
+  weekPage: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
