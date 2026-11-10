@@ -8,13 +8,16 @@ import {
 } from 'react';
 import {
   Alert,
+  LayoutAnimation,
   LayoutChangeEvent,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
   type GestureResponderEvent,
   type PanResponderGestureState,
@@ -25,10 +28,18 @@ import { fonts } from '@/constants/fonts';
 import {
   SUBJECT_COLOR_OPTIONS,
   SUBJECT_COLORS,
+  colors as tokenColors,
   radii,
   subjectBorderColor,
   subjectColor,
 } from '@/constants/tokens';
+
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import {
   MAX_SUBJECT_NAME_LENGTH,
   MAX_SUBJECTS,
@@ -92,6 +103,12 @@ const CHIP_HINT =
   '길게 눌러 순서 변경 · 선택한 과목을 다시 누르면 삭제';
 const LONG_PRESS_MS = 380;
 const MOVE_CANCEL_PX = 10;
+const CHIP_SHIFT_ANIM = {
+  duration: 220,
+  update: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+  },
+};
 
 const DEFAULT_SUBJECT_OPTIONS: SubjectOption[] = DUMMY_SUBJECTS.map((name) => ({
   name,
@@ -154,7 +171,8 @@ export function AddStudyForm({
   const [chipHint, setChipHint] = useState<string | null>(null);
   const [deleteArmed, setDeleteArmed] = useState<string | null>(null);
   const [draggingName, setDraggingName] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  /** Floating chip top-left in row-local coords while dragging. */
+  const [dragLocal, setDragLocal] = useState({ x: 0, y: 0 });
 
   const chipSubjects = useMemo(() => {
     if (!initial?.subject) return subjects;
@@ -181,6 +199,11 @@ export function AddStudyForm({
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragActivatedRef = useRef(false);
   const activeChipRef = useRef<string | null>(null);
+  /** Finger offset inside the chip at drag start (page coords). */
+  const fingerInChipRef = useRef({ x: 0, y: 0 });
+  const dragSizeRef = useRef({ width: 0, height: 0 });
+  const lastShiftAtRef = useRef(0);
+  const lastPageRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     orderedNamesRef.current = orderedNames;
@@ -243,30 +266,22 @@ export function AddStudyForm({
     });
   }, []);
 
-  const findHoverIndex = useCallback(
-    (pageX: number, pageY: number, exclude: string) => {
-      const localX = pageX - rowPageRef.current.x;
-      const localY = pageY - rowPageRef.current.y;
-      let best = -1;
-      let bestDist = Number.POSITIVE_INFINITY;
-      orderedNamesRef.current.forEach((name, index) => {
-        if (name === exclude) return;
-        const layout = chipLayoutsRef.current[name];
-        if (!layout) return;
-        const cx = layout.x + layout.width / 2;
-        const cy = layout.y + layout.height / 2;
-        const dist = (cx - localX) ** 2 + (cy - localY) ** 2;
-        if (dist < bestDist) {
-          bestDist = dist;
-          best = index;
-        }
-      });
-      return best;
-    },
-    [],
-  );
-
-  const hoverIndexRef = useRef(-1);
+  const findHoverIndex = useCallback((localX: number, localY: number) => {
+    let best = -1;
+    let bestDist = Number.POSITIVE_INFINITY;
+    orderedNamesRef.current.forEach((name, index) => {
+      const layout = chipLayoutsRef.current[name];
+      if (!layout) return;
+      const cx = layout.x + layout.width / 2;
+      const cy = layout.y + layout.height / 2;
+      const dist = (cx - localX) ** 2 + (cy - localY) ** 2;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = index;
+      }
+    });
+    return best;
+  }, []);
 
   const endDrag = useCallback(() => {
     const name = draggingRef.current;
@@ -275,16 +290,10 @@ export function AddStudyForm({
     activeChipRef.current = null;
     draggingRef.current = null;
     setDraggingName(null);
-    setDragOffset({ x: 0, y: 0 });
-    const hover = hoverIndexRef.current;
-    hoverIndexRef.current = -1;
+    setDragLocal({ x: 0, y: 0 });
     if (!name || !onReorderSubjects) return;
     const origin = dragOriginRef.current;
-    const from = origin.indexOf(name);
-    if (from < 0 || hover < 0 || hover === from) return;
-    const next = moveName(origin, from, hover);
-    orderedNamesRef.current = next;
-    setOrderedNames(next);
+    const next = orderedNamesRef.current;
     if (namesSignature(next) === namesSignature(origin)) return;
     onReorderSubjects(next);
   }, [clearLongPressTimer, onReorderSubjects]);
@@ -328,17 +337,48 @@ export function AddStudyForm({
   );
 
   const beginDrag = useCallback(
-    (name: string) => {
+    (name: string, pageX: number, pageY: number) => {
       if (!onReorderSubjects) return;
       measureRow();
+      const layout = chipLayoutsRef.current[name];
+      if (!layout) return;
+      const chipPageX = rowPageRef.current.x + layout.x;
+      const chipPageY = rowPageRef.current.y + layout.y;
+      fingerInChipRef.current = {
+        x: pageX - chipPageX,
+        y: pageY - chipPageY,
+      };
+      dragSizeRef.current = { width: layout.width, height: layout.height };
+      lastShiftAtRef.current = 0;
       dragActivatedRef.current = true;
       draggingRef.current = name;
       dragOriginRef.current = [...orderedNamesRef.current];
       setDraggingName(name);
       setDeleteArmed(null);
-      setDragOffset({ x: 0, y: 0 });
+      setDragLocal({ x: layout.x, y: layout.y });
     },
     [measureRow, onReorderSubjects],
+  );
+
+  const shiftWhileDragging = useCallback(
+    (name: string, localX: number, localY: number) => {
+      const from = orderedNamesRef.current.indexOf(name);
+      if (from < 0) return;
+      const hover = findHoverIndex(localX, localY);
+      if (hover < 0 || hover === from) return;
+      const now = Date.now();
+      // Avoid thrashing when the finger sits on a boundary.
+      if (now - lastShiftAtRef.current < 48) return;
+      lastShiftAtRef.current = now;
+      const next = moveName(orderedNamesRef.current, from, hover);
+      if (namesSignature(next) === namesSignature(orderedNamesRef.current)) {
+        return;
+      }
+      LayoutAnimation.configureNext(CHIP_SHIFT_ANIM);
+      orderedNamesRef.current = next;
+      setOrderedNames(next);
+    },
+    [findHoverIndex],
   );
 
   const onChipLayout = useCallback((name: string, event: LayoutChangeEvent) => {
@@ -358,20 +398,32 @@ export function AddStudyForm({
         onMoveShouldSetPanResponderCapture: () => dragActivatedRef.current,
         onPanResponderTerminationRequest: () => !dragActivatedRef.current,
         onShouldBlockNativeResponder: () => dragActivatedRef.current,
-        onPanResponderGrant: () => {
+        onPanResponderGrant: (event: GestureResponderEvent) => {
           activeChipRef.current = name;
           dragActivatedRef.current = false;
           clearLongPressTimer();
+          lastPageRef.current = {
+            x: event.nativeEvent.pageX,
+            y: event.nativeEvent.pageY,
+          };
           if (!onReorderSubjects) return;
           longPressTimerRef.current = setTimeout(() => {
             if (activeChipRef.current !== name) return;
-            beginDrag(name);
+            beginDrag(
+              name,
+              lastPageRef.current.x,
+              lastPageRef.current.y,
+            );
           }, LONG_PRESS_MS);
         },
         onPanResponderMove: (
           event: GestureResponderEvent,
           gesture: PanResponderGestureState,
         ) => {
+          lastPageRef.current = {
+            x: event.nativeEvent.pageX,
+            y: event.nativeEvent.pageY,
+          };
           if (!dragActivatedRef.current) {
             if (
               Math.abs(gesture.dx) > MOVE_CANCEL_PX ||
@@ -381,12 +433,13 @@ export function AddStudyForm({
             }
             return;
           }
-          setDragOffset({ x: gesture.dx, y: gesture.dy });
-          hoverIndexRef.current = findHoverIndex(
-            event.nativeEvent.pageX,
-            event.nativeEvent.pageY,
-            name,
-          );
+          const { pageX, pageY } = event.nativeEvent;
+          const localX = pageX - rowPageRef.current.x - fingerInChipRef.current.x;
+          const localY = pageY - rowPageRef.current.y - fingerInChipRef.current.y;
+          setDragLocal({ x: localX, y: localY });
+          const centerX = localX + dragSizeRef.current.width / 2;
+          const centerY = localY + dragSizeRef.current.height / 2;
+          shiftWhileDragging(name, centerX, centerY);
         },
         onPanResponderRelease: (
           _event: GestureResponderEvent,
@@ -423,7 +476,7 @@ export function AddStudyForm({
     onReorderSubjects,
     clearLongPressTimer,
     beginDrag,
-    findHoverIndex,
+    shiftWhileDragging,
     endDrag,
     handleChipTap,
   ]);
@@ -492,6 +545,13 @@ export function AddStudyForm({
     setChipHint(null);
   }, [onAddSubject, draftName, draftColor]);
 
+  const draggingChip = draggingName
+    ? orderedChips.find((s) => s.name === draggingName) ?? null
+    : null;
+  const draggingFill = draggingChip
+    ? draggingChip.color || subjectColor(draggingChip.name, colorByName)
+    : null;
+
   return (
     <ScrollView
       keyboardShouldPersistTaps="handled"
@@ -520,17 +580,7 @@ export function AddStudyForm({
               <View
                 key={name}
                 onLayout={(event) => onChipLayout(name, event)}
-                style={[
-                  styles.chipWrap,
-                  dragging && {
-                    zIndex: 20,
-                    transform: [
-                      { translateX: dragOffset.x },
-                      { translateY: dragOffset.y },
-                      { scale: 1.06 },
-                    ],
-                  },
-                ]}>
+                style={styles.chipWrap}>
                 <View
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
@@ -550,10 +600,16 @@ export function AddStudyForm({
                     },
                     selected && styles.subjectChipSelected,
                     !selected && styles.subjectChipIdle,
-                    dragging && styles.subjectChipDragging,
+                    dragging && styles.subjectChipPlaceholder,
                   ]}
                   {...(pan ? pan.panHandlers : {})}>
-                  <Text style={styles.subjectChipText}>{name}</Text>
+                  <Text
+                    style={[
+                      styles.subjectChipText,
+                      dragging && styles.subjectChipPlaceholderText,
+                    ]}>
+                    {name}
+                  </Text>
                 </View>
                 {showDelete ? (
                   <Pressable
@@ -571,6 +627,36 @@ export function AddStudyForm({
               </View>
             );
           })}
+
+          {draggingChip && draggingFill ? (
+            <View
+              pointerEvents="none"
+              style={[
+                styles.chipWrap,
+                styles.dragFloating,
+                {
+                  left: dragLocal.x,
+                  top: dragLocal.y,
+                  width: dragSizeRef.current.width || undefined,
+                },
+              ]}>
+              <View
+                style={[
+                  styles.subjectChip,
+                  styles.subjectChipDragging,
+                  {
+                    backgroundColor: draggingFill,
+                    borderColor: subjectBorderColor(
+                      draggingChip.name,
+                      draggingFill,
+                    ),
+                    width: '100%',
+                  },
+                ]}>
+                <Text style={styles.subjectChipText}>{draggingChip.name}</Text>
+              </View>
+            </View>
+          ) : null}
 
           {onAddSubject && !adding ? (
             <Pressable
@@ -780,6 +866,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   chipRow: {
+    position: 'relative',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
@@ -788,6 +875,11 @@ const styles = StyleSheet.create({
   chipWrap: {
     position: 'relative',
     overflow: 'visible',
+  },
+  dragFloating: {
+    position: 'absolute',
+    zIndex: 40,
+    transform: [{ scale: 1.06 }],
   },
   // Width follows label; padding tuned so a 3-char Hangul name is the visual baseline.
   subjectChip: {
@@ -804,13 +896,19 @@ const styles = StyleSheet.create({
   subjectChipSelected: {
     opacity: 1,
   },
+  subjectChipPlaceholder: {
+    opacity: 0.28,
+  },
+  subjectChipPlaceholderText: {
+    opacity: 0.55,
+  },
   subjectChipDragging: {
-    opacity: 0.95,
+    opacity: 0.98,
     shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 8,
   },
   subjectChipText: {
     fontFamily: fonts.nexonMedium,
@@ -827,14 +925,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#e5484d',
+    borderColor: tokenColors.muted,
     zIndex: 30,
   },
   deleteBadgeText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 16,
     lineHeight: 18,
-    color: '#e5484d',
+    color: tokenColors.muted,
     marginTop: -1,
   },
   addChip: {
