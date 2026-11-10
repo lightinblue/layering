@@ -196,6 +196,7 @@ function DayCell({
       <Animated.View
         style={[
           styles.dayInner,
+          { width: Math.min(44, Math.max(32, width - 4)) },
           isFocus && cell.inMonth
             ? { backgroundColor: selectedBg }
             : null,
@@ -268,7 +269,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   dayInner: {
-    width: 44,
+    // Width capped to cell so narrow frames don’t clip neighbors.
     minHeight: 52,
     borderRadius: 12,
     alignItems: 'center',

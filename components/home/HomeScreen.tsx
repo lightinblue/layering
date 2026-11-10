@@ -1019,6 +1019,8 @@ function WeekStripPager({
     [width],
   );
 
+  const cellWidth = width / 7;
+
   const renderWeek = useCallback(
     ({ item: days }: { item: HomeWeekDay[] }) => (
       <View style={[styles.weekPage, { width }]}>
@@ -1026,6 +1028,7 @@ function WeekStripPager({
           <WeekDayCell
             key={d.dateKey}
             day={d}
+            width={cellWidth}
             selected={d.dateKey === selectedKey}
             accentColor={accentColor}
             onSelectDay={onSelectDay}
@@ -1033,7 +1036,7 @@ function WeekStripPager({
         ))}
       </View>
     ),
-    [accentColor, onSelectDay, selectedKey, width],
+    [accentColor, cellWidth, onSelectDay, selectedKey, width],
   );
 
   return (
@@ -1064,11 +1067,13 @@ function WeekStripPager({
 
 function WeekDayCell({
   day,
+  width,
   selected,
   accentColor,
   onSelectDay,
 }: {
   day: HomeWeekDay;
+  width: number;
   selected: boolean;
   accentColor: string;
   onSelectDay: (dateKey: string) => void;
@@ -1092,6 +1097,7 @@ function WeekDayCell({
       <Animated.View
         style={[
           styles.weekCell,
+          { width },
           selected && styles.weekCellSelected,
           cellStyle,
         ]}>
@@ -1334,7 +1340,9 @@ function StudyRow({
           styles.studyChip,
           { backgroundColor: subjectColor(row.subjectName, colorByName) },
         ]}>
-        <Text style={styles.studyChipText}>{row.subjectName}</Text>
+        <Text style={styles.studyChipText} numberOfLines={1}>
+          {row.subjectName}
+        </Text>
       </View>
       <View style={styles.studyBody}>
         <Text style={styles.studyBodyText} numberOfLines={1}>
@@ -1442,7 +1450,9 @@ function ReviewCheck({
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked: completed }}
-      onPress={onToggle}>
+      onPress={onToggle}
+      // Visual 32 → hit ~44 with 6pt slop each side.
+      hitSlop={6}>
       <Animated.View style={[styles.checkbox, boxStyle]}>
         <CheckIcon />
       </Animated.View>
@@ -1514,7 +1524,7 @@ function ReviewCard({
                 accent={accent}
                 onToggle={onToggle}
               />
-              <Text style={styles.intervalText}>
+              <Text style={styles.intervalText} numberOfLines={1}>
                 {intervalLabel(card.intervalDays)}
               </Text>
             </View>
@@ -1630,7 +1640,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   weekCell: {
-    width: sizes.weekCell.width,
+    // Width set per layout (frameWidth / 7) so narrow phones don’t overflow.
     height: sizes.weekCell.height,
     borderRadius: radii.weekDay,
     alignItems: 'center',
@@ -1696,14 +1706,18 @@ const styles = StyleSheet.create({
     borderRadius: radii.chip,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
+    paddingHorizontal: 4,
   },
   studyChipText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
     color: colors.white,
+    textAlign: 'center',
   },
   studyBody: {
     flex: 1,
+    minWidth: 0,
     height: sizes.studyBodyHeight,
     backgroundColor: colors.surface,
     borderRadius: radii.chip,
@@ -1794,6 +1808,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.accentText,
     letterSpacing: -0.44,
+    flexShrink: 1,
   },
   reviewChips: {
     flexDirection: 'row',

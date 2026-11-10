@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { HomeReviewStudy } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
@@ -16,7 +16,11 @@ export function ReviewDetailContent({
   colorByName,
 }: ReviewDetailContentProps) {
   return (
-    <View style={styles.body}>
+    <ScrollView
+      bounces={false}
+      style={styles.scroll}
+      contentContainerStyle={styles.body}
+      keyboardShouldPersistTaps="handled">
       {studies.length === 0 ? (
         <View style={styles.card}>
           <Text style={styles.bodyText}>연결된 공부 기록이 없어요</Text>
@@ -38,10 +42,14 @@ export function ReviewDetailContent({
                     ),
                   },
                 ]}>
-                <Text style={styles.subjectChipText}>{study.subjectName}</Text>
+                <Text style={styles.subjectChipText} numberOfLines={1}>
+                  {study.subjectName}
+                </Text>
               </View>
               {study.studiedOn ? (
-                <Text style={styles.studiedOn}>학습일 {study.studiedOn}</Text>
+                <Text style={styles.studiedOn} numberOfLines={1}>
+                  학습일 {study.studiedOn}
+                </Text>
               ) : null}
               <Text style={styles.bodyText}>{study.content}</Text>
               {memo ? <Text style={styles.memo}>{memo}</Text> : null}
@@ -49,11 +57,14 @@ export function ReviewDetailContent({
           );
         })
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    maxHeight: '100%',
+  },
   body: {
     backgroundColor: colors.white,
     paddingHorizontal: 24,
@@ -64,6 +75,7 @@ const styles = StyleSheet.create({
   // Sheet-local radius (not radii.chip) so home study chips stay at 12.
   subjectChip: {
     alignSelf: 'flex-start',
+    maxWidth: '100%',
     height: 32,
     paddingHorizontal: 10,
     borderRadius: 8,

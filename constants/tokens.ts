@@ -43,7 +43,7 @@ export const radii = {
   chip: 12,
   reviewCard: 12,
   reviewChip: 6,
-  checkbox: 9,
+  checkbox: 8,
   fab: 14,
 } as const;
 
@@ -53,13 +53,14 @@ export const sizes = {
   weekCell: { width: 50, height: 58 },
   studyChip: { width: 77, height: 44 },
   studyBodyHeight: 44,
-  reviewCheckbox: 38,
+  /** Visual size; pair with hitSlop so touch stays ~44. */
+  reviewCheckbox: 32,
   /** Review subject marker: 24×24 color square with first glyph. */
   reviewChip: { width: 24, height: 24 },
   fab: 57,
   fabIcon: 28,
   addStudyHeight: 66,
-  checkIcon: 23.587,
+  checkIcon: 20,
   arrow: 14,
   plus: 19.2,
 } as const;

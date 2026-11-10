@@ -696,7 +696,8 @@ export function AddStudyForm({
                     style={[
                       styles.subjectChipText,
                       dragging && styles.subjectChipPlaceholderText,
-                    ]}>
+                    ]}
+                    numberOfLines={1}>
                     {name}
                   </Text>
                 </SelectableChip>
