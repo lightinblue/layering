@@ -219,8 +219,8 @@ const styles = StyleSheet.create({
   },
   copy: {
     fontFamily: fonts.nexonRegular,
-    fontSize: 16,
-    lineHeight: 26,
+    fontSize: 14,
+    lineHeight: 22,
   },
   accent: {
     marginTop: 6,
