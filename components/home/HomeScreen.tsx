@@ -20,6 +20,7 @@ import {
 import {
   HOME_DEMO_STATES,
   HOME_MOCK,
+  HOME_TODAY_DAY,
   intervalLabel,
   type HomeDemoState,
   type HomeReviewCard,
@@ -53,21 +54,40 @@ export default function HomeScreen({
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const [demoState, setDemoState] = useState<HomeDemoState>(initialDemoState);
+  const [selectedDay, setSelectedDay] = useState(HOME_TODAY_DAY);
   const [completedOverrides, setCompletedOverrides] = useState<
     Record<string, boolean>
   >({});
 
   const base = dataProp ?? HOME_MOCK[demoState];
+  const todayDay = base.todayDay;
+
+  const selected = useMemo(() => {
+    return (
+      base.weekDays.find((d) => d.day === selectedDay) ??
+      base.weekDays.find((d) => d.day === todayDay) ??
+      base.weekDays[0]
+    );
+  }, [base.weekDays, selectedDay, todayDay]);
+
   const reviews = useMemo(
     () =>
-      base.reviews.map((item) => ({
+      selected.reviews.map((item) => ({
         ...item,
         completed: completedOverrides[item.id] ?? item.completed,
       })),
-    [base.reviews, completedOverrides],
+    [selected.reviews, completedOverrides],
   );
 
-  const data: HomeScreenData = { ...base, reviews };
+  const isFutureDay = selected.day > todayDay;
+  const weekDays = useMemo(
+    () =>
+      base.weekDays.map((d) => ({
+        ...d,
+        selected: d.day === selected.day,
+      })),
+    [base.weekDays, selected.day],
+  );
 
   const frameWidth = Math.min(windowWidth - 16, spacing.frameWidth);
   const contentWidth = Math.min(frameWidth, spacing.contentWidth);
@@ -80,16 +100,17 @@ export default function HomeScreen({
     (id: string) => {
       const current =
         completedOverrides[id] ??
-        base.reviews.find((item) => item.id === id)?.completed ??
+        selected.reviews.find((item) => item.id === id)?.completed ??
         false;
       setCompletedOverrides((prev) => ({ ...prev, [id]: !current }));
     },
-    [base.reviews, completedOverrides],
+    [selected.reviews, completedOverrides],
   );
 
   const goAdd = useCallback(() => {
+    if (isFutureDay) return;
     router.push('/add');
-  }, [router]);
+  }, [isFutureDay, router]);
 
   const goCalendar = useCallback(() => {
     router.push('/calendar');
@@ -100,10 +121,16 @@ export default function HomeScreen({
     router.push('/add');
   }, [router]);
 
+  const selectDay = useCallback((day: number) => {
+    setCompletedOverrides({});
+    setSelectedDay(day);
+  }, []);
+
   const selectDemo = useCallback(
     (next: HomeDemoState) => {
       if (dataProp) return;
       setCompletedOverrides({});
+      setSelectedDay(HOME_TODAY_DAY);
       setDemoState(next);
     },
     [dataProp],
@@ -118,25 +145,31 @@ export default function HomeScreen({
           { paddingBottom: Math.max(insets.bottom, 8) + 12 },
         ]}>
         <View style={[styles.frame, { maxWidth: frameWidth }]}>
-          <View style={styles.headerRow}>
-            <View style={styles.dayRow}>
-              <Text style={styles.dayNumber} numberOfLines={1}>
-                {data.dayNumber}
-              </Text>
-              <EllipseIcon />
+          <View style={styles.topBlock}>
+            <View style={styles.headerRow}>
+              <View style={styles.dayRow}>
+                <Text style={styles.dayNumber} numberOfLines={1}>
+                  {selected.dayNumber}
+                </Text>
+                <EllipseIcon />
+              </View>
+              <View style={styles.dateMeta}>
+                <Text style={styles.weekday}>{selected.weekdayLabel}</Text>
+                <Text style={styles.dateLabel}>{selected.dateLabel}</Text>
+              </View>
             </View>
-            <View style={styles.dateMeta}>
-              <Text style={styles.weekday}>{data.weekdayLabel}</Text>
-              <Text style={styles.dateLabel}>{data.dateLabel}</Text>
-            </View>
+
+            <WeekStrip days={weekDays} onSelectDay={selectDay} />
           </View>
 
-          <WeekStrip days={data.weekDays} />
-
           <View style={[styles.sections, { maxWidth: contentWidth }]}>
-            <StudySection studies={data.studies} onAdd={goAdd} />
+            <StudySection
+              studies={selected.studies}
+              allowAdd={!isFutureDay}
+              onAdd={goAdd}
+            />
             <ReviewSection
-              reviews={data.reviews}
+              reviews={reviews}
               cardWidth={reviewCardWidth}
               onToggle={toggleReview}
               onDetail={onDetail}
@@ -205,12 +238,22 @@ function DemoStateControl({
   );
 }
 
-function WeekStrip({ days }: { days: HomeWeekDay[] }) {
+function WeekStrip({
+  days,
+  onSelectDay,
+}: {
+  days: (HomeWeekDay & { selected: boolean })[];
+  onSelectDay: (day: number) => void;
+}) {
   return (
     <View style={styles.weekStrip}>
       {days.map((d) => (
-        <View
+        <Pressable
           key={`${d.day}-${d.dow}`}
+          accessibilityRole="button"
+          accessibilityState={{ selected: d.selected }}
+          accessibilityLabel={`${d.weekdayLabel} ${d.dateLabel}`}
+          onPress={() => onSelectDay(d.day)}
           style={[styles.weekCell, d.selected && styles.weekCellSelected]}>
           <Text style={[styles.weekDayNum, d.selected && styles.weekDayNumSelected]}>
             {d.day}
@@ -218,7 +261,7 @@ function WeekStrip({ days }: { days: HomeWeekDay[] }) {
           <Text style={[styles.weekDow, d.selected && styles.weekDowSelected]}>
             {d.dow}
           </Text>
-        </View>
+        </Pressable>
       ))}
     </View>
   );
@@ -226,9 +269,11 @@ function WeekStrip({ days }: { days: HomeWeekDay[] }) {
 
 function StudySection({
   studies,
+  allowAdd,
   onAdd,
 }: {
   studies: HomeStudyRow[];
+  allowAdd: boolean;
   onAdd: () => void;
 }) {
   return (
@@ -238,14 +283,18 @@ function StudySection({
       </View>
       <View style={styles.studyList}>
         {studies.length === 0 ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="공부 기록 추가"
-            onPress={onAdd}
-            style={styles.addStudyBtn}>
-            <PlusIcon />
-            <Text style={styles.addStudyText}>공부 기록 추가</Text>
-          </Pressable>
+          allowAdd ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="공부 기록 추가"
+              onPress={onAdd}
+              style={styles.addStudyBtn}>
+              <PlusIcon />
+              <Text style={styles.addStudyText}>공부 기록 추가</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.studyEmpty} />
+          )
         ) : (
           studies.map((row) => <StudyRow key={row.id} row={row} />)
         )}
@@ -394,6 +443,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 6,
   },
+  /** Header + week: tighter than frame blockGap. */
+  topBlock: {
+    width: '100%',
+    maxWidth: spacing.frameWidth,
+    gap: spacing.headerWeekGap,
+    alignItems: 'center',
+  },
   headerRow: {
     width: '100%',
     maxWidth: spacing.headerWidth,
@@ -500,6 +556,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.labelPad,
     gap: spacing.studyRowGap,
     minHeight: 105,
+  },
+  studyEmpty: {
+    height: sizes.addStudyHeight,
+    width: '100%',
   },
   studyRow: {
     flexDirection: 'row',

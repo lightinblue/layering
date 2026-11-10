@@ -22,7 +22,10 @@ export const colors = {
 export const spacing = {
   weekGap: 1,
   sectionGap: 28,
+  /** Gap between topBlock and sections (and other frame siblings). */
   blockGap: 18,
+  /** Gap between date header and week strip (tighter than blockGap). */
+  headerWeekGap: 10,
   studyRowGap: 7,
   reviewGap: 10,
   labelPad: 8,
