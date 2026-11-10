@@ -25,9 +25,11 @@ import Animated, {
   Easing,
   FadeIn,
   FadeInUp,
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -221,6 +223,50 @@ function SpringFab({
       style={style}>
       <Animated.View style={[styles.fabInner, animStyle]}>{children}</Animated.View>
     </Pressable>
+  );
+}
+
+/** Calendar ↔ today-arrow: opacity crossfade, no scale. */
+function CalendarTodayFabIcon({ showCalendar }: { showCalendar: boolean }) {
+  const calendarOpacity = useSharedValue(showCalendar ? 1 : 0);
+  const arrowOpacity = useSharedValue(showCalendar ? 0 : 1);
+  const primed = useRef(false);
+
+  useEffect(() => {
+    if (!primed.current) {
+      primed.current = true;
+      calendarOpacity.value = showCalendar ? 1 : 0;
+      arrowOpacity.value = showCalendar ? 0 : 1;
+      return;
+    }
+    const timing = {
+      duration: durations.crossfade,
+      easing: Easing.inOut(Easing.cubic),
+    };
+    calendarOpacity.value = withTiming(showCalendar ? 1 : 0, timing);
+    arrowOpacity.value = withTiming(showCalendar ? 0 : 1, timing);
+  }, [showCalendar, calendarOpacity, arrowOpacity]);
+
+  const calendarStyle = useAnimatedStyle(() => ({
+    opacity: calendarOpacity.value,
+  }));
+  const arrowStyle = useAnimatedStyle(() => ({
+    opacity: arrowOpacity.value,
+  }));
+
+  return (
+    <View style={styles.fabIconStack}>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.fabIconLayer, calendarStyle]}>
+        <CalendarIcon />
+      </Animated.View>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.fabIconLayer, styles.fabArrowPrev, arrowStyle]}>
+        <ArrowRightIcon size={sizes.fabIcon} color={colors.accentText} />
+      </Animated.View>
+    </View>
   );
 }
 
@@ -806,13 +852,7 @@ export default function HomeScreen({
             bottom: fabBottom,
           },
         ]}>
-        {isToday ? (
-          <CalendarIcon />
-        ) : (
-          <View style={styles.fabArrowPrev}>
-            <ArrowRightIcon size={sizes.fabIcon} color={colors.accentText} />
-          </View>
-        )}
+        <CalendarTodayFabIcon showCalendar={isToday} />
       </SpringFab>
 
       <BottomSheetModal visible={addOpen} onClose={closeAdd}>
@@ -1342,6 +1382,7 @@ function ReviewSection({
   );
 }
 
+/** Checkbox fill 스륵 — color ease-in, no bounce-scale. */
 function ReviewCheck({
   completed,
   accent,
@@ -1351,18 +1392,48 @@ function ReviewCheck({
   accent: string;
   onToggle: () => void;
 }) {
+  const progress = useSharedValue(completed ? 1 : 0);
+  const primed = useRef(false);
+
+  useEffect(() => {
+    if (!primed.current) {
+      primed.current = true;
+      progress.value = completed ? 1 : 0;
+      return;
+    }
+    progress.value = withTiming(completed ? 1 : 0, {
+      duration: durations.fill,
+      easing: completed
+        ? Easing.in(Easing.cubic)
+        : Easing.out(Easing.cubic),
+    });
+  }, [completed, progress]);
+
+  const boxStyle = useAnimatedStyle(
+    () => ({
+      backgroundColor: interpolateColor(
+        progress.value,
+        [0, 1],
+        [colors.mutedLight, accent],
+      ),
+    }),
+    [accent],
+  );
+
+  const iconStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+  }));
+
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked: completed }}
       onPress={onToggle}>
-      <View
-        style={[
-          styles.checkbox,
-          completed ? { backgroundColor: accent } : styles.checkboxOff,
-        ]}>
-        <CheckIcon />
-      </View>
+      <Animated.View style={[styles.checkbox, boxStyle]}>
+        <Animated.View style={iconStyle}>
+          <CheckIcon />
+        </Animated.View>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -1384,52 +1455,77 @@ function ReviewCard({
   onToggle: () => void;
   onDetail: () => void;
 }) {
+  const progress = useSharedValue(card.completed ? 1 : 0);
+  const primed = useRef(false);
+
+  useEffect(() => {
+    if (!primed.current) {
+      primed.current = true;
+      progress.value = card.completed ? 1 : 0;
+      return;
+    }
+    progress.value = withTiming(card.completed ? 1 : 0, {
+      duration: durations.fill,
+      easing: card.completed
+        ? Easing.in(Easing.cubic)
+        : Easing.out(Easing.cubic),
+    });
+  }, [card.completed, progress]);
+
+  const cardStyle = useAnimatedStyle(
+    () => ({
+      backgroundColor: interpolateColor(
+        progress.value,
+        [0, 1],
+        [colors.surface, accentSoft],
+      ),
+      borderColor: interpolateColor(
+        progress.value,
+        [0, 1],
+        ['#00000000', accent],
+      ),
+    }),
+    [accent, accentSoft],
+  );
+
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="자세히"
       onPress={onDetail}>
-      <View
-        style={[
-          styles.reviewCard,
-          { width },
-          card.completed && {
-            backgroundColor: accentSoft,
-            borderColor: accent,
-          },
-        ]}>
-      <View style={styles.reviewCardInner}>
-        <View style={styles.reviewTopBlock}>
-          <View style={styles.reviewTop}>
-            <ReviewCheck
-              completed={card.completed}
-              accent={accent}
-              onToggle={onToggle}
-            />
-            <Text style={styles.intervalText}>
-              {intervalLabel(card.intervalDays)}
-            </Text>
+      <Animated.View style={[styles.reviewCard, { width }, cardStyle]}>
+        <View style={styles.reviewCardInner}>
+          <View style={styles.reviewTopBlock}>
+            <View style={styles.reviewTop}>
+              <ReviewCheck
+                completed={card.completed}
+                accent={accent}
+                onToggle={onToggle}
+              />
+              <Text style={styles.intervalText}>
+                {intervalLabel(card.intervalDays)}
+              </Text>
+            </View>
+            <View style={styles.reviewChips}>
+              {card.subjectNames.map((name) => (
+                <View
+                  key={name}
+                  accessibilityLabel={name}
+                  style={[
+                    styles.reviewChip,
+                    { backgroundColor: subjectColor(name, colorByName) },
+                  ]}>
+                  <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
+                </View>
+              ))}
+            </View>
           </View>
-          <View style={styles.reviewChips}>
-            {card.subjectNames.map((name) => (
-              <View
-                key={name}
-                accessibilityLabel={name}
-                style={[
-                  styles.reviewChip,
-                  { backgroundColor: subjectColor(name, colorByName) },
-                ]}>
-                <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
-              </View>
-            ))}
+          <View style={styles.detailRow}>
+            <Text style={styles.detailText}>자세히</Text>
+            <ArrowRightIcon />
           </View>
         </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailText}>자세히</Text>
-          <ArrowRightIcon />
-        </View>
-      </View>
-      </View>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -1752,6 +1848,17 @@ const styles = StyleSheet.create({
   fabInner: {
     width: '100%',
     height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabIconStack: {
+    width: sizes.fabIcon,
+    height: sizes.fabIcon,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabIconLayer: {
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
