@@ -62,6 +62,7 @@ import {
   DEFAULT_SUBJECTS,
   loadAppData,
   MAX_STUDIES_PER_DAY,
+  MAX_SUBJECT_NAME_LENGTH,
   MAX_SUBJECTS,
   normalizeSubjectName,
   removeSubject,
@@ -312,6 +313,9 @@ export default function HomeScreen({
       if (mode === 'dummy' || dataProp) {
         const name = normalizeSubjectName(rawName);
         if (!name) return { ok: false, reason: 'empty' };
+        if (name.length > MAX_SUBJECT_NAME_LENGTH) {
+          return { ok: false, reason: 'tooLong' };
+        }
         if (dummySubjects.some((s) => s.name === name)) {
           return { ok: false, reason: 'duplicate' };
         }

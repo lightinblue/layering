@@ -83,8 +83,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  // Width follows label; padding tuned for a 3-char Hangul baseline.
   subjectChip: {
-    minWidth: 64,
     height: 40,
     paddingHorizontal: 12,
     borderRadius: radii.chip,

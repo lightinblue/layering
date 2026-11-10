@@ -18,7 +18,10 @@ import {
   subjectBorderColor,
   subjectColor,
 } from '@/constants/tokens';
-import { MAX_SUBJECTS } from '@/storage/app-data';
+import {
+  MAX_SUBJECT_NAME_LENGTH,
+  MAX_SUBJECTS,
+} from '@/storage/app-data';
 import { useThemeColors } from '@/theme/ThemeProvider';
 
 export type AddStudyPayload = {
@@ -32,7 +35,11 @@ export type SubjectOption = {
   color: string;
 };
 
-export type SubjectAddFailReason = 'empty' | 'duplicate' | 'limit';
+export type SubjectAddFailReason =
+  | 'empty'
+  | 'duplicate'
+  | 'limit'
+  | 'tooLong';
 
 export type SubjectAddResult =
   | { ok: true }
@@ -51,6 +58,7 @@ type AddStudyFormProps = {
 };
 
 const LIMIT_HINT = '과목은 최대 10개까지예요';
+const NAME_LENGTH_HINT = '과목 이름은 4자까지예요';
 
 const DEFAULT_SUBJECT_OPTIONS: SubjectOption[] = DUMMY_SUBJECTS.map((name) => ({
   name,
@@ -63,6 +71,8 @@ function subjectAddErrorMessage(reason: SubjectAddFailReason): string {
       return LIMIT_HINT;
     case 'duplicate':
       return '같은 이름의 과목이 있어요';
+    case 'tooLong':
+      return NAME_LENGTH_HINT;
     case 'empty':
     default:
       return '과목 이름을 입력해 주세요';
@@ -255,12 +265,12 @@ export function AddStudyForm({
               <TextInput
                 value={draftName}
                 onChangeText={(text) => {
-                  setDraftName(text);
+                  setDraftName(text.slice(0, MAX_SUBJECT_NAME_LENGTH));
                   if (chipHint) setChipHint(null);
                 }}
                 placeholder="과목 이름"
                 placeholderTextColor={colors.mutedLight}
-                maxLength={12}
+                maxLength={MAX_SUBJECT_NAME_LENGTH}
                 returnKeyType="done"
                 onSubmitEditing={confirmAdd}
                 autoFocus
@@ -407,8 +417,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  // Width follows label; padding tuned so a 3-char Hangul name is the visual baseline.
   subjectChip: {
-    minWidth: 72,
     height: 44,
     paddingHorizontal: 14,
     borderRadius: radii.chip,
@@ -428,8 +438,8 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   addChip: {
-    minWidth: 44,
-    paddingHorizontal: 12,
+    width: 44,
+    paddingHorizontal: 0,
   },
   addChipDisabled: {
     opacity: 0.55,

@@ -22,6 +22,9 @@ export const MAX_STUDIES_PER_DAY = 3;
 /** Max user-managed subject chips (FR-A3). */
 export const MAX_SUBJECTS = 10;
 
+/** Max characters for a subject chip name (enforced on add). */
+export const MAX_SUBJECT_NAME_LENGTH = 4;
+
 /** Seed chips so add sheet works before user-managed subjects land. */
 export const DEFAULT_SUBJECTS: SubjectChip[] = [
   { id: 'sub-bunryu', name: '분류', color: SUBJECT_COLORS['분류'] },
@@ -66,9 +69,12 @@ function newId(prefix: string): string {
 
 export type SubjectMutationResult =
   | { ok: true; data: AppData }
-  | { ok: false; reason: 'empty' | 'duplicate' | 'limit' | 'missing' };
+  | {
+      ok: false;
+      reason: 'empty' | 'duplicate' | 'limit' | 'missing' | 'tooLong';
+    };
 
-/** Normalize a chip label; empty → null. */
+/** Normalize a chip label; empty → null. Does not truncate. */
 export function normalizeSubjectName(raw: string): string | null {
   const name = raw.trim().replace(/\s+/g, ' ');
   return name.length > 0 ? name : null;
@@ -76,7 +82,7 @@ export function normalizeSubjectName(raw: string): string | null {
 
 /**
  * Append a subject chip. Does not touch records/schedules.
- * Caps at MAX_SUBJECTS; rejects empty / duplicate names.
+ * Caps at MAX_SUBJECTS; rejects empty / duplicate / overlong names.
  */
 export function addSubject(
   data: AppData,
@@ -85,6 +91,9 @@ export function addSubject(
 ): SubjectMutationResult {
   const name = normalizeSubjectName(rawName);
   if (!name) return { ok: false, reason: 'empty' };
+  if (name.length > MAX_SUBJECT_NAME_LENGTH) {
+    return { ok: false, reason: 'tooLong' };
+  }
   if (data.subjects.some((s) => s.name === name)) {
     return { ok: false, reason: 'duplicate' };
   }
