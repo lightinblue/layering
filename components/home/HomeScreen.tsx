@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     maxWidth: spacing.frameWidth,
     gap: spacing.blockGap,
     alignItems: 'center',
-    paddingTop: 8,
+    paddingTop: 16,
   },
   headerRow: {
     width: '100%',
@@ -368,6 +368,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 4,
   },
   dayRow: {
     flexDirection: 'row',
@@ -387,7 +388,7 @@ const styles = StyleSheet.create({
   dateMeta: {
     minWidth: 85,
     alignItems: 'flex-end',
-    gap: 7,
+    gap: 9,
   },
   weekday: {
     fontFamily: fonts.nexonMedium,
@@ -444,7 +445,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: spacing.contentWidth,
     gap: spacing.sectionGap,
-    marginTop: spacing.sectionGap - spacing.blockGap,
+    marginTop: 0,
   },
   section: {
     width: '100%',
