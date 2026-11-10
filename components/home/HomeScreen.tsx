@@ -1525,7 +1525,7 @@ const styles = StyleSheet.create({
   },
   studyBodyText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 15,
+    fontSize: 14,
     color: colors.body,
   },
   addStudyBtn: {
