@@ -51,16 +51,8 @@ import {
 } from '@/components/icons/HomeIcons';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import {
-  applyDummyStudy,
-  buildDummyHomeData,
-  cloneHomeData,
-  DUMMY_SUBJECTS,
   flattenWeeks,
-  HOME_DUMMY,
   intervalLabel,
-  removeDummyStudy,
-  toggleDummyReview,
-  updateDummyStudy,
   weekIndexForDate,
   type HomeReviewCard,
   type HomeReviewStudy,
@@ -76,7 +68,6 @@ import {
   springs,
 } from '@/constants/motion';
 import {
-  SUBJECT_COLORS,
   colors,
   radii,
   sizes,
@@ -88,11 +79,10 @@ import {
   appendStudyWithReviews,
   DEFAULT_SUBJECTS,
   deleteStudyWithReviews,
+  EMPTY_APP_DATA,
   loadAppData,
   MAX_STUDIES_PER_DAY,
-  MAX_SUBJECT_NAME_LENGTH,
   MAX_SUBJECTS,
-  normalizeSubjectName,
   removeSubject,
   reorderSubjects,
   saveAppData,
@@ -101,17 +91,9 @@ import {
   updateStudyWithReviews,
   withSubjectColor,
 } from '@/storage/app-data';
-import {
-  DATA_MODE_LABEL,
-  DATA_MODES,
-  DEFAULT_DATA_MODE,
-  loadDataMode,
-  saveDataMode,
-  type DataMode,
-} from '@/storage/data-mode';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import type { AppData } from '@/types/domain';
-import { parseKey } from '@/utils/date';
+import { parseKey, todayKey as deviceTodayKey } from '@/utils/date';
 import {
   homeScreenDataFromAppData,
   WEEKS_BEFORE,
@@ -121,10 +103,8 @@ import { haptics } from '@/utils/haptics';
 const REVIEW_COLS = 3;
 
 type HomeScreenProps = {
-  /** Override data (skips mode load). */
+  /** Override data (skips AsyncStorage load — tests / previews). */
   data?: HomeScreenData;
-  /** Initial mode before AsyncStorage resolves (`?mode=`). */
-  initialMode?: DataMode;
 };
 
 function firstParam(value: string | string[] | undefined): string | undefined {
@@ -133,13 +113,6 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 
 function isDateKey(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-function seedSubjectOptions(): SubjectOption[] {
-  return DUMMY_SUBJECTS.map((name) => ({
-    name,
-    color: SUBJECT_COLORS[name] ?? subjectColor(name),
-  }));
 }
 
 /** Soft→sharp date enter — short travel so opacity fade reads on device. */
@@ -271,10 +244,7 @@ function CalendarTodayFabIcon({ showCalendar }: { showCalendar: boolean }) {
   );
 }
 
-export default function HomeScreen({
-  data: dataProp,
-  initialMode = DEFAULT_DATA_MODE,
-}: HomeScreenProps) {
+export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   const router = useRouter();
   const params = useLocalSearchParams<{ day?: string }>();
   const dayParam = firstParam(params.day);
@@ -282,22 +252,14 @@ export default function HomeScreen({
   const { width: windowWidth } = useWindowDimensions();
   const theme = useThemeColors();
 
-  const [mode, setMode] = useState<DataMode>(initialMode);
   const [hydrated, setHydrated] = useState(dataProp != null);
   const [appData, setAppData] = useState<AppData | null>(null);
-  const [dummyData, setDummyData] = useState<HomeScreenData>(() =>
-    cloneHomeData(HOME_DUMMY),
-  );
-  /** In-session subject chips for 더미 mode (not AsyncStorage). */
-  const [dummySubjects, setDummySubjects] = useState<SubjectOption[]>(() =>
-    seedSubjectOptions(),
-  );
   /** When set, week strip is recentered on this date (calendar jump). */
   const [weekAnchorKey, setWeekAnchorKey] = useState<string | null>(null);
   const appliedDayRef = useRef<string | null>(null);
 
-  const [selectedKey, setSelectedKey] = useState(HOME_DUMMY.todayKey);
-  const [weekIndex, setWeekIndex] = useState(HOME_DUMMY.currentWeekIndex);
+  const [selectedKey, setSelectedKey] = useState(deviceTodayKey);
+  const [weekIndex, setWeekIndex] = useState(WEEKS_BEFORE);
   const [addOpen, setAddOpen] = useState(false);
   const [addKey, setAddKey] = useState(0);
   /** When set, the add sheet opens in edit mode for this study. */
@@ -312,49 +274,28 @@ export default function HomeScreen({
     if (dataProp) return;
     let cancelled = false;
     (async () => {
-      const [storedMode, storedApp] = await Promise.all([
-        loadDataMode(),
-        loadAppData(),
-      ]);
+      const storedApp = await loadAppData();
       if (cancelled) return;
-      const nextMode =
-        initialMode === 'dummy' || initialMode === 'real'
-          ? initialMode
-          : storedMode;
-      setMode(nextMode);
       setAppData(storedApp);
       setWeekAnchorKey(null);
-      if (nextMode === 'real') {
-        const screen = homeScreenDataFromAppData(storedApp);
-        setSelectedKey(screen.todayKey);
-        setWeekIndex(screen.currentWeekIndex);
-      } else {
-        setDummyData(cloneHomeData(HOME_DUMMY));
-        setDummySubjects(seedSubjectOptions());
-        setSelectedKey(HOME_DUMMY.todayKey);
-        setWeekIndex(HOME_DUMMY.currentWeekIndex);
-      }
+      const screen = homeScreenDataFromAppData(storedApp);
+      setSelectedKey(screen.todayKey);
+      setWeekIndex(screen.currentWeekIndex);
       setHydrated(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [dataProp, initialMode]);
+  }, [dataProp]);
 
   const base: HomeScreenData = useMemo(() => {
     if (dataProp) return dataProp;
-    if (mode === 'dummy') return dummyData;
-    if (appData) {
-      return homeScreenDataFromAppData(
-        appData,
-        new Date(),
-        weekAnchorKey
-          ? { weekAnchor: parseKey(weekAnchorKey) }
-          : undefined,
-      );
-    }
-    return HOME_DUMMY;
-  }, [dataProp, mode, dummyData, appData, weekAnchorKey]);
+    return homeScreenDataFromAppData(
+      appData ?? EMPTY_APP_DATA,
+      new Date(),
+      weekAnchorKey ? { weekAnchor: parseKey(weekAnchorKey) } : undefined,
+    );
+  }, [dataProp, appData, weekAnchorKey]);
 
   const todayKey = base.todayKey;
   const allDays = useMemo(() => flattenWeeks(base.weeks), [base.weeks]);
@@ -382,14 +323,12 @@ export default function HomeScreen({
   }, [contentWidth]);
 
   const subjectOptions = useMemo((): SubjectOption[] => {
-    if (mode === 'real' && appData) {
-      return appData.subjects.map((s) => {
-        const chip = withSubjectColor(s);
-        return { name: chip.name, color: chip.color ?? subjectColor(chip.name) };
-      });
-    }
-    return dummySubjects;
-  }, [mode, appData, dummySubjects]);
+    if (!appData) return [];
+    return appData.subjects.map((s) => {
+      const chip = withSubjectColor(s);
+      return { name: chip.name, color: chip.color ?? subjectColor(chip.name) };
+    });
+  }, [appData]);
 
   const colorByName = useMemo(
     () => subjectColorMap(subjectOptions),
@@ -407,18 +346,14 @@ export default function HomeScreen({
     (dateKey: string, card: HomeReviewCard) => {
       if (card.completed) haptics.checkOff();
       else haptics.checkOn();
-      if (mode === 'dummy' || dataProp) {
-        setDummyData((prev) => toggleDummyReview(prev, dateKey, card.id));
-        return;
-      }
-      if (!appData) return;
+      if (dataProp || !appData) return;
       let next = appData;
       for (const id of card.scheduleIds) {
         next = toggleReviewCompleted(next, id);
       }
       void persistApp(next);
     },
-    [mode, dataProp, appData, persistApp],
+    [dataProp, appData, persistApp],
   );
 
   const goAdd = useCallback(() => {
@@ -431,7 +366,7 @@ export default function HomeScreen({
   const goEditStudy = useCallback(
     (row: HomeStudyRow) => {
       let next = row;
-      if (mode === 'real' && appData) {
+      if (appData) {
         const record = appData.records.find((r) => r.id === row.id);
         if (record) {
           const memo = record.memo?.trim();
@@ -447,7 +382,7 @@ export default function HomeScreen({
       setAddKey((k) => k + 1);
       setAddOpen(true);
     },
-    [mode, appData],
+    [appData],
   );
 
   const closeAdd = useCallback(() => {
@@ -464,27 +399,9 @@ export default function HomeScreen({
       const content = payload.title.trim();
       const memo = payload.memo.trim();
       const studiedOn = selectedDateKey;
+      if (dataProp || !appData) return;
 
       if (editingStudy) {
-        if (mode === 'dummy' || dataProp) {
-          setDummyData((prev) =>
-            updateDummyStudy(
-              prev,
-              editingStudy.id,
-              {
-                subjectName: payload.subject,
-                content,
-                studiedOn,
-                ...(memo ? { memo } : {}),
-              },
-              MAX_STUDIES_PER_DAY,
-            ),
-          );
-          haptics.save();
-          setAddOpen(false);
-          return;
-        }
-        if (!appData) return;
         const next = updateStudyWithReviews(appData, editingStudy.id, {
           subjectName: payload.subject,
           content,
@@ -503,25 +420,6 @@ export default function HomeScreen({
         return;
       }
 
-      if (mode === 'dummy' || dataProp) {
-        setDummyData((prev) =>
-          applyDummyStudy(
-            prev,
-            {
-              subjectName: payload.subject,
-              content,
-              studiedOn,
-              ...(memo ? { memo } : {}),
-            },
-            MAX_STUDIES_PER_DAY,
-          ),
-        );
-        haptics.save();
-        setAddOpen(false);
-        return;
-      }
-
-      if (!appData) return;
       const next = appendStudyWithReviews(appData, {
         subjectName: payload.subject,
         content,
@@ -532,50 +430,19 @@ export default function HomeScreen({
       haptics.save();
       setAddOpen(false);
     },
-    [
-      mode,
-      dataProp,
-      selectedDateKey,
-      appData,
-      persistApp,
-      studies.length,
-      editingStudy,
-    ],
+    [dataProp, selectedDateKey, appData, persistApp, studies.length, editingStudy],
   );
 
   const onDeleteStudy = useCallback(() => {
-    if (!editingStudy) return;
-    const studyId = editingStudy.id;
-    if (mode === 'dummy' || dataProp) {
-      setDummyData((prev) => removeDummyStudy(prev, studyId));
-      haptics.delete();
-      setAddOpen(false);
-      return;
-    }
-    if (!appData) return;
-    void persistApp(deleteStudyWithReviews(appData, studyId));
+    if (!editingStudy || dataProp || !appData) return;
+    void persistApp(deleteStudyWithReviews(appData, editingStudy.id));
     haptics.delete();
     setAddOpen(false);
-  }, [editingStudy, mode, dataProp, appData, persistApp]);
+  }, [editingStudy, dataProp, appData, persistApp]);
 
   const onAddSubject = useCallback(
     (rawName: string, color: string): SubjectAddResult => {
-      if (mode === 'dummy' || dataProp) {
-        const name = normalizeSubjectName(rawName);
-        if (!name) return { ok: false, reason: 'empty' };
-        if (name.length > MAX_SUBJECT_NAME_LENGTH) {
-          return { ok: false, reason: 'tooLong' };
-        }
-        if (dummySubjects.some((s) => s.name === name)) {
-          return { ok: false, reason: 'duplicate' };
-        }
-        if (dummySubjects.length >= MAX_SUBJECTS) {
-          return { ok: false, reason: 'limit' };
-        }
-        setDummySubjects((prev) => [...prev, { name, color }]);
-        return { ok: true };
-      }
-      if (!appData) return { ok: false, reason: 'empty' };
+      if (dataProp || !appData) return { ok: false, reason: 'empty' };
       const result = addSubject(appData, rawName, color);
       if (!result.ok) {
         return {
@@ -586,49 +453,27 @@ export default function HomeScreen({
       void persistApp(result.data);
       return { ok: true };
     },
-    [mode, dataProp, dummySubjects, appData, persistApp],
+    [dataProp, appData, persistApp],
   );
 
   const onRemoveSubject = useCallback(
     (name: string) => {
-      if (mode === 'dummy' || dataProp) {
-        setDummySubjects((prev) => prev.filter((s) => s.name !== name));
-        return;
-      }
-      if (!appData) return;
+      if (dataProp || !appData) return;
       const result = removeSubject(appData, name);
       if (!result.ok) return;
       void persistApp(result.data);
     },
-    [mode, dataProp, appData, persistApp],
+    [dataProp, appData, persistApp],
   );
 
   const onReorderSubjects = useCallback(
     (orderedNames: string[]) => {
-      if (mode === 'dummy' || dataProp) {
-        setDummySubjects((prev) => {
-          const byName = new Map(prev.map((s) => [s.name, s]));
-          const next: SubjectOption[] = [];
-          const seen = new Set<string>();
-          for (const name of orderedNames) {
-            const chip = byName.get(name);
-            if (!chip || seen.has(name)) continue;
-            next.push(chip);
-            seen.add(name);
-          }
-          for (const chip of prev) {
-            if (!seen.has(chip.name)) next.push(chip);
-          }
-          return next;
-        });
-        return;
-      }
-      if (!appData) return;
+      if (dataProp || !appData) return;
       const result = reorderSubjects(appData, orderedNames);
       if (!result.ok) return;
       void persistApp(result.data);
     },
-    [mode, dataProp, appData, persistApp],
+    [dataProp, appData, persistApp],
   );
 
   const goCalendar = useCallback(() => {
@@ -683,11 +528,8 @@ export default function HomeScreen({
       setWeekAnchorKey(dateKey);
       setSelectedKey(dateKey);
       setWeekIndex(WEEKS_BEFORE);
-      if (mode === 'dummy' && !dataProp) {
-        setDummyData(buildDummyHomeData(parseKey(dateKey)));
-      }
     },
-    [base, mode, dataProp],
+    [base],
   );
 
   const goToday = useCallback(() => {
@@ -728,31 +570,6 @@ export default function HomeScreen({
       setWeekIndex(weekIndexForDate(base, day.dateKey));
     },
     [allDays, base],
-  );
-
-  const selectMode = useCallback(
-    async (next: DataMode) => {
-      if (dataProp) return;
-      haptics.select();
-      setMode(next);
-      await saveDataMode(next);
-      setWeekAnchorKey(null);
-      appliedDayRef.current = null;
-      if (next === 'dummy') {
-        const fresh = cloneHomeData(HOME_DUMMY);
-        setDummyData(fresh);
-        setDummySubjects(seedSubjectOptions());
-        setSelectedKey(fresh.todayKey);
-        setWeekIndex(fresh.currentWeekIndex);
-        return;
-      }
-      const stored = appData ?? (await loadAppData());
-      if (!appData) setAppData(stored);
-      const screen = homeScreenDataFromAppData(stored);
-      setSelectedKey(screen.todayKey);
-      setWeekIndex(screen.currentWeekIndex);
-    },
-    [dataProp, appData],
   );
 
   const selectedWeekdayIndex = useMemo(() => {
@@ -805,7 +622,7 @@ export default function HomeScreen({
             </View>
 
             <WeekStripPager
-              key={`${mode}:${base.todayKey}:${weekAnchorKey ?? 'home'}:${base.weeks[0]?.[0]?.dateKey ?? ''}`}
+              key={`${base.todayKey}:${weekAnchorKey ?? 'home'}:${base.weeks[0]?.[0]?.dateKey ?? ''}`}
               weeks={base.weeks}
               weekIndex={weekIndex}
               selectedKey={selected.dateKey}
@@ -833,15 +650,6 @@ export default function HomeScreen({
             onToggle={toggleReview}
             onDetail={onDetail}
           />
-
-          {__DEV__ && !dataProp ? (
-            <ModeControl
-              active={mode}
-              accent={theme.primary}
-              accentSoft={theme.primarySoft}
-              onSelect={selectMode}
-            />
-          ) : null}
         </View>
       </View>
 
@@ -916,52 +724,6 @@ export default function HomeScreen({
           />
         ) : null}
       </BottomSheetModal>
-    </View>
-  );
-}
-
-function ModeControl({
-  active,
-  accent,
-  accentSoft,
-  onSelect,
-}: {
-  active: DataMode;
-  accent: string;
-  accentSoft: string;
-  onSelect: (mode: DataMode) => void;
-}) {
-  return (
-    <View style={styles.devControl} accessibilityRole="tablist">
-      <Text style={styles.devHintLabel}>데이터</Text>
-      <View style={styles.devSegments}>
-        {DATA_MODES.map((mode) => {
-          const selected = mode === active;
-          return (
-            <Pressable
-              key={mode}
-              accessibilityRole="tab"
-              accessibilityState={{ selected }}
-              accessibilityLabel={`${DATA_MODE_LABEL[mode]} 모드`}
-              onPress={() => onSelect(mode)}
-              style={[
-                styles.devSegment,
-                selected && { backgroundColor: accentSoft },
-              ]}>
-              <Text
-                style={[
-                  styles.devSegmentText,
-                  selected && { color: accent },
-                ]}>
-                {DATA_MODE_LABEL[mode]}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      {active === 'dummy' ? (
-        <Text style={styles.dummyBadge}>미리보기</Text>
-      ) : null}
     </View>
   );
 }
@@ -1891,38 +1653,5 @@ const styles = StyleSheet.create({
   },
   fabArrowPrev: {
     transform: [{ scaleX: -1 }],
-  },
-  devControl: {
-    marginTop: 4,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  devHintLabel: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 11,
-    color: colors.mutedLight,
-  },
-  dummyBadge: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 10,
-    color: colors.accentText,
-  },
-  devSegments: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  devSegment: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: colors.surface,
-  },
-  devSegmentText: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 11,
-    color: colors.mutedLight,
   },
 });
