@@ -1,18 +1,11 @@
-import {
-  NotoSansKR_500Medium,
-  useFonts as useNotoSansKRFonts,
-} from '@expo-google-fonts/noto-sans-kr';
-import {
-  Oswald_500Medium,
-  Oswald_700Bold,
-  useFonts as useOswaldFonts,
-} from '@expo-google-fonts/oswald';
+import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { fonts } from '@/constants/fonts';
 import { colors } from '@/constants/tokens';
 
 export { ErrorBoundary } from 'expo-router';
@@ -24,16 +17,17 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [oswaldLoaded, oswaldError] = useOswaldFonts({
-    Oswald_500Medium,
-    Oswald_700Bold,
+  const [loaded, error] = useFonts({
+    [fonts.gothamBlack]: require('../assets/fonts/GothamXNarrow-Black.ttf'),
+    [fonts.gothamBold]: require('../assets/fonts/GothamXNarrow-Bold.ttf'),
+    [fonts.gothamMedium]: require('../assets/fonts/GothamXNarrow-Medium.ttf'),
+    [fonts.gothamBook]: require('../assets/fonts/GothamXNarrow-Book.ttf'),
+    [fonts.gothamLight]: require('../assets/fonts/GothamXNarrow-Light.ttf'),
+    [fonts.nexonRegular]: require('../assets/fonts/NEXONLv2Gothic-Regular.otf'),
+    [fonts.nexonMedium]: require('../assets/fonts/NEXONLv2Gothic-Medium.otf'),
+    [fonts.nexonLight]: require('../assets/fonts/NEXONLv2Gothic-Light.otf'),
+    [fonts.nexonBold]: require('../assets/fonts/NEXONLv2Gothic-Bold.otf'),
   });
-  const [notoLoaded, notoError] = useNotoSansKRFonts({
-    NotoSansKR_500Medium,
-  });
-
-  const loaded = oswaldLoaded && notoLoaded;
-  const error = oswaldError ?? notoError;
 
   useEffect(() => {
     if (error) throw error;
@@ -63,6 +57,7 @@ function RootLayoutNav() {
           headerTintColor: colors.primary,
           headerShadowVisible: false,
           contentStyle: { backgroundColor: colors.mainWhite },
+          headerTitleStyle: { fontFamily: fonts.nexonMedium },
         }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="add" options={{ title: '기록 추가' }} />

@@ -41,6 +41,7 @@ npx expo start --tunnel
 ## 현재 상태
 
 - 홈(오늘) UI: Figma full / few / empty (하단 탭 없음)
+- 폰트: Gotham XNarrow + NEXON Lv2 Gothic (`assets/fonts/`, expo-font)
 - 기록 추가 · 캘린더: 스택 스텁 (FAB / CTA로 진입)
 - 도메인 타입·복습 주기 유틸·AsyncStorage 저장 스켈레톤
 

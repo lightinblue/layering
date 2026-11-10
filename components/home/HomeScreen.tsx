@@ -28,6 +28,7 @@ import {
   type HomeStudyRow,
   type HomeWeekDay,
 } from '@/constants/home-mock';
+import { fonts } from '@/constants/fonts';
 import {
   colors,
   radii,
@@ -374,7 +375,7 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   dayNumber: {
-    fontFamily: 'Oswald_700Bold',
+    fontFamily: fonts.gothamBold,
     fontSize: sizes.dayNumber,
     color: colors.black,
     lineHeight: 102,
@@ -389,14 +390,14 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   weekday: {
-    fontFamily: 'NotoSansKR_500Medium',
+    fontFamily: fonts.nexonMedium,
     fontSize: 24,
     color: colors.muted,
     textAlign: 'right',
     width: '100%',
   },
   dateLabel: {
-    fontFamily: 'NotoSansKR_500Medium',
+    fontFamily: fonts.nexonMedium,
     fontSize: 22,
     color: colors.mutedLight,
     textAlign: 'right',
@@ -420,7 +421,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   weekDayNum: {
-    fontFamily: 'Oswald_700Bold',
+    fontFamily: fonts.gothamBold,
     fontSize: 24,
     color: colors.muted,
     textAlign: 'center',
@@ -430,7 +431,7 @@ const styles = StyleSheet.create({
     color: colors.black,
   },
   weekDow: {
-    fontFamily: 'Oswald_500Medium',
+    fontFamily: fonts.gothamMedium,
     fontSize: 14,
     color: colors.mutedLight,
     textAlign: 'center',
@@ -457,7 +458,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   sectionLabel: {
-    fontFamily: 'NotoSansKR_500Medium',
+    fontFamily: fonts.nexonMedium,
     fontSize: 16,
     color: colors.sectionLabel,
   },
@@ -481,7 +482,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   studyChipText: {
-    fontFamily: 'NotoSansKR_500Medium',
+    fontFamily: fonts.nexonMedium,
     fontSize: 17,
     color: colors.white,
   },
@@ -495,7 +496,7 @@ const styles = StyleSheet.create({
     paddingRight: 14,
   },
   studyBodyText: {
-    fontFamily: 'NotoSansKR_500Medium',
+    fontFamily: fonts.nexonMedium,
     fontSize: 15,
     color: colors.body,
   },
@@ -510,7 +511,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   addStudyText: {
-    fontFamily: 'NotoSansKR_500Medium',
+    fontFamily: fonts.nexonMedium,
     fontSize: 14,
     color: colors.accentText,
   },
@@ -565,7 +566,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   intervalText: {
-    fontFamily: 'NotoSansKR_500Medium',
+    fontFamily: fonts.nexonMedium,
     fontSize: 11,
     color: colors.accentText,
     letterSpacing: -0.44,
@@ -583,7 +584,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   reviewChipText: {
-    fontFamily: 'NotoSansKR_500Medium',
+    fontFamily: fonts.nexonMedium,
     fontSize: 9,
     color: colors.white,
     textAlign: 'center',
@@ -597,7 +598,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   detailText: {
-    fontFamily: 'NotoSansKR_500Medium',
+    fontFamily: fonts.nexonMedium,
     fontSize: 10,
     color: colors.muted,
     letterSpacing: -0.4,
@@ -612,7 +613,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   reviewEmptyText: {
-    fontFamily: 'NotoSansKR_500Medium',
+    fontFamily: fonts.nexonMedium,
     fontSize: 14,
     color: colors.muted,
   },
@@ -632,7 +633,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   devHint: {
-    fontFamily: 'NotoSansKR_500Medium',
+    fontFamily: fonts.nexonMedium,
     fontSize: 11,
     color: colors.mutedLight,
     marginTop: 8,
