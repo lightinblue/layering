@@ -56,8 +56,17 @@ export function progressFromReviewCards(
 }
 
 /**
- * Dot fill from theme primary.
- * no reviews / 0% checked → null (hide); low progress → lighter tint; 100% → solid primary.
+ * Discrete white→primary tint steps for partial completion.
+ * Index 0 = lightest (just started); last = near-solid before 100%.
+ * Higher whiteMix = lighter tint.
+ */
+const DOT_WHITE_MIX_STEPS = [0.8, 0.64, 0.48, 0.32, 0.16] as const;
+
+/**
+ * Dot fill from theme primary — stepped by completion %.
+ * no reviews / 0% checked → null (hide);
+ * (0–20%] … (80–<100%] → light→dark primary tints;
+ * 100% → solid primary.
  */
 export function progressDotColor(
   primary: string,
@@ -67,6 +76,8 @@ export function progressDotColor(
   const ratio = Math.min(1, Math.max(0, progress.ratio));
   if (ratio <= 0) return null;
   if (ratio >= 0.999) return primary;
-  const whiteMix = 0.72 * (1 - ratio);
-  return softFromPrimary(primary, whiteMix);
+
+  const steps = DOT_WHITE_MIX_STEPS.length;
+  const step = Math.min(steps - 1, Math.ceil(ratio * steps) - 1);
+  return softFromPrimary(primary, DOT_WHITE_MIX_STEPS[step]);
 }
