@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -112,11 +113,12 @@ export default function HomeScreen({
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
-      <View
-        style={[
-          styles.body,
-          { paddingBottom: Math.max(insets.bottom, 8) + 12 },
-        ]}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: sizes.fab + 40 },
+        ]}
+        showsVerticalScrollIndicator={false}>
         <View style={[styles.frame, { maxWidth: frameWidth }]}>
           <Pressable
             accessibilityRole="button"
@@ -154,7 +156,7 @@ export default function HomeScreen({
             </Text>
           ) : null}
         </View>
-      </View>
+      </ScrollView>
 
       <Pressable
         accessibilityRole="button"
@@ -349,17 +351,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.mainWhite,
   },
-  body: {
-    flex: 1,
-    width: '100%',
+  scrollContent: {
     alignItems: 'center',
+    paddingBottom: 24,
   },
   frame: {
     width: '100%',
     maxWidth: spacing.frameWidth,
     gap: spacing.blockGap,
     alignItems: 'center',
-    paddingTop: 10,
+    paddingTop: 16,
   },
   headerRow: {
     width: '100%',
@@ -378,7 +379,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.gothamBold,
     fontSize: sizes.dayNumber,
     color: colors.black,
-    lineHeight: 96,
+    lineHeight: 102,
     letterSpacing: -2,
     minWidth: 91,
     flexShrink: 0,
@@ -522,18 +523,18 @@ const styles = StyleSheet.create({
     gap: spacing.reviewGap,
   },
   reviewGridSingleRow: {
-    minHeight: 110,
+    minHeight: 120,
   },
   reviewCard: {
     backgroundColor: colors.surface,
     borderRadius: radii.reviewCard,
-    paddingTop: 10,
-    paddingBottom: 9,
+    paddingTop: 12,
+    paddingBottom: 11,
     paddingLeft: 12,
     paddingRight: 8,
     borderWidth: 2,
     borderColor: 'transparent',
-    minHeight: 110,
+    minHeight: 120,
   },
   reviewCardSelected: {
     backgroundColor: colors.primarySoft,
@@ -607,7 +608,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   reviewEmpty: {
-    height: 110,
+    height: 120,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
@@ -636,7 +637,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 11,
     color: colors.mutedLight,
-    marginTop: 4,
+    marginTop: 8,
     alignSelf: 'center',
   },
 });
