@@ -29,14 +29,14 @@ export function SettingsSheet() {
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ disabled: true }}
-          accessibilityLabel="복습 주기 설정, 업데이트 예정"
+          accessibilityLabel="복습 주기 설정, 업데이트 예정이에요"
           disabled
           style={[
             styles.stubRow,
             { backgroundColor: colors.surface },
           ]}>
           <Text style={[styles.stubText, { color: colors.muted }]}>
-            업데이트 예정
+            업데이트 예정이에요
           </Text>
         </Pressable>
       </View>

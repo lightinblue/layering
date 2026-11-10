@@ -51,6 +51,7 @@ import {
   MAX_SUBJECT_NAME_LENGTH,
   MAX_SUBJECTS,
 } from '@/storage/app-data';
+import { SoftPlusIcon } from '@/components/icons/HomeIcons';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import { haptics } from '@/utils/haptics';
 
@@ -226,7 +227,7 @@ function namesSignature(names: readonly string[]): string {
 
 /**
  * 「공부 기록 추가 / 수정」 form body (subject · title · optional memo).
- * Subject chips: tap select · re-tap for delete X · long-press drag reorder · 「+」 add.
+ * Subject chips: tap select · re-tap for delete X · long-press drag reorder · soft + add.
  * Mounted inside BottomSheetModal so Expo Go always lays out content.
  */
 export function AddStudyForm({
@@ -763,13 +764,9 @@ export function AddStudyForm({
                 },
                 atLimit && styles.addChipDisabled,
               ]}>
-              <Text
-                style={[
-                  styles.addChipText,
-                  { color: atLimit ? colors.mutedLight : colors.muted },
-                ]}>
-                +
-              </Text>
+              <SoftPlusIcon
+                color={atLimit ? colors.mutedLight : colors.muted}
+              />
             </Pressable>
           ) : null}
         </View>
@@ -1017,11 +1014,6 @@ const styles = StyleSheet.create({
   },
   addChipDisabled: {
     opacity: 0.55,
-  },
-  addChipText: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 22,
-    lineHeight: 26,
   },
   addBlock: {
     gap: 10,

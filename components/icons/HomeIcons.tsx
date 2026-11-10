@@ -131,3 +131,25 @@ export function PlusIcon({ size = sizes.plus }: { size?: number }) {
     </Svg>
   );
 }
+
+/** Soft-end plus for subject add chip — rounded caps, medium stroke. */
+export function SoftPlusIcon({
+  size = 16,
+  color = colors.muted,
+  strokeWidth = 2,
+}: {
+  size?: number;
+  color?: string;
+  strokeWidth?: number;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <Path
+        d="M8 3v10M3 8h10"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
