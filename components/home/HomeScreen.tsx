@@ -382,18 +382,20 @@ function StudySection({
       </View>
       <View style={styles.studyList}>
         {studies.length === 0 ? (
-          allowAdd ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="공부 기록 추가"
-              onPress={onAdd}
-              style={styles.addStudyBtn}>
-              <PlusIcon />
-              <Text style={styles.addStudyText}>공부 기록 추가</Text>
-            </Pressable>
-          ) : (
-            <View style={styles.studyEmpty} />
-          )
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="공부 기록 추가"
+            accessibilityState={{ disabled: !allowAdd }}
+            disabled={!allowAdd}
+            onPress={onAdd}
+            style={styles.addStudyBtn}>
+            {allowAdd ? (
+              <>
+                <PlusIcon />
+                <Text style={styles.addStudyText}>공부 기록 추가</Text>
+              </>
+            ) : null}
+          </Pressable>
         ) : (
           studies.map((row) => <StudyRow key={row.id} row={row} />)
         )}
@@ -657,10 +659,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.labelPad,
     gap: spacing.studyRowGap,
     minHeight: 105,
-  },
-  studyEmpty: {
-    height: sizes.addStudyHeight,
-    width: '100%',
   },
   studyRow: {
     flexDirection: 'row',
