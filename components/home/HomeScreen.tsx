@@ -1708,8 +1708,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radii.chip,
     justifyContent: 'center',
-    paddingLeft: 12,
-    paddingRight: 12,
+    paddingLeft: 14,
+    paddingRight: 14,
   },
   studyBodyText: {
     fontFamily: fonts.nexonMedium,

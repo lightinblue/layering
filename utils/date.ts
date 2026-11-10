@@ -1,6 +1,7 @@
 /** Local-calendar date helpers (avoid UTC drift). */
 
-const DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
+/** Short weekday labels (Sun→Sat order; matches `Date#getDay`). */
+const DOW = ['일', '월', '화', '수', '목', '금', '토'] as const;
 const WEEKDAY_LABELS = [
   '일요일',
   '월요일',
