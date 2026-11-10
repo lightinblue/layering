@@ -26,7 +26,10 @@ type SeedStudySpec = {
   memo?: string;
   /** Days before today (0 = today). */
   daysAgo: number;
-  /** Which review intervals are already checked off. */
+  /**
+   * Which review intervals start checked (calendar fill).
+   * Overridden for due-today (always off) and due-yesterday (always on).
+   */
   completedIntervals?: readonly number[];
 };
 
@@ -34,7 +37,7 @@ const SCREENSHOT_SUBJECTS: SubjectChip[] = [
   { id: 'shot-sub-list', name: '목록', color: colors.chipGreen },
   { id: 'shot-sub-class', name: '분류', color: colors.chipBlue },
   { id: 'shot-sub-path', name: '학도', color: colors.chipPurple },
-  { id: 'shot-sub-media', name: '매체', color: colors.chipOrange },
+  { id: 'shot-sub-media', name: '매체', color: colors.chipGray },
 ];
 
 /** Empty product seed after screenshots (same as first-load default). */
@@ -67,6 +70,24 @@ function makeSchedules(
       completed,
       ...(completed ? { completedAt } : {}),
     };
+  });
+}
+
+/** Today = all unchecked; yesterday = all checked. Other days keep seed flags. */
+function applyTodayYesterdayCompletion(
+  schedules: ReviewSchedule[],
+  today: string,
+  completedAt: string,
+): ReviewSchedule[] {
+  const yesterday = addDays(today, -1);
+  return schedules.map((s) => {
+    if (s.dueOn === today) {
+      return { id: s.id, studyRecordId: s.studyRecordId, intervalDays: s.intervalDays, dueOn: s.dueOn, completed: false };
+    }
+    if (s.dueOn === yesterday) {
+      return { ...s, completed: true, completedAt };
+    }
+    return s;
   });
 }
 
@@ -105,7 +126,6 @@ export function buildScreenshotAppData(now = new Date()): AppData {
       content: '매체 기출 20문항',
       memo: '틀린 번호만',
       daysAgo: 1,
-      completedIntervals: [1],
     },
     {
       id: 'shot-study-d3-class',
@@ -113,7 +133,8 @@ export function buildScreenshotAppData(now = new Date()): AppData {
       subjectName: '분류',
       content: 'KDC 표 암기',
       daysAgo: 3,
-      completedIntervals: [1, 3],
+      // +1 was due 2d ago (calendar); +3 due today → forced unchecked
+      completedIntervals: [1],
     },
     {
       id: 'shot-study-d7-path',
@@ -148,14 +169,20 @@ export function buildScreenshotAppData(now = new Date()): AppData {
       completedIntervals: [1, 3, 7, 15, 30],
     },
 
-    // —— Week strip neighbors ——
+    // —— Week strip / yesterday dues (+1 from d2, +3 from d4, +7 from d8) ——
     {
       id: 'shot-study-d2-media',
       subjectId: 'shot-sub-media',
       subjectName: '매체',
       content: '틀린 문제 표시',
       daysAgo: 2,
-      completedIntervals: [1],
+    },
+    {
+      id: 'shot-study-d2-list',
+      subjectId: 'shot-sub-list',
+      subjectName: '목록',
+      content: '표목 연습',
+      daysAgo: 2,
     },
     {
       id: 'shot-study-d4-list',
@@ -164,6 +191,14 @@ export function buildScreenshotAppData(now = new Date()): AppData {
       content: '표목 선택 연습',
       daysAgo: 4,
       completedIntervals: [1],
+    },
+    {
+      id: 'shot-study-d8-path',
+      subjectId: 'shot-sub-path',
+      subjectName: '학도',
+      content: '열람 서비스 정리',
+      daysAgo: 8,
+      completedIntervals: [1, 3],
     },
     {
       id: 'shot-study-d5-path',
@@ -238,13 +273,17 @@ export function buildScreenshotAppData(now = new Date()): AppData {
     };
   });
 
-  const schedules: ReviewSchedule[] = specs.flatMap((spec) =>
-    makeSchedules(
-      spec.id,
-      studiedOnFrom(today, spec.daysAgo),
-      spec.completedIntervals ?? [],
-      createdAt,
+  const schedules = applyTodayYesterdayCompletion(
+    specs.flatMap((spec) =>
+      makeSchedules(
+        spec.id,
+        studiedOnFrom(today, spec.daysAgo),
+        spec.completedIntervals ?? [],
+        createdAt,
+      ),
     ),
+    today,
+    createdAt,
   );
 
   return {
