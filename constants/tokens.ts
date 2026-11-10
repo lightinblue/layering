@@ -160,7 +160,7 @@ export const PRIMARY_OPTIONS = [
   '#45c775',
   '#ff7a45',
   '#ef5b7a',
-  '#2bb8a8',
+  colors.chipYellow,
 ] as const;
 
 export type PrimaryOption = (typeof PRIMARY_OPTIONS)[number];
