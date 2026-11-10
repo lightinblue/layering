@@ -36,7 +36,7 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-/** Full-month 전체보기 — progress dots + day → home selection. */
+/** Full-month calendar — progress dots + day → home selection. */
 export default function CalendarScreen() {
   const router = useRouter();
   const theme = useThemeColors();

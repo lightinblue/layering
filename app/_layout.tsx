@@ -107,6 +107,7 @@ function RootLayoutNav() {
             presentation: 'transparentModal',
             animation: 'none',
             headerShown: false,
+            title: '',
             contentStyle: { backgroundColor: 'transparent' },
           }}
         />

@@ -59,7 +59,7 @@ npx expo start --tunnel
 - 홈 UI: Figma 기반 (하단 탭 없음). 실제/더미 모드
 - 기록 추가 → 복습 +1/3/7/15/30/60 자동 생성 · 완료 체크 저장
 - 폰트: Gotham XNarrow + NEXON Lv2 Gothic (`assets/fonts/`, expo-font)
-- 캘린더: FAB → 월 그리드. 날짜 아래 복습 완료율 점(primary 틴트). 날짜 탭 → 홈에서 해당일 표시 (실제/더미 모드 연동)
+- 캘린더: FAB → 월 그리드. 복습 완료율 점(0%·무일정은 숨김, primary 틴트). 다른 날 선택 시 FAB는 오늘로 이동. 날짜 탭 → 홈에서 해당일 표시
 
 ## 라이선스
 

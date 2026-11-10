@@ -57,7 +57,7 @@ export function progressFromReviewCards(
 
 /**
  * Dot fill from theme primary.
- * low progress → lighter tint; 100% → solid primary; no reviews → null (hide).
+ * no reviews / 0% checked → null (hide); low progress → lighter tint; 100% → solid primary.
  */
 export function progressDotColor(
   primary: string,
@@ -65,8 +65,8 @@ export function progressDotColor(
 ): string | null {
   if (progress.ratio == null) return null;
   const ratio = Math.min(1, Math.max(0, progress.ratio));
+  if (ratio <= 0) return null;
   if (ratio >= 0.999) return primary;
-  // Keep some chroma at 0% so incomplete days stay visible.
   const whiteMix = 0.72 * (1 - ratio);
   return softFromPrimary(primary, whiteMix);
 }

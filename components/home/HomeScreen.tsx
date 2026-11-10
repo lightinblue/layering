@@ -334,6 +334,10 @@ export default function HomeScreen({
     [base, mode, dataProp],
   );
 
+  const goToday = useCallback(() => {
+    selectDayFromCalendar(todayKey);
+  }, [selectDayFromCalendar, todayKey]);
+
   useEffect(() => {
     if (!hydrated) return;
     if (!dayParam || !isDateKey(dayParam)) {
@@ -479,8 +483,8 @@ export default function HomeScreen({
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="캘린더"
-        onPress={goCalendar}
+        accessibilityLabel={isToday ? '캘린더' : '오늘로 이동'}
+        onPress={isToday ? goCalendar : goToday}
         style={[
           styles.fab,
           {
@@ -488,7 +492,13 @@ export default function HomeScreen({
             bottom: fabBottom,
           },
         ]}>
-        <CalendarIcon />
+        {isToday ? (
+          <CalendarIcon />
+        ) : (
+          <View style={styles.fabArrowPrev}>
+            <ArrowRightIcon size={sizes.fabIcon} color={colors.accentText} />
+          </View>
+        )}
       </Pressable>
 
       <BottomSheetModal visible={addOpen} onClose={closeAdd}>
@@ -1171,6 +1181,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
     zIndex: 10,
+  },
+  fabArrowPrev: {
+    transform: [{ scaleX: -1 }],
   },
   devControl: {
     marginTop: 4,

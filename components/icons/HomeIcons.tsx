@@ -38,15 +38,21 @@ export function CheckIcon({
   );
 }
 
-/** Chevron for 「자세히」. */
-export function ArrowRightIcon({ size = sizes.arrow }: { size?: number }) {
+/** Chevron for 「자세히」 (mirror with scaleX: -1 for left). */
+export function ArrowRightIcon({
+  size = sizes.arrow,
+  color = colors.muted,
+}: {
+  size?: number;
+  color?: string;
+}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
       <Path
         fillRule="evenodd"
         clipRule="evenodd"
         d="M5.20402 11.0419C4.98533 10.8232 4.98533 10.4686 5.20402 10.25L8.45387 7.0001L5.20402 3.75024C4.98533 3.53155 4.98533 3.17698 5.20402 2.95828C5.42271 2.73959 5.77729 2.73959 5.99598 2.95828L9.64181 6.60412C9.86051 6.82281 9.86051 7.17738 9.64181 7.39608L5.99598 11.0419C5.77729 11.2606 5.42271 11.2606 5.20402 11.0419Z"
-        fill={colors.muted}
+        fill={color}
       />
     </Svg>
   );
