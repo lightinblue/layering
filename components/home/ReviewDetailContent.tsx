@@ -9,14 +9,14 @@ export type ReviewDetailContentProps = {
   studies: HomeReviewStudy[];
 };
 
-/** 「자세히」 sheet — that day’s study content for the selected reviews. */
+/** 「복습 내용」 sheet — that day’s study content for the selected reviews. */
 export function ReviewDetailContent({
   intervalLabel,
   studies,
 }: ReviewDetailContentProps) {
   return (
     <View style={styles.body}>
-      <Text style={styles.title}>복습 자세히</Text>
+      <Text style={styles.title}>복습 내용</Text>
       <Text style={styles.meta}>{intervalLabel}</Text>
 
       {studies.length > 0 ? (
@@ -39,16 +39,20 @@ export function ReviewDetailContent({
           <Text style={styles.bodyText}>연결된 공부 기록이 없어요</Text>
         </View>
       ) : (
-        studies.map((study, index) => (
-          <View
-            key={`${study.subjectName}-${study.studiedOn}-${index}`}
-            style={styles.card}>
-            <Text style={styles.bodyLabel}>그날의 공부</Text>
-            <Text style={styles.subjectLine}>{study.subjectName}</Text>
-            <Text style={styles.bodyText}>{study.content}</Text>
-            <Text style={styles.hint}>학습일 {study.studiedOn}</Text>
-          </View>
-        ))
+        studies.map((study, index) => {
+          const memo = study.memo?.trim();
+          return (
+            <View
+              key={`${study.subjectName}-${study.studiedOn}-${index}`}
+              style={styles.card}>
+              {study.studiedOn ? (
+                <Text style={styles.studiedOn}>학습일 {study.studiedOn}</Text>
+              ) : null}
+              <Text style={styles.bodyText}>{study.content}</Text>
+              {memo ? <Text style={styles.memo}>{memo}</Text> : null}
+            </View>
+          );
+        })
       )}
     </View>
   );
@@ -95,12 +99,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 8,
   },
-  bodyLabel: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 12,
-    color: colors.sectionLabel,
-  },
-  subjectLine: {
+  studiedOn: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
     color: colors.accentText,
@@ -111,10 +110,10 @@ const styles = StyleSheet.create({
     color: colors.body,
     lineHeight: 22,
   },
-  hint: {
+  memo: {
     fontFamily: fonts.nexonRegular,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.muted,
-    marginTop: 4,
+    lineHeight: 19,
   },
 });

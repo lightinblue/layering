@@ -16,6 +16,7 @@ export default function ReviewDetailSheet() {
     interval?: string;
     content?: string;
     studiedOn?: string;
+    memo?: string;
   }>();
 
   const studies = useMemo((): HomeReviewStudy[] => {
@@ -26,12 +27,14 @@ export default function ReviewDetailSheet() {
     if (names.length === 0) return [];
     const content = params.content?.trim() || '학습 내용';
     const studiedOn = params.studiedOn?.trim() || '';
+    const memo = params.memo?.trim();
     return names.map((subjectName) => ({
       subjectName,
       content,
       studiedOn,
+      ...(memo ? { memo } : {}),
     }));
-  }, [params.subjects, params.content, params.studiedOn]);
+  }, [params.subjects, params.content, params.studiedOn, params.memo]);
 
   const intervalLabel =
     params.interval && params.interval.length > 0

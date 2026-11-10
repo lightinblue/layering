@@ -44,14 +44,14 @@ export default function AddRecordSheet() {
 
   const onSave = useCallback(
     async (payload: AddStudyPayload) => {
-      const content = payload.memo
-        ? `${payload.title}\n${payload.memo}`
-        : payload.title;
+      const content = payload.title.trim();
+      const memo = payload.memo.trim();
       const data = await loadAppData();
       const next = appendStudyWithReviews(data, {
         subjectName: payload.subject,
         content,
         studiedOn: todayKey(),
+        ...(memo ? { memo } : {}),
       });
       await saveAppData(next);
       onClose();

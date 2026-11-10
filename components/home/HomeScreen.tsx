@@ -206,9 +206,8 @@ export default function HomeScreen({
 
   const onSaveAdd = useCallback(
     (payload: AddStudyPayload) => {
-      const content = payload.memo
-        ? `${payload.title}\n${payload.memo}`
-        : payload.title;
+      const content = payload.title.trim();
+      const memo = payload.memo.trim();
       const studiedOn = selectedDateKey;
 
       if (mode === 'dummy' || dataProp) {
@@ -217,6 +216,7 @@ export default function HomeScreen({
             subjectName: payload.subject,
             content,
             studiedOn,
+            ...(memo ? { memo } : {}),
           }),
         );
         setAddOpen(false);
@@ -228,6 +228,7 @@ export default function HomeScreen({
         subjectName: payload.subject,
         content,
         studiedOn,
+        ...(memo ? { memo } : {}),
       });
       void persistApp(next);
       setAddOpen(false);

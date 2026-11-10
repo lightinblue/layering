@@ -41,8 +41,14 @@ function studyDetail(
   subjectName: string,
   content: string,
   studiedOn: string,
+  memo?: string,
 ): HomeReviewCard['studies'][number] {
-  return { subjectName, content, studiedOn };
+  return {
+    subjectName,
+    content,
+    studiedOn,
+    ...(memo ? { memo } : {}),
+  };
 }
 
 const FULL_REVIEWS: HomeReviewCard[] = [
@@ -53,8 +59,8 @@ const FULL_REVIEWS: HomeReviewCard[] = [
     subjectNames: ['분류', '교육학'],
     completed: false,
     studies: [
-      studyDetail('분류', '분류 기출 요약', '2026-11-08'),
-      studyDetail('교육학', '교육과정 개론 메모', '2026-11-08'),
+      studyDetail('분류', '분류 기출 요약', '2026-11-08', '오답 위주로 다시 보기'),
+      studyDetail('교육학', '교육과정 개론', '2026-11-08', '용어 정리 필요'),
     ],
   },
   {
@@ -71,7 +77,9 @@ const FULL_REVIEWS: HomeReviewCard[] = [
     intervalDays: 7,
     subjectNames: ['정검'],
     completed: false,
-    studies: [studyDetail('정검', '정보검색 기출 20문항', '2026-11-02')],
+    studies: [
+      studyDetail('정검', '정보검색 기출 20문항', '2026-11-02', '틀린 문제 표시'),
+    ],
   },
   {
     id: 'r4',
@@ -265,12 +273,14 @@ export function applyDummyStudy(
     subjectName: string;
     content: string;
     studiedOn: string;
+    memo?: string;
     intervals?: ReviewIntervalDay[];
   },
 ): HomeScreenData {
   const intervals = input.intervals ?? [1, 3, 7, 15, 30, 60];
   const next = cloneHomeData(data);
   const studyId = `dummy-s-${Date.now().toString(36)}`;
+  const memo = input.memo?.trim();
 
   for (const week of next.weeks) {
     for (const day of week) {
@@ -299,6 +309,7 @@ export function applyDummyStudy(
           subjectName: input.subjectName,
           content: input.content,
           studiedOn: input.studiedOn,
+          ...(memo ? { memo } : {}),
         };
         if (existing) {
           if (!existing.subjectNames.includes(input.subjectName)) {

@@ -70,3 +70,26 @@ export const SUBJECT_COLORS: Record<string, string> = {
 export function subjectColor(name: string): string {
   return SUBJECT_COLORS[name] ?? colors.chipGray;
 }
+
+/** Darken a `#RRGGBB` (or `#RGB`) hex for same-hue chip borders. */
+export function darkenHex(hex: string, amount = 0.22): string {
+  const raw = hex.replace('#', '');
+  const full =
+    raw.length === 3
+      ? raw
+          .split('')
+          .map((c) => `${c}${c}`)
+          .join('')
+      : raw;
+  const n = Number.parseInt(full, 16);
+  if (Number.isNaN(n)) return hex;
+  const factor = 1 - amount;
+  const r = Math.max(0, Math.round(((n >> 16) & 255) * factor));
+  const g = Math.max(0, Math.round(((n >> 8) & 255) * factor));
+  const b = Math.max(0, Math.round((n & 255) * factor));
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
+export function subjectBorderColor(name: string): string {
+  return darkenHex(subjectColor(name));
+}

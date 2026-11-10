@@ -13,6 +13,8 @@ export type StudyRecord = {
   /** 저장 시점의 과목명 스냅샷 (칩 삭제 후에도 표시용). */
   subjectName: string;
   content: string;
+  /** Optional short memo (may be empty). */
+  memo?: string;
   /** YYYY-MM-DD (로컬 날짜). */
   studiedOn: string;
   createdAt: string;

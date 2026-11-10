@@ -10,7 +10,12 @@ import {
 
 import { DUMMY_SUBJECTS } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
-import { colors, radii, subjectColor } from '@/constants/tokens';
+import {
+  colors,
+  radii,
+  subjectBorderColor,
+  subjectColor,
+} from '@/constants/tokens';
 
 export type AddStudyPayload = {
   subject: string;
@@ -72,7 +77,10 @@ export function AddStudyForm({
                 onPress={() => setSubject(name)}
                 style={[
                   styles.subjectChip,
-                  { backgroundColor: subjectColor(name) },
+                  {
+                    backgroundColor: subjectColor(name),
+                    borderColor: subjectBorderColor(name),
+                  },
                   selected && styles.subjectChipSelected,
                   !selected && styles.subjectChipIdle,
                 ]}>
@@ -158,6 +166,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.chip,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
   },
   subjectChipIdle: {
     opacity: 0.45,

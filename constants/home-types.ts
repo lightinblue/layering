@@ -8,8 +8,11 @@ export type HomeStudyRow = {
 
 export type HomeReviewStudy = {
   subjectName: string;
+  /** 학습 내용 (title). */
   content: string;
   studiedOn: string;
+  /** Optional memo shown muted under 학습 내용. */
+  memo?: string;
 };
 
 export type HomeReviewCard = {

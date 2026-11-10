@@ -58,6 +58,7 @@ export type CreateStudyInput = {
   subjectName: string;
   content: string;
   studiedOn: string;
+  memo?: string;
 };
 
 /** Append one study + +1/3/7/15/30/60 review schedules. */
@@ -73,11 +74,13 @@ export function appendStudyWithReviews(
       name: input.subjectName,
     } satisfies SubjectChip);
 
+  const memo = input.memo?.trim();
   const record: StudyRecord = {
     id: newId('study'),
     subjectId: subject.id,
     subjectName: subject.name,
     content: input.content,
+    ...(memo ? { memo } : {}),
     studiedOn: input.studiedOn,
     createdAt: new Date().toISOString(),
   };
