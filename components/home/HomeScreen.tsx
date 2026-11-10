@@ -80,6 +80,7 @@ export default function HomeScreen({
   );
 
   const isFutureDay = selected.day > todayDay;
+  const isToday = selected.day === todayDay;
   const weekDays = useMemo(
     () =>
       base.weekDays.map((d) => ({
@@ -151,7 +152,7 @@ export default function HomeScreen({
                 <Text style={styles.dayNumber} numberOfLines={1}>
                   {selected.dayNumber}
                 </Text>
-                <EllipseIcon />
+                {isToday ? <EllipseIcon /> : null}
               </View>
               <View style={styles.dateMeta}>
                 <Text style={styles.weekday}>{selected.weekdayLabel}</Text>
@@ -469,7 +470,6 @@ const styles = StyleSheet.create({
     color: colors.black,
     lineHeight: 86,
     letterSpacing: -2,
-    minWidth: 84,
     flexShrink: 0,
     includeFontPadding: false,
   },
