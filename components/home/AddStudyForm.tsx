@@ -24,14 +24,16 @@ import {
   type PanResponderGestureState,
 } from 'react-native';
 import Animated, {
+  cancelAnimation,
+  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { DUMMY_SUBJECTS } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
-import { durations, springs } from '@/constants/motion';
+import { durations } from '@/constants/motion';
 import {
   SUBJECT_COLOR_OPTIONS,
   SUBJECT_COLORS,
@@ -113,10 +115,17 @@ const MOVE_CANCEL_PX = 10;
 const CHIP_SHIFT_ANIM = {
   duration: durations.chipShift,
   update: {
-    type: LayoutAnimation.Types.spring,
-    springDamping: 0.92,
+    type: LayoutAnimation.Types.easeOut,
   },
 };
+
+const CHIP_EASE = {
+  duration: durations.chipShift,
+  easing: Easing.out(Easing.cubic),
+} as const;
+
+const CHIP_IDLE_OPACITY = 0.45;
+const CHIP_SELECTED_OPACITY = 1;
 
 function DraftColorSwatch({
   hex,
@@ -129,36 +138,17 @@ function DraftColorSwatch({
   borderColor: string;
   onPress: () => void;
 }) {
-  const scale = useSharedValue(1);
-  const primed = useRef(false);
-
-  useEffect(() => {
-    if (!primed.current) {
-      primed.current = true;
-      return;
-    }
-    if (!selected) return;
-    scale.value = withSpring(1.12, springs.snappy, (finished) => {
-      if (finished) scale.value = withSpring(1, springs.soft);
-    });
-  }, [selected, scale]);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={`과목 색상 ${hex}`}
       onPress={onPress}>
-      <Animated.View
+      <View
         style={[
           styles.swatch,
           { backgroundColor: hex },
           selected && { borderColor, borderWidth: 2 },
-          animStyle,
         ]}
       />
     </Pressable>
@@ -167,6 +157,7 @@ function DraftColorSwatch({
 
 function SelectableChip({
   selected,
+  dimmed = false,
   style,
   children,
   panHandlers,
@@ -174,22 +165,40 @@ function SelectableChip({
   accessibilityHint,
 }: {
   selected: boolean;
+  /** Drag placeholder — keeps opacity below selection settle. */
+  dimmed?: boolean;
   style: object | object[];
   children: ReactNode;
   panHandlers?: object;
   accessibilityLabel?: string;
   accessibilityHint?: string;
 }) {
+  const targetOpacity = dimmed
+    ? 0.28
+    : selected
+      ? CHIP_SELECTED_OPACITY
+      : CHIP_IDLE_OPACITY;
+  const opacity = useSharedValue(targetOpacity);
+
+  useEffect(() => {
+    cancelAnimation(opacity);
+    opacity.value = withTiming(targetOpacity, CHIP_EASE);
+  }, [opacity, targetOpacity]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
   return (
-    <View
+    <Animated.View
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
-      style={style}
+      style={[style, animStyle]}
       {...(panHandlers ?? {})}>
       {children}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -675,6 +684,7 @@ export function AddStudyForm({
                 style={styles.chipWrap}>
                 <SelectableChip
                   selected={selected}
+                  dimmed={dragging}
                   panHandlers={pan?.panHandlers}
                   accessibilityLabel={`과목 ${name}`}
                   accessibilityHint={
@@ -688,9 +698,6 @@ export function AddStudyForm({
                       backgroundColor: fill,
                       borderColor: subjectBorderColor(name, fill),
                     },
-                    selected && styles.subjectChipSelected,
-                    !selected && styles.subjectChipIdle,
-                    dragging && styles.subjectChipPlaceholder,
                   ]}>
                   <Text
                     style={[
@@ -963,15 +970,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-  },
-  subjectChipIdle: {
-    opacity: 0.45,
-  },
-  subjectChipSelected: {
-    opacity: 1,
-  },
-  subjectChipPlaceholder: {
-    opacity: 0.28,
   },
   subjectChipPlaceholderText: {
     opacity: 0.55,

@@ -14,14 +14,17 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { durations, rnSprings } from '@/constants/motion';
+import { durations } from '@/constants/motion';
 import { colors, radii } from '@/constants/tokens';
 import { haptics } from '@/utils/haptics';
 
+const OPEN_MS = durations.sheetOpen;
 const CLOSE_MS = durations.sheetClose;
 const BACKDROP_OPEN_MS = durations.backdropOpen;
 const BACKDROP_CLOSE_MS = durations.backdropClose;
 const SHEET_OFFSCREEN = 640;
+/** Soft ease-out — same language as date / week pill. */
+const EASE_OUT = Easing.out(Easing.cubic);
 /** Extra white paint below the rounded sheet so keyboard edges stay filled. */
 const KEYBOARD_FILL_EXTRA = 48;
 /** Fallback when the platform event omits duration (common on Android). */
@@ -87,12 +90,14 @@ export function SheetPanel({
       Animated.timing(localBackdrop, {
         toValue: 1,
         duration: BACKDROP_OPEN_MS,
-        easing: Easing.out(Easing.cubic),
+        easing: EASE_OUT,
         useNativeDriver: true,
       }),
-      Animated.spring(localSheet, {
+      Animated.timing(localSheet, {
         toValue: 0,
-        ...rnSprings.sheetOpen,
+        duration: OPEN_MS,
+        easing: EASE_OUT,
+        useNativeDriver: true,
       }),
     ]).start();
   }, [animateOnMount, backdropOpacityProp, localBackdrop, localSheet]);
@@ -235,12 +240,14 @@ export function BottomSheetModal({
         Animated.timing(backdropOpacity, {
           toValue: 1,
           duration: BACKDROP_OPEN_MS,
-          easing: Easing.out(Easing.cubic),
+          easing: EASE_OUT,
           useNativeDriver: true,
         }),
-        Animated.spring(sheetTranslateY, {
+        Animated.timing(sheetTranslateY, {
           toValue: 0,
-          ...rnSprings.sheetOpen,
+          duration: OPEN_MS,
+          easing: EASE_OUT,
+          useNativeDriver: true,
         }),
       ]).start();
       return;
@@ -253,13 +260,13 @@ export function BottomSheetModal({
       Animated.timing(backdropOpacity, {
         toValue: 0,
         duration: BACKDROP_CLOSE_MS,
-        easing: Easing.in(Easing.cubic),
+        easing: EASE_OUT,
         useNativeDriver: true,
       }),
       Animated.timing(sheetTranslateY, {
         toValue: SHEET_OFFSCREEN,
         duration: CLOSE_MS,
-        easing: Easing.in(Easing.cubic),
+        easing: EASE_OUT,
         useNativeDriver: true,
       }),
     ]).start(({ finished }) => {
