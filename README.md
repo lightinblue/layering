@@ -26,7 +26,7 @@ npx expo start
 npx expo start --tunnel
 ```
 
-데모 상태: 홈 헤더를 **길게 누르기** (full → few → empty), 또는 URL `?demo=few` / `?demo=empty` (웹).
+데모 상태: 홈 하단 **demo** 세그먼트(`full` / `few` / `empty`)를 탭, 또는 URL `?demo=few` / `?demo=empty` (웹).
 
 ## 스크립트
 

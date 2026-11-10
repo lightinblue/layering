@@ -100,14 +100,14 @@ export default function HomeScreen({
     router.push('/add');
   }, [router]);
 
-  const cycleDemo = useCallback(() => {
-    if (dataProp) return;
-    setCompletedOverrides({});
-    setDemoState((prev) => {
-      const i = HOME_DEMO_STATES.indexOf(prev);
-      return HOME_DEMO_STATES[(i + 1) % HOME_DEMO_STATES.length];
-    });
-  }, [dataProp]);
+  const selectDemo = useCallback(
+    (next: HomeDemoState) => {
+      if (dataProp) return;
+      setCompletedOverrides({});
+      setDemoState(next);
+    },
+    [dataProp],
+  );
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -118,12 +118,7 @@ export default function HomeScreen({
           { paddingBottom: Math.max(insets.bottom, 8) + 12 },
         ]}>
         <View style={[styles.frame, { maxWidth: frameWidth }]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="데모 상태 전환"
-            onLongPress={cycleDemo}
-            delayLongPress={400}
-            style={styles.headerRow}>
+          <View style={styles.headerRow}>
             <View style={styles.dayRow}>
               <Text style={styles.dayNumber} numberOfLines={1}>
                 {data.dayNumber}
@@ -134,7 +129,7 @@ export default function HomeScreen({
               <Text style={styles.weekday}>{data.weekdayLabel}</Text>
               <Text style={styles.dateLabel}>{data.dateLabel}</Text>
             </View>
-          </Pressable>
+          </View>
 
           <WeekStrip days={data.weekDays} />
 
@@ -149,9 +144,7 @@ export default function HomeScreen({
           </View>
 
           {__DEV__ && !dataProp ? (
-            <Text style={styles.devHint}>
-              길게 눌러 상태 전환 · 현재: {demoState}
-            </Text>
+            <DemoStateControl active={demoState} onSelect={selectDemo} />
           ) : null}
         </View>
       </View>
@@ -169,6 +162,45 @@ export default function HomeScreen({
         ]}>
         <CalendarIcon />
       </Pressable>
+    </View>
+  );
+}
+
+function DemoStateControl({
+  active,
+  onSelect,
+}: {
+  active: HomeDemoState;
+  onSelect: (state: HomeDemoState) => void;
+}) {
+  return (
+    <View style={styles.devControl} accessibilityRole="tablist">
+      <Text style={styles.devHintLabel}>demo</Text>
+      <View style={styles.devSegments}>
+        {HOME_DEMO_STATES.map((state) => {
+          const selected = state === active;
+          return (
+            <Pressable
+              key={state}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              accessibilityLabel={`데모 ${state}`}
+              onPress={() => onSelect(state)}
+              style={[
+                styles.devSegment,
+                selected && styles.devSegmentSelected,
+              ]}>
+              <Text
+                style={[
+                  styles.devSegmentText,
+                  selected && styles.devSegmentTextSelected,
+                ]}>
+                {state}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -632,11 +664,38 @@ const styles = StyleSheet.create({
     elevation: 4,
     zIndex: 10,
   },
-  devHint: {
+  devControl: {
+    marginTop: 4,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  devHintLabel: {
     fontFamily: fonts.nexonMedium,
     fontSize: 11,
     color: colors.mutedLight,
-    marginTop: 4,
-    alignSelf: 'center',
+  },
+  devSegments: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  devSegment: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: colors.surface,
+  },
+  devSegmentSelected: {
+    backgroundColor: colors.primarySoft,
+  },
+  devSegmentText: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 11,
+    color: colors.mutedLight,
+  },
+  devSegmentTextSelected: {
+    color: colors.primary,
   },
 });
