@@ -911,7 +911,6 @@ export default function HomeScreen({
       <BottomSheetModal visible={reviewOpen != null} onClose={closeReview}>
         {reviewOpen ? (
           <ReviewDetailContent
-            intervalLabel={`${reviewOpen.intervalDays}일 전`}
             studies={reviewOpen.studies}
             colorByName={colorByName}
           />

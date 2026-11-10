@@ -5,7 +5,6 @@ import { fonts } from '@/constants/fonts';
 import { colors, radii, subjectColor } from '@/constants/tokens';
 
 export type ReviewDetailContentProps = {
-  intervalLabel: string;
   studies: HomeReviewStudy[];
   /** Optional chip fills from current subject list. */
   colorByName?: Record<string, string>;
@@ -13,30 +12,11 @@ export type ReviewDetailContentProps = {
 
 /** 「복습 내용」 sheet — that day’s study content for the selected reviews. */
 export function ReviewDetailContent({
-  intervalLabel,
   studies,
   colorByName,
 }: ReviewDetailContentProps) {
   return (
     <View style={styles.body}>
-      <Text style={styles.title}>복습 내용</Text>
-      <Text style={styles.meta}>{intervalLabel}</Text>
-
-      {studies.length > 0 ? (
-        <View style={styles.chipRow}>
-          {[...new Set(studies.map((s) => s.subjectName))].map((name) => (
-            <View
-              key={name}
-              style={[
-                styles.subjectChip,
-                { backgroundColor: subjectColor(name, colorByName) },
-              ]}>
-              <Text style={styles.subjectChipText}>{name}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-
       {studies.length === 0 ? (
         <View style={styles.card}>
           <Text style={styles.bodyText}>연결된 공부 기록이 없어요</Text>
@@ -48,6 +28,18 @@ export function ReviewDetailContent({
             <View
               key={`${study.subjectName}-${study.studiedOn}-${index}`}
               style={styles.card}>
+              <View
+                style={[
+                  styles.subjectChip,
+                  {
+                    backgroundColor: subjectColor(
+                      study.subjectName,
+                      colorByName,
+                    ),
+                  },
+                ]}>
+                <Text style={styles.subjectChipText}>{study.subjectName}</Text>
+              </View>
               {study.studiedOn ? (
                 <Text style={styles.studiedOn}>학습일 {study.studiedOn}</Text>
               ) : null}
@@ -68,32 +60,18 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     gap: 14,
   },
-  title: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 18,
-    color: colors.black,
-  },
-  meta: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 13,
-    color: colors.accentText,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
   // Width follows label; padding tuned for a 3-char Hangul baseline.
   subjectChip: {
-    height: 40,
-    paddingHorizontal: 12,
+    alignSelf: 'flex-start',
+    height: 32,
+    paddingHorizontal: 10,
     borderRadius: radii.chip,
     alignItems: 'center',
     justifyContent: 'center',
   },
   subjectChipText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 14,
+    fontSize: 13,
     color: colors.white,
   },
   card: {

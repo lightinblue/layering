@@ -13,7 +13,6 @@ export default function ReviewDetailSheet() {
   const params = useLocalSearchParams<{
     id?: string;
     subjects?: string;
-    interval?: string;
     content?: string;
     studiedOn?: string;
     memo?: string;
@@ -36,18 +35,13 @@ export default function ReviewDetailSheet() {
     }));
   }, [params.subjects, params.content, params.studiedOn, params.memo]);
 
-  const intervalLabel =
-    params.interval && params.interval.length > 0
-      ? `${params.interval}일 전`
-      : '복습';
-
   const onClose = useCallback(() => {
     if (router.canGoBack()) router.back();
   }, [router]);
 
   return (
     <SheetPanel onClose={onClose}>
-      <ReviewDetailContent intervalLabel={intervalLabel} studies={studies} />
+      <ReviewDetailContent studies={studies} />
     </SheetPanel>
   );
 }

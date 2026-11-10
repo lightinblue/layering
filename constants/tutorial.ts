@@ -1,6 +1,6 @@
 import { REVIEW_INTERVAL_DAYS } from '@/constants/review';
 
-/** Short first-launch intro — keep to a few screens. */
+/** Short first-launch intro — two screens. */
 export type TutorialPage = {
   eyebrow: string;
   title: string;
@@ -15,18 +15,13 @@ const INTERVAL_LABEL =
 export const TUTORIAL_PAGES: readonly TutorialPage[] = [
   {
     eyebrow: '망각곡선',
-    title: '시간은 기억을\n희미하게 만들어요',
-    body: '에빙하우스 망각곡선에 따르면, 복습하지 않으면 배운 내용은 빠르게 잊혀집니다. 레이어링은 그 타이밍에 맞춰 복습일을 잡아 줍니다.',
-  },
-  {
-    eyebrow: '여섯 레이어',
-    title: '학습일만 적으면\n복습 일정이 생겨요',
-    body: '공부한 날을 기록하면 기본 주기로 복습일이 자동 생성됩니다.',
+    title: '에빙하우스 망각곡선,\n그래서 이 주기예요',
+    body: '복습하지 않으면 배운 내용은 빠르게 잊혀집니다. 그 타이밍에 맞춰 다시 꺼내 보면 기억이 오래 남아요. 그래서 학습일 기준으로 아래 주기를 씁니다.',
     accent: INTERVAL_LABEL,
   },
   {
     eyebrow: '이렇게 써요',
     title: '기록하고,\n오늘 확인하고,\n캘린더로 챙기세요',
-    body: '공부 후 기록을 남기고, 홈에서 오늘 복습을 체크하세요. 놓친 날은 캘린더에서 그 날짜를 열어 확인하면 됩니다.',
+    body: '공부한 날을 남기면 복습 일정이 자동으로 생깁니다. 홈에서 오늘 복습을 체크하고, 놓친 날은 캘린더에서 그 날짜를 열어 확인하세요.',
   },
 ] as const;
