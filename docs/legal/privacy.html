@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>레이어링 개인정보 처리방침</title>
+    <meta
+      name="description"
+      content="레이어링(Layering) 개인정보 처리방침 — 기기 로컬 저장만, 계정·광고·분석 없음."
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #fafafa;
+        --ink: #1a1a1a;
+        --muted: rgba(26, 26, 26, 0.55);
+        --line: rgba(26, 26, 26, 0.12);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          "SUIT",
+          "Apple SD Gothic Neo",
+          "Pretendard",
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+      }
+      main {
+        max-width: 40rem;
+        margin: 0 auto;
+        padding: 72px 32px 96px;
+      }
+      .name {
+        margin: 0 0 8px;
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -0.06em;
+      }
+      .tagline {
+        margin: 0 0 8px;
+        font-size: 15px;
+        letter-spacing: -0.04em;
+        color: var(--muted);
+      }
+      .meta {
+        margin: 0 0 56px;
+        font-size: 13px;
+        letter-spacing: -0.03em;
+        color: var(--muted);
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.05em;
+      }
+      h2 {
+        margin: 36px 0 10px;
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+      }
+      p,
+      li {
+        font-size: 15px;
+        line-height: 1.7;
+        letter-spacing: -0.03em;
+      }
+      p {
+        margin: 0 0 12px;
+      }
+      ul {
+        margin: 0 0 12px;
+        padding-left: 1.15em;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0 0 16px;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      th,
+      td {
+        border-top: 1px solid var(--line);
+        padding: 10px 8px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        font-weight: 700;
+        color: var(--muted);
+      }
+      a {
+        color: inherit;
+      }
+      .nav {
+        margin: 48px 0 0;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .en {
+        margin-top: 48px;
+        padding-top: 32px;
+        border-top: 1px solid var(--line);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="name">레이어링</p>
+      <p class="tagline">여섯 레이어로 복습해 / 온전히 내 것으로</p>
+      <p class="meta">시행일: 2026년 11월 10일 · 번들 com.lightinblue.layering</p>
+
+      <h1>개인정보 처리방침</h1>
+      <p>
+        레이어링(Layering)은 학습 기록과 복습 일정을 <strong>이용자 기기 내부</strong>에만
+        저장하는 iOS 앱입니다. 계정 가입, 클라우드 동기화, 광고, 분석(애널리틱스) SDK를
+        사용하지 않습니다.
+      </p>
+
+      <h2>1. 수집하는 개인정보</h2>
+      <p><strong>개발자가 수집·전송하는 개인정보는 없습니다.</strong></p>
+      <p>앱이 기기 안에서만 다루는 데이터 예시:</p>
+      <table>
+        <thead>
+          <tr>
+            <th>항목</th>
+            <th>예시</th>
+            <th>저장</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>과목 칩</td>
+            <td>이용자가 만든 이름·색</td>
+            <td>기기 AsyncStorage</td>
+          </tr>
+          <tr>
+            <td>학습 기록</td>
+            <td>제목, 선택 메모, 학습일</td>
+            <td>기기 AsyncStorage</td>
+          </tr>
+          <tr>
+            <td>복습 일정</td>
+            <td>+1·3·7·15·30·60일, 완료 여부</td>
+            <td>기기 AsyncStorage</td>
+          </tr>
+          <tr>
+            <td>앱 설정</td>
+            <td>테마 색, 튜토리얼 열람 여부</td>
+            <td>기기 AsyncStorage</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        이름·이메일·전화번호·위치·연락처·사진·광고 ID 등을 요구하거나 업로드하지 않습니다.
+      </p>
+
+      <h2>2. 수집 방법</h2>
+      <p>
+        이용자가 앱에 직접 입력한 학습·복습 관련 내용만 기기에 저장됩니다. 외부 API 호출,
+        계정 로그인, 추적(ATT) 요청이 없습니다.
+      </p>
+
+      <h2>3. 이용 목적</h2>
+      <ul>
+        <li>복습 일정 자동 생성 및 표시</li>
+        <li>완료 체크·캘린더·과목 분류</li>
+        <li>테마·튜토리얼 등 앱 설정 유지</li>
+      </ul>
+
+      <h2>4. 제3자 제공·처리위탁</h2>
+      <p>
+        개발자가 이용자 학습 데이터를 제3자에게 제공하거나 처리 위탁하지 않습니다.
+        광고·분석·크래시 리포트 SDK를 포함하지 않습니다.
+      </p>
+
+      <h2>5. 보관 및 파기</h2>
+      <ul>
+        <li>이용자가 앱을 삭제하거나 기기/앱 데이터를 지울 때까지 해당 기기에 유지됩니다.</li>
+        <li>앱 삭제 또는 앱 데이터 삭제 시 기록도 함께 삭제될 수 있습니다.</li>
+        <li>서버 백업이 없어 기기 분실·교체 시 복구 수단이 없습니다.</li>
+      </ul>
+
+      <h2>6. 이용자 권리</h2>
+      <p>
+        기기 안의 기록은 앱 UI에서 수정·삭제할 수 있는 범위 내에서 관리합니다. 서버에
+        보관된 프로필이 없으므로 「계정 삭제」 요청은 해당 없습니다. 문의는
+        <a href="mailto:navyinblue8@gmail.com">navyinblue8@gmail.com</a>으로 보내 주세요.
+      </p>
+
+      <h2>7. 아동의 개인정보</h2>
+      <p>
+        만 14세 미만을 대상으로 한 개인정보 수집을 하지 않습니다. 계정·온라인 프로필이
+        없습니다.
+      </p>
+
+      <h2>8. 보안</h2>
+      <p>
+        데이터가 개발자 서버로 전송되지 않습니다. 기기 OS의 앱 샌드박스·저장소 보호에
+        의존합니다. 앱이 자체 암호로 클라우드에 올리는 기능은 없습니다.
+      </p>
+
+      <h2>9. 방침 변경</h2>
+      <p>
+        내용이 바뀌면 이 페이지의 시행일을 갱신하고, 필요 시 앱 또는 스토어 기재를 통해
+        알립니다.
+      </p>
+
+      <h2>10. 문의</h2>
+      <p>
+        이메일:
+        <a href="mailto:navyinblue8@gmail.com">navyinblue8@gmail.com</a><br />
+        운영: lightinblue<br />
+        앱: 레이어링 / Layering · <code>com.lightinblue.layering</code>
+      </p>
+
+      <p class="nav">
+        <a href="./support.html">지원 페이지</a>
+      </p>
+
+      <section class="en" lang="en">
+        <h2>English summary</h2>
+        <p>
+          Layering stores study records and spaced-repetition schedules
+          (+1/+3/+7/+15/+30/+60 days) only on your device using AsyncStorage. We do not
+          create accounts, sync to a server, show ads, or include analytics SDKs. Deleting
+          the app may delete your data. Contact:
+          <a href="mailto:navyinblue8@gmail.com">navyinblue8@gmail.com</a>.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
