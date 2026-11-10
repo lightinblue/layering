@@ -1,49 +1,145 @@
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import {
+  DarkTheme,
+  DefaultTheme,
+  Stack,
+  ThemeProvider as NavThemeProvider,
+} from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
+import { LaunchScreen } from '@/components/launch-screen';
+import { TutorialScreen } from '@/components/tutorial/TutorialScreen';
 import { useColorScheme } from '@/components/useColorScheme';
+import { fonts } from '@/constants/fonts';
+import {
+  loadTutorialSeen,
+  runTutorialRetestClearIfNeeded,
+  saveTutorialSeen,
+} from '@/storage/tutorial';
+import {
+  ThemeProvider,
+  useThemeColors,
+} from '@/theme/ThemeProvider';
 
 export { ErrorBoundary } from 'expo-router';
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: 'index',
 };
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {
+  // Already hidden or unavailable — avoid an unhandled rejection on launch.
+});
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    [fonts.gothamBlack]: require('../assets/fonts/GothamXNarrow-Black.ttf'),
+    [fonts.gothamBold]: require('../assets/fonts/GothamXNarrow-Bold.ttf'),
+    [fonts.gothamMedium]: require('../assets/fonts/GothamXNarrow-Medium.ttf'),
+    [fonts.gothamBook]: require('../assets/fonts/GothamXNarrow-Book.ttf'),
+    [fonts.gothamLight]: require('../assets/fonts/GothamXNarrow-Light.ttf'),
+    [fonts.nexonRegular]: require('../assets/fonts/NEXONLv2Gothic-Regular.otf'),
+    [fonts.nexonMedium]: require('../assets/fonts/NEXONLv2Gothic-Medium.otf'),
+    [fonts.nexonLight]: require('../assets/fonts/NEXONLv2Gothic-Light.otf'),
+    [fonts.nexonBold]: require('../assets/fonts/NEXONLv2Gothic-Bold.otf'),
   });
+  const [tutorialSeen, setTutorialSeen] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (error) throw error;
   }, [error]);
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
+    let cancelled = false;
+    void (async () => {
+      await runTutorialRetestClearIfNeeded();
+      const seen = await loadTutorialSeen();
+      if (!cancelled) setTutorialSeen(seen);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  if (!loaded) {
+  const finishTutorial = useCallback(() => {
+    setTutorialSeen(true);
+    void saveTutorialSeen();
+  }, []);
+
+  if (!loaded || tutorialSeen === null) {
     return null;
   }
 
-  return <RootLayoutNav />;
+  return (
+    <ThemeProvider>
+      <View style={styles.root}>
+        {tutorialSeen ? (
+          <RootLayoutNav />
+        ) : (
+          <TutorialScreen onFinished={finishTutorial} />
+        )}
+        <LaunchScreen />
+      </View>
+    </ThemeProvider>
+  );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const colors = useThemeColors();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+    <NavThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: colors.mainWhite },
+          headerTintColor: colors.primary,
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: colors.mainWhite },
+          headerTitleStyle: { fontFamily: fonts.nexonMedium },
+        }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="add"
+          options={{
+            // SheetPanel chrome (not formSheet — blank body on Expo Go).
+            presentation: 'transparentModal',
+            animation: 'none',
+            headerShown: false,
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
+          name="review-detail"
+          options={{
+            // SheetPanel chrome (not formSheet — blank body on Expo Go).
+            presentation: 'transparentModal',
+            animation: 'none',
+            headerShown: false,
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
+          name="calendar"
+          options={{
+            // SheetPanel chrome (not formSheet — blank body on Expo Go).
+            presentation: 'transparentModal',
+            animation: 'none',
+            headerShown: false,
+            title: '',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
       </Stack>
-    </ThemeProvider>
+    </NavThemeProvider>
   );
 }

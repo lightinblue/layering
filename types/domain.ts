@@ -4,6 +4,8 @@ import type { ReviewIntervalDay } from '@/constants/review';
 export type SubjectChip = {
   id: string;
   name: string;
+  /** Chip fill hex; falls back to name map / gray when missing. */
+  color?: string;
 };
 
 /** 학습 기록 — 과목, 학습 내용, 학습일. */
@@ -13,6 +15,8 @@ export type StudyRecord = {
   /** 저장 시점의 과목명 스냅샷 (칩 삭제 후에도 표시용). */
   subjectName: string;
   content: string;
+  /** Optional short memo (may be empty). */
+  memo?: string;
   /** YYYY-MM-DD (로컬 날짜). */
   studiedOn: string;
   createdAt: string;

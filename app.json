@@ -1,19 +1,32 @@
 {
   "expo": {
-    "name": "복복",
-    "slug": "bokbok",
-    "version": "0.1.0",
+    "name": "레이어링",
+    "slug": "layering",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "bokbok",
+    "scheme": "layering",
     "userInterfaceStyle": "light",
     "ios": {
-      "bundleIdentifier": "com.lightinblue.bokbok",
-      "supportsTablet": true
+      "bundleIdentifier": "com.lightinblue.layering",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "CFBundleDisplayName": "레이어링",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.lightinblue.layering",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -29,6 +42,18 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "storeDisplayName": "레이어링 - 규칙적인 복습 스케줄러",
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "3436de6a-5b18-4852-b433-06d9f0038c30"
+      }
+    },
+    "owner": "syyoonn"
   }
 }

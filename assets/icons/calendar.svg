@@ -1,0 +1,9 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Calendar">
+<path id="Rectangle 25" d="M8.23846 24.5H19.7615C21.9953 24.5 23.1121 24.5 23.8061 23.8061C24.5 23.1121 24.5 21.9953 24.5 19.7615V11.7385C24.5 9.50473 24.5 8.38786 23.8061 7.69393C23.1121 7 21.9953 7 19.7615 7H8.23846C6.00473 7 4.88786 7 4.19393 7.69393C3.5 8.38786 3.5 9.50473 3.5 11.7385V19.7615C3.5 21.9953 3.5 23.1121 4.19393 23.8061C4.88786 24.5 6.00473 24.5 8.23846 24.5Z" stroke-width="2.36923" stroke="#708AA2"/>
+<path id="Vector 3" d="M4.66658 12.8337H23.3332" stroke-width="2.36923" stroke-linecap="round" stroke="#708AA2"/>
+<path id="Vector 4" d="M10.5 18.6674H17.5" stroke-width="2.36923" stroke-linecap="round" stroke="#708AA2"/>
+<path id="Line 1" d="M9.33329 3.5L9.33329 8.16667" stroke-width="2.36923" stroke-linecap="round" stroke="#708AA2"/>
+<path id="Line 2" d="M18.6666 3.5L18.6666 8.16667" stroke-width="2.36923" stroke-linecap="round" stroke="#708AA2"/>
+</g>
+</svg>
