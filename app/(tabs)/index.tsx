@@ -1,14 +1,14 @@
 import { StyleSheet } from 'react-native';
 
-import EditScreenInfo from '@/components/EditScreenInfo';
 import { Text, View } from '@/components/Themed';
 
-export default function TabOneScreen() {
+/** FR-B stub — 오늘 복습 목록·완료 체크. */
+export default function TodayScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tab One</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
+      <Text style={styles.title}>오늘</Text>
+      <Text style={styles.body}>오늘 복습할 내용이 없어요</Text>
+      <Text style={styles.hint}>학습 기록을 추가하면 오늘 복습 항목이 여기에 모입니다.</Text>
     </View>
   );
 }
@@ -16,16 +16,21 @@ export default function TabOneScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    backgroundColor: '#FFFFFF',
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 16,
   },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
+  body: {
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  hint: {
+    fontSize: 14,
+    opacity: 0.55,
   },
 });
