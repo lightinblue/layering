@@ -15,8 +15,8 @@ import {
   toKey,
 } from '@/utils/date';
 
-/** Weeks before/after the current week available for swipe paging. */
-export const WEEK_RANGE = 2;
+/** Weeks before/after the current week available for swipe paging (±1 year). */
+export const WEEK_RANGE = 52;
 
 export type ReviewStudyDetail = {
   subjectName: string;
