@@ -1,7 +1,10 @@
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { colors, sizes } from '@/constants/tokens';
 import { useThemeColors } from '@/theme/ThemeProvider';
+
+/** Shared FAB icon stroke — keeps calendar + settings visually matched. */
+const FAB_ICON_STROKE = 2.1;
 
 /** Accent ellipse next to day number (Figma Ellipse 27). */
 export function EllipseIcon({
@@ -58,37 +61,37 @@ export function ArrowRightIcon({
   );
 }
 
-/** Calendar FAB icon. */
+/** Calendar FAB icon — same stroke weight/size as SettingsIcon. */
 export function CalendarIcon({ size = sizes.fabIcon }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-      <Path
-        d="M8.23846 24.5H19.7615C21.9953 24.5 23.1121 24.5 23.8061 23.8061C24.5 23.1121 24.5 21.9953 24.5 19.7615V11.7385C24.5 9.50473 24.5 8.38786 23.8061 7.69393C23.1121 7 21.9953 7 19.7615 7H8.23846C6.00473 7 4.88786 7 4.19393 7.69393C3.5 8.38786 3.5 9.50473 3.5 11.7385V19.7615C3.5 21.9953 3.5 23.1121 4.19393 23.8061C4.88786 24.5 6.00473 24.5 8.23846 24.5Z"
+      <Rect
+        x="4.5"
+        y="7.5"
+        width="19"
+        height="16"
+        rx="3"
         stroke={colors.accentText}
-        strokeWidth={2.36923}
+        strokeWidth={FAB_ICON_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
       <Path
-        d="M4.66658 12.8337H23.3332"
+        d="M4.5 12.5h19"
         stroke={colors.accentText}
-        strokeWidth={2.36923}
+        strokeWidth={FAB_ICON_STROKE}
         strokeLinecap="round"
       />
       <Path
-        d="M10.5 18.6674H17.5"
+        d="M10 4.5v5"
         stroke={colors.accentText}
-        strokeWidth={2.36923}
+        strokeWidth={FAB_ICON_STROKE}
         strokeLinecap="round"
       />
       <Path
-        d="M9.33329 3.5L9.33329 8.16667"
+        d="M18 4.5v5"
         stroke={colors.accentText}
-        strokeWidth={2.36923}
-        strokeLinecap="round"
-      />
-      <Path
-        d="M18.6666 3.5L18.6666 8.16667"
-        stroke={colors.accentText}
-        strokeWidth={2.36923}
+        strokeWidth={FAB_ICON_STROKE}
         strokeLinecap="round"
       />
     </Svg>
@@ -102,7 +105,7 @@ export function SettingsIcon({ size = sizes.fabIcon }: { size?: number }) {
       <Path
         d="M14.257 2.333h-.514a2.333 2.333 0 0 0-2.333 2.334v.21a2.333 2.333 0 0 1-1.167 2.018l-.502.292a2.333 2.333 0 0 1-2.333 0l-.175-.093a2.333 2.333 0 0 0-3.185.852l-.257.443a2.333 2.333 0 0 0 .852 3.185l.175.117a2.333 2.333 0 0 1 1.167 2.007v.595a2.333 2.333 0 0 1-1.167 2.03l-.175.105a2.333 2.333 0 0 0-.852 3.185l.257.443a2.333 2.333 0 0 0 3.185.852l.175-.093a2.333 2.333 0 0 1 2.333 0l.502.292a2.333 2.333 0 0 1 1.167 2.018v.21a2.333 2.333 0 0 0 2.333 2.333h.514a2.333 2.333 0 0 0 2.333-2.333v-.21a2.333 2.333 0 0 1 1.167-2.018l.502-.292a2.333 2.333 0 0 1 2.333 0l.175.093a2.333 2.333 0 0 0 3.185-.852l.257-.455a2.333 2.333 0 0 0-.852-3.185l-.175-.093a2.333 2.333 0 0 1-1.167-2.03v-.583a2.333 2.333 0 0 1 1.167-2.03l.175-.105a2.333 2.333 0 0 0 .852-3.185l-.257-.443a2.333 2.333 0 0 0-3.185-.852l-.175.093a2.333 2.333 0 0 1-2.333 0l-.502-.292a2.333 2.333 0 0 1-1.167-2.018v-.21a2.333 2.333 0 0 0-2.333-2.334Z"
         stroke={colors.accentText}
-        strokeWidth={2.1}
+        strokeWidth={FAB_ICON_STROKE}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -111,7 +114,7 @@ export function SettingsIcon({ size = sizes.fabIcon }: { size?: number }) {
         cy="14"
         r="3.5"
         stroke={colors.accentText}
-        strokeWidth={2.1}
+        strokeWidth={FAB_ICON_STROKE}
       />
     </Svg>
   );
