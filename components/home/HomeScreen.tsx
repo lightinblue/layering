@@ -117,10 +117,20 @@ export default function HomeScreen({
     router.push('/calendar');
   }, [router]);
 
-  const onDetail = useCallback((_id: string) => {
-    // Stub: detail flow not in MVP scope for this PR.
-    router.push('/add');
-  }, [router]);
+  const onDetail = useCallback(
+    (id: string) => {
+      const card = selected.reviews.find((item) => item.id === id);
+      router.push({
+        pathname: '/review-detail',
+        params: {
+          id,
+          subjects: card?.subjectNames.join(',') ?? '',
+          interval: card ? String(card.intervalDays) : '',
+        },
+      });
+    },
+    [router, selected.reviews],
+  );
 
   const selectDay = useCallback((dateKey: string) => {
     setCompletedOverrides({});

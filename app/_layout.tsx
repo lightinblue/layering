@@ -71,6 +71,16 @@ function RootLayoutNav() {
           }}
         />
         <Stack.Screen
+          name="review-detail"
+          options={{
+            presentation: 'formSheet',
+            headerShown: false,
+            sheetAllowedDetents: 'fitToContents',
+            sheetGrabberVisible: true,
+            sheetCornerRadius: 20,
+          }}
+        />
+        <Stack.Screen
           name="calendar"
           options={{
             presentation: 'modal',
