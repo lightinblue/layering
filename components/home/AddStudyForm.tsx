@@ -112,7 +112,7 @@ const CHIP_SHIFT_ANIM = {
   duration: durations.chipShift,
   update: {
     type: LayoutAnimation.Types.spring,
-    springDamping: 0.82,
+    springDamping: 0.92,
   },
 };
 

@@ -70,6 +70,7 @@ import {
 import { fonts } from '@/constants/fonts';
 import {
   JUMP_ANIMATE_MAX_DELTA,
+  PAGER_DECELERATION,
   durations,
   springs,
 } from '@/constants/motion';
@@ -166,9 +167,9 @@ function AnimatedDayNumber({
       duration: durations.fadeQuick,
       easing: Easing.in(Easing.cubic),
     });
-    scale.value = withTiming(0.9, { duration: durations.fadeQuick });
+    scale.value = withTiming(0.94, { duration: durations.fadeQuick });
     translateY.value = withTiming(
-      -12 * dir,
+      -6 * dir,
       {
         duration: durations.fadeQuick,
         easing: Easing.in(Easing.cubic),
@@ -177,8 +178,8 @@ function AnimatedDayNumber({
         if (!finished) return;
         runOnJS(setShown)(dayNumber);
         opacity.value = 0;
-        scale.value = 0.88;
-        translateY.value = 14 * dir;
+        scale.value = 0.94;
+        translateY.value = 7 * dir;
         opacity.value = withSpring(1, springs.snappy);
         scale.value = withSpring(1, springs.snappy);
         translateY.value = withSpring(0, springs.snappy);
@@ -211,7 +212,7 @@ function AnimatedDateMeta({
     <View style={styles.dateMeta}>
       <Animated.Text
         key={`wd-${dateKey}`}
-        entering={FadeIn.duration(durations.fadeIn).easing(
+        entering={FadeIn.duration(durations.fadeQuick).easing(
           Easing.out(Easing.cubic),
         )}
         style={styles.weekday}>
@@ -219,9 +220,9 @@ function AnimatedDateMeta({
       </Animated.Text>
       <Animated.Text
         key={`dl-${dateKey}`}
-        entering={FadeIn.duration(durations.fadeIn)
-          .delay(30)
-          .easing(Easing.out(Easing.cubic))}
+        entering={FadeIn.duration(durations.fadeQuick).easing(
+          Easing.out(Easing.cubic),
+        )}
         style={styles.dateLabel}>
         {dateLabel}
       </Animated.Text>
@@ -775,9 +776,11 @@ export default function HomeScreen({
                 {isToday ? (
                   <Animated.View
                     key="today-ellipse"
-                    entering={FadeIn.duration(durations.fadeIn).springify()
-                      .damping(springs.soft.damping)
-                      .stiffness(springs.soft.stiffness)}>
+                    entering={FadeIn.duration(durations.fadeQuick)
+                      .springify()
+                      .damping(springs.snappy.damping)
+                      .stiffness(springs.snappy.stiffness)
+                      .mass(springs.snappy.mass)}>
                     <EllipseIcon />
                   </Animated.View>
                 ) : null}
@@ -1033,7 +1036,7 @@ function WeekStripPager({
       pagingEnabled
       bounces={false}
       showsHorizontalScrollIndicator={false}
-      decelerationRate={0.992}
+      decelerationRate={PAGER_DECELERATION}
       disableIntervalMomentum
       keyExtractor={(_, index) => `week-${index}`}
       renderItem={renderWeek}
@@ -1220,7 +1223,7 @@ function DayContentPager({
       pagingEnabled
       bounces={false}
       showsHorizontalScrollIndicator={false}
-      decelerationRate={0.992}
+      decelerationRate={PAGER_DECELERATION}
       disableIntervalMomentum
       keyExtractor={(item) => item.dateKey}
       renderItem={renderDay}

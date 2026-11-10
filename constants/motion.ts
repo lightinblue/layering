@@ -1,58 +1,61 @@
 /**
- * Shared motion tokens — snappy with a bit of spring weight.
+ * Shared motion tokens — short, snappy settle; little overshoot.
  * Tuned for Expo Go (Reanimated / RN Animated native driver).
  */
 
 /** Reanimated `withSpring` / `.springify()` configs. */
 export const springs = {
-  /** Date number, chip select, checkbox — short bounce with weight. */
+  /** Date number, chip select, checkbox — quick pulse, barely bouncy. */
   snappy: {
-    damping: 16,
-    stiffness: 320,
-    mass: 0.7,
+    damping: 24,
+    stiffness: 520,
+    mass: 0.5,
   },
-  /** Week cell / swatch settle — slightly softer. */
+  /** Week cell / swatch settle — slightly softer, still short. */
   soft: {
-    damping: 18,
-    stiffness: 260,
-    mass: 0.85,
+    damping: 26,
+    stiffness: 420,
+    mass: 0.6,
   },
-  /** Sheet open settle — weighted, little overshoot. */
+  /** Sheet open settle — weighted but short; no floaty overshoot. */
   sheet: {
-    damping: 22,
-    stiffness: 280,
-    mass: 0.95,
+    damping: 30,
+    stiffness: 460,
+    mass: 0.65,
   },
 } as const;
 
 /** RN `Animated.spring` configs (BottomSheetModal). */
 export const rnSprings = {
   sheetOpen: {
-    damping: 22,
-    stiffness: 280,
-    mass: 0.9,
-    overshootClamping: false,
+    damping: 30,
+    stiffness: 460,
+    mass: 0.65,
+    overshootClamping: true,
     useNativeDriver: true as const,
   },
   press: {
-    damping: 18,
-    stiffness: 400,
-    mass: 0.6,
+    damping: 22,
+    stiffness: 520,
+    mass: 0.5,
     useNativeDriver: true as const,
   },
 } as const;
 
 /** Timing durations (ms). */
 export const durations = {
-  fadeQuick: 90,
-  fadeIn: 180,
-  fadeOut: 140,
-  sheetClose: 200,
-  backdropOpen: 220,
-  backdropClose: 180,
-  monthChange: 220,
-  chipShift: 200,
+  fadeQuick: 55,
+  fadeIn: 110,
+  fadeOut: 90,
+  sheetClose: 140,
+  backdropOpen: 140,
+  backdropClose: 110,
+  monthChange: 130,
+  chipShift: 140,
 } as const;
 
 /** Max day-pager index delta that still scrolls animated (슈루룩). */
-export const JUMP_ANIMATE_MAX_DELTA = 14;
+export const JUMP_ANIMATE_MAX_DELTA = 7;
+
+/** FlatList paging deceleration — lower = snappier stop. */
+export const PAGER_DECELERATION = 0.985;
