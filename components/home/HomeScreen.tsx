@@ -1825,7 +1825,8 @@ const styles = StyleSheet.create({
   addStudyBtn: {
     height: sizes.addStudyHeight,
     borderRadius: radii.chip,
-    backgroundColor: colors.mainWhite,
+    // Empty-state gray (pre-white canvas), not mainWhite.
+    backgroundColor: '#fafafa',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1840,7 +1841,7 @@ const styles = StyleSheet.create({
   addStudyMoreBtn: {
     height: sizes.studyBodyHeight,
     borderRadius: radii.chip,
-    backgroundColor: colors.mainWhite,
+    backgroundColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
