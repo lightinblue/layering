@@ -88,7 +88,7 @@ export function AddStudyForm({
         <TextInput
           value={title}
           onChangeText={setTitle}
-          placeholder="짧게 적어 주세요"
+          placeholder="1-3단원 / p. 22-36"
           placeholderTextColor={colors.mutedLight}
           style={styles.input}
           returnKeyType="next"
@@ -97,11 +97,11 @@ export function AddStudyForm({
       </View>
 
       <View style={styles.field}>
-        <Text style={styles.label}>메모 · 선택</Text>
+        <Text style={styles.label}>메모</Text>
         <TextInput
           value={memo}
           onChangeText={setMemo}
-          placeholder="자세한 메모 (비워도 됩니다)"
+          placeholder="추가로 기록하고 싶은 내용"
           placeholderTextColor={colors.mutedLight}
           style={[styles.input, styles.memoInput]}
           multiline
