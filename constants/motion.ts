@@ -5,7 +5,7 @@
 
 /** Reanimated `withSpring` / `.springify()` configs. */
 export const springs = {
-  /** Date number, chip select, checkbox — quick pulse, barely bouncy. */
+  /** FAB press, swatch select, calendar focus — quick pulse, barely bouncy. */
   snappy: {
     damping: 24,
     stiffness: 520,

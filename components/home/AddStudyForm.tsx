@@ -178,34 +178,16 @@ function SelectableChip({
   accessibilityLabel?: string;
   accessibilityHint?: string;
 }) {
-  const scale = useSharedValue(1);
-  const primed = useRef(false);
-
-  useEffect(() => {
-    if (!primed.current) {
-      primed.current = true;
-      return;
-    }
-    if (!selected) return;
-    scale.value = withSpring(1.06, springs.snappy, (finished) => {
-      if (finished) scale.value = withSpring(1, springs.soft);
-    });
-  }, [selected, scale]);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   return (
-    <Animated.View
+    <View
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
-      style={[style, animStyle]}
+      style={style}
       {...(panHandlers ?? {})}>
       {children}
-    </Animated.View>
+    </View>
   );
 }
 

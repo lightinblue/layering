@@ -24,11 +24,9 @@ import {
 import Animated, {
   Easing,
   FadeIn,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -140,7 +138,7 @@ function seedSubjectOptions(): SubjectOption[] {
   }));
 }
 
-/** Big day number — scale / fade / slide with direction when the date changes. */
+/** Day number — remount + quick soft→sharp opacity fade on date change. */
 function AnimatedDayNumber({
   dateKey,
   dayNumber,
@@ -148,57 +146,20 @@ function AnimatedDayNumber({
   dateKey: string;
   dayNumber: string;
 }) {
-  const prevKeyRef = useRef(dateKey);
-  const [shown, setShown] = useState(dayNumber);
-  const opacity = useSharedValue(1);
-  const scale = useSharedValue(1);
-  const translateY = useSharedValue(0);
-
-  useEffect(() => {
-    if (dateKey === prevKeyRef.current) {
-      setShown(dayNumber);
-      return;
-    }
-    const goingForward = dateKey > prevKeyRef.current;
-    prevKeyRef.current = dateKey;
-    const dir = goingForward ? 1 : -1;
-
-    opacity.value = withTiming(0, {
-      duration: durations.fadeQuick,
-      easing: Easing.in(Easing.cubic),
-    });
-    scale.value = withTiming(0.94, { duration: durations.fadeQuick });
-    translateY.value = withTiming(
-      -6 * dir,
-      {
-        duration: durations.fadeQuick,
-        easing: Easing.in(Easing.cubic),
-      },
-      (finished) => {
-        if (!finished) return;
-        runOnJS(setShown)(dayNumber);
-        opacity.value = 0;
-        scale.value = 0.94;
-        translateY.value = 7 * dir;
-        opacity.value = withSpring(1, springs.snappy);
-        scale.value = withSpring(1, springs.snappy);
-        translateY.value = withSpring(0, springs.snappy);
-      },
-    );
-  }, [dateKey, dayNumber, opacity, scale, translateY]);
-
-  const style = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }, { scale: scale.value }],
-  }));
-
   return (
-    <Animated.Text style={[styles.dayNumber, style]} numberOfLines={1}>
-      {shown}
+    <Animated.Text
+      key={dateKey}
+      entering={FadeIn.duration(durations.fadeQuick).easing(
+        Easing.out(Easing.cubic),
+      )}
+      style={styles.dayNumber}
+      numberOfLines={1}>
+      {dayNumber}
     </Animated.Text>
   );
 }
 
+/** Weekday remounts on change; month/day label stays static chrome. */
 function AnimatedDateMeta({
   dateKey,
   weekdayLabel,
@@ -218,14 +179,7 @@ function AnimatedDateMeta({
         style={styles.weekday}>
         {weekdayLabel}
       </Animated.Text>
-      <Animated.Text
-        key={`dl-${dateKey}`}
-        entering={FadeIn.duration(durations.fadeQuick).easing(
-          Easing.out(Easing.cubic),
-        )}
-        style={styles.dateLabel}>
-        {dateLabel}
-      </Animated.Text>
+      <Text style={styles.dateLabel}>{dateLabel}</Text>
     </View>
   );
 }
@@ -773,17 +727,7 @@ export default function HomeScreen({
                   dateKey={selected.dateKey}
                   dayNumber={selected.dayNumber}
                 />
-                {isToday ? (
-                  <Animated.View
-                    key="today-ellipse"
-                    entering={FadeIn.duration(durations.fadeQuick)
-                      .springify()
-                      .damping(springs.snappy.damping)
-                      .stiffness(springs.snappy.stiffness)
-                      .mass(springs.snappy.mass)}>
-                    <EllipseIcon />
-                  </Animated.View>
-                ) : null}
+                {isToday ? <EllipseIcon /> : null}
               </View>
               <AnimatedDateMeta
                 dateKey={selected.dateKey}
@@ -1401,35 +1345,18 @@ function ReviewCheck({
   accent: string;
   onToggle: () => void;
 }) {
-  const scale = useSharedValue(1);
-  const primed = useRef(false);
-
-  useEffect(() => {
-    if (!primed.current) {
-      primed.current = true;
-      return;
-    }
-    scale.value = 0.82;
-    scale.value = withSpring(1, springs.snappy);
-  }, [completed, scale]);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked: completed }}
       onPress={onToggle}>
-      <Animated.View
+      <View
         style={[
           styles.checkbox,
           completed ? { backgroundColor: accent } : styles.checkboxOff,
-          animStyle,
         ]}>
         <CheckIcon />
-      </Animated.View>
+      </View>
     </Pressable>
   );
 }
@@ -1451,32 +1378,12 @@ function ReviewCard({
   onToggle: () => void;
   onDetail: () => void;
 }) {
-  const cardScale = useSharedValue(1);
-  const primed = useRef(false);
-
-  useEffect(() => {
-    if (!primed.current) {
-      primed.current = true;
-      return;
-    }
-    if (!card.completed) return;
-    cardScale.value = withSpring(1.02, springs.snappy, (finished) => {
-      if (finished) {
-        cardScale.value = withSpring(1, springs.soft);
-      }
-    });
-  }, [card.completed, cardScale]);
-
-  const cardAnim = useAnimatedStyle(() => ({
-    transform: [{ scale: cardScale.value }],
-  }));
-
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="자세히"
       onPress={onDetail}>
-      <Animated.View
+      <View
         style={[
           styles.reviewCard,
           { width },
@@ -1484,7 +1391,6 @@ function ReviewCard({
             backgroundColor: accentSoft,
             borderColor: accent,
           },
-          cardAnim,
         ]}>
       <View style={styles.reviewCardInner}>
         <View style={styles.reviewTopBlock}>
@@ -1517,7 +1423,7 @@ function ReviewCard({
           <ArrowRightIcon />
         </View>
       </View>
-      </Animated.View>
+      </View>
     </Pressable>
   );
 }
