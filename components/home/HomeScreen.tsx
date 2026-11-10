@@ -1,8 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
+  ActivityIndicator,
   FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -28,13 +28,15 @@ import {
 } from '@/components/icons/HomeIcons';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import {
+  applyDummyStudy,
+  cloneHomeData,
+  DUMMY_SUBJECTS,
   flattenWeeks,
-  HOME_DEMO_STATES,
-  HOME_MOCK,
-  HOME_TODAY_KEY,
+  HOME_DUMMY,
   intervalLabel,
-  type HomeDemoState,
+  toggleDummyReview,
   type HomeReviewCard,
+  type HomeReviewStudy,
   type HomeScreenData,
   type HomeStudyRow,
   type HomeWeekDay,
@@ -47,40 +49,95 @@ import {
   spacing,
   subjectColor,
 } from '@/constants/tokens';
+import {
+  appendStudyWithReviews,
+  DEFAULT_SUBJECTS,
+  loadAppData,
+  saveAppData,
+  toggleReviewCompleted,
+} from '@/storage/app-data';
+import {
+  DATA_MODE_LABEL,
+  DATA_MODES,
+  DEFAULT_DATA_MODE,
+  loadDataMode,
+  saveDataMode,
+  type DataMode,
+} from '@/storage/data-mode';
+import type { AppData } from '@/types/domain';
+import { homeScreenDataFromAppData } from '@/utils/home-from-app-data';
 
 const REVIEW_COLS = 3;
 
 type HomeScreenProps = {
-  /** Override mock; when omitted, uses demo state data. */
+  /** Override data (skips mode load). */
   data?: HomeScreenData;
-  /** Initial demo fixture (dev toggle cycles full → few → empty). */
-  initialDemoState?: HomeDemoState;
+  /** Initial mode before AsyncStorage resolves (`?mode=`). */
+  initialMode?: DataMode;
 };
 
 export default function HomeScreen({
   data: dataProp,
-  initialDemoState = 'full',
+  initialMode = DEFAULT_DATA_MODE,
 }: HomeScreenProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
-  const [demoState, setDemoState] = useState<HomeDemoState>(initialDemoState);
-  const [selectedKey, setSelectedKey] = useState(HOME_TODAY_KEY);
-  const [weekIndex, setWeekIndex] = useState(
-    () => (dataProp ?? HOME_MOCK[initialDemoState]).currentWeekIndex,
+
+  const [mode, setMode] = useState<DataMode>(initialMode);
+  const [hydrated, setHydrated] = useState(dataProp != null);
+  const [appData, setAppData] = useState<AppData | null>(null);
+  const [dummyData, setDummyData] = useState<HomeScreenData>(() =>
+    cloneHomeData(HOME_DUMMY),
   );
-  const [completedOverrides, setCompletedOverrides] = useState<
-    Record<string, boolean>
-  >({});
+
+  const [selectedKey, setSelectedKey] = useState(HOME_DUMMY.todayKey);
+  const [weekIndex, setWeekIndex] = useState(HOME_DUMMY.currentWeekIndex);
   const [addOpen, setAddOpen] = useState(false);
   const [addKey, setAddKey] = useState(0);
   const [reviewOpen, setReviewOpen] = useState<{
-    id: string;
-    subjectNames: string[];
     intervalDays: number;
+    studies: HomeReviewStudy[];
   } | null>(null);
 
-  const base = dataProp ?? HOME_MOCK[demoState];
+  useEffect(() => {
+    if (dataProp) return;
+    let cancelled = false;
+    (async () => {
+      const [storedMode, storedApp] = await Promise.all([
+        loadDataMode(),
+        loadAppData(),
+      ]);
+      if (cancelled) return;
+      const nextMode =
+        initialMode === 'dummy' || initialMode === 'real'
+          ? initialMode
+          : storedMode;
+      setMode(nextMode);
+      setAppData(storedApp);
+      if (nextMode === 'real') {
+        const screen = homeScreenDataFromAppData(storedApp);
+        setSelectedKey(screen.todayKey);
+        setWeekIndex(screen.currentWeekIndex);
+      } else {
+        setDummyData(cloneHomeData(HOME_DUMMY));
+        setSelectedKey(HOME_DUMMY.todayKey);
+        setWeekIndex(HOME_DUMMY.currentWeekIndex);
+      }
+      setHydrated(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dataProp, initialMode]);
+
+  const base: HomeScreenData = useMemo(() => {
+    if (dataProp) return dataProp;
+    if (mode === 'dummy') return dummyData;
+    if (appData) return homeScreenDataFromAppData(appData);
+    return HOME_DUMMY;
+  }, [dataProp, mode, dummyData, appData]);
+
   const todayKey = base.todayKey;
   const allDays = useMemo(() => flattenWeeks(base.weeks), [base.weeks]);
 
@@ -92,17 +149,11 @@ export default function HomeScreen({
     );
   }, [allDays, selectedKey, todayKey]);
 
-  const reviews = useMemo(
-    () =>
-      selected.reviews.map((item) => ({
-        ...item,
-        completed: completedOverrides[item.id] ?? item.completed,
-      })),
-    [selected.reviews, completedOverrides],
-  );
+  const reviews = selected?.reviews ?? [];
+  const studies = selected?.studies ?? [];
 
-  const isFutureDay = selected.dateKey > todayKey;
-  const isToday = selected.dateKey === todayKey;
+  const isFutureDay = selected != null && selected.dateKey > todayKey;
+  const isToday = selected != null && selected.dateKey === todayKey;
 
   const frameWidth = Math.min(windowWidth - 16, spacing.frameWidth);
   const contentWidth = Math.min(frameWidth, spacing.contentWidth);
@@ -111,18 +162,38 @@ export default function HomeScreen({
     return (contentWidth - gaps) / REVIEW_COLS;
   }, [contentWidth]);
 
+  const subjectNames = useMemo(() => {
+    if (mode === 'real' && appData) {
+      return appData.subjects.map((s) => s.name);
+    }
+    return [...DUMMY_SUBJECTS];
+  }, [mode, appData]);
+
+  const persistApp = useCallback(async (next: AppData) => {
+    setAppData(next);
+    await saveAppData(next);
+  }, []);
+
+  const selectedDateKey = selected?.dateKey ?? todayKey;
+
   const toggleReview = useCallback(
-    (id: string) => {
-      const current =
-        completedOverrides[id] ??
-        selected.reviews.find((item) => item.id === id)?.completed ??
-        false;
-      setCompletedOverrides((prev) => ({ ...prev, [id]: !current }));
+    (card: HomeReviewCard) => {
+      if (mode === 'dummy' || dataProp) {
+        setDummyData((prev) =>
+          toggleDummyReview(prev, selectedDateKey, card.id),
+        );
+        return;
+      }
+      if (!appData) return;
+      let next = appData;
+      for (const id of card.scheduleIds) {
+        next = toggleReviewCompleted(next, id);
+      }
+      void persistApp(next);
     },
-    [selected.reviews, completedOverrides],
+    [mode, dataProp, selectedDateKey, appData, persistApp],
   );
 
-  /** Empty-state CTA: in-screen Modal (not formSheet / not route params). */
   const goAdd = useCallback(() => {
     if (isFutureDay) return;
     setAddKey((k) => k + 1);
@@ -135,13 +206,33 @@ export default function HomeScreen({
 
   const onSaveAdd = useCallback(
     (payload: AddStudyPayload) => {
-      console.log('[bokbok] save study (stub)', payload);
+      const content = payload.memo
+        ? `${payload.title}\n${payload.memo}`
+        : payload.title;
+      const studiedOn = selectedDateKey;
+
+      if (mode === 'dummy' || dataProp) {
+        setDummyData((prev) =>
+          applyDummyStudy(prev, {
+            subjectName: payload.subject,
+            content,
+            studiedOn,
+          }),
+        );
+        setAddOpen(false);
+        return;
+      }
+
+      if (!appData) return;
+      const next = appendStudyWithReviews(appData, {
+        subjectName: payload.subject,
+        content,
+        studiedOn,
+      });
+      void persistApp(next);
       setAddOpen(false);
-      setTimeout(() => {
-        Alert.alert('저장됨', `${payload.subject} · ${payload.title}`);
-      }, 250);
     },
-    [],
+    [mode, dataProp, selectedDateKey, appData, persistApp],
   );
 
   const goCalendar = useCallback(() => {
@@ -149,16 +240,13 @@ export default function HomeScreen({
   }, [router]);
 
   const onDetail = useCallback(
-    (id: string) => {
-      const card = selected.reviews.find((item) => item.id === id);
-      if (!card) return;
+    (card: HomeReviewCard) => {
       setReviewOpen({
-        id,
-        subjectNames: card.subjectNames,
         intervalDays: card.intervalDays,
+        studies: card.studies,
       });
     },
-    [selected.reviews],
+    [],
   );
 
   const closeReview = useCallback(() => {
@@ -166,7 +254,6 @@ export default function HomeScreen({
   }, []);
 
   const selectDay = useCallback((dateKey: string) => {
-    setCompletedOverrides({});
     setSelectedKey(dateKey);
   }, []);
 
@@ -176,30 +263,46 @@ export default function HomeScreen({
       if (!week) return;
       const nextDay = week[weekdayIndex] ?? week[0];
       setWeekIndex(nextIndex);
-      setCompletedOverrides({});
       setSelectedKey(nextDay.dateKey);
     },
     [base.weeks],
   );
 
-  const selectDemo = useCallback(
-    (next: HomeDemoState) => {
+  const selectMode = useCallback(
+    async (next: DataMode) => {
       if (dataProp) return;
-      const mock = HOME_MOCK[next];
-      setCompletedOverrides({});
-      setSelectedKey(HOME_TODAY_KEY);
-      setWeekIndex(mock.currentWeekIndex);
-      setDemoState(next);
+      setMode(next);
+      await saveDataMode(next);
+      if (next === 'dummy') {
+        const fresh = cloneHomeData(HOME_DUMMY);
+        setDummyData(fresh);
+        setSelectedKey(fresh.todayKey);
+        setWeekIndex(fresh.currentWeekIndex);
+        return;
+      }
+      const stored = appData ?? (await loadAppData());
+      if (!appData) setAppData(stored);
+      const screen = homeScreenDataFromAppData(stored);
+      setSelectedKey(screen.todayKey);
+      setWeekIndex(screen.currentWeekIndex);
     },
-    [dataProp],
+    [dataProp, appData],
   );
 
   const selectedWeekdayIndex = useMemo(() => {
     const week = base.weeks[weekIndex];
-    if (!week) return 0;
+    if (!week || !selected) return 0;
     const idx = week.findIndex((d) => d.dateKey === selected.dateKey);
     return idx >= 0 ? idx : 0;
-  }, [base.weeks, weekIndex, selected.dateKey]);
+  }, [base.weeks, weekIndex, selected]);
+
+  if (!hydrated || !selected) {
+    return (
+      <View style={[styles.root, styles.loading]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -225,7 +328,7 @@ export default function HomeScreen({
             </View>
 
             <WeekStripPager
-              key={`${demoState}:${base.currentWeekIndex}`}
+              key={`${mode}:${base.todayKey}:${base.currentWeekIndex}`}
               weeks={base.weeks}
               weekIndex={weekIndex}
               selectedKey={selected.dateKey}
@@ -238,7 +341,7 @@ export default function HomeScreen({
 
           <View style={[styles.sections, { maxWidth: contentWidth }]}>
             <StudySection
-              studies={selected.studies}
+              studies={studies}
               allowAdd={!isFutureDay}
               onAdd={goAdd}
             />
@@ -250,8 +353,8 @@ export default function HomeScreen({
             />
           </View>
 
-          {__DEV__ && !dataProp ? (
-            <DemoStateControl active={demoState} onSelect={selectDemo} />
+          {!dataProp ? (
+            <ModeControl active={mode} onSelect={selectMode} />
           ) : null}
         </View>
       </View>
@@ -271,14 +374,22 @@ export default function HomeScreen({
       </Pressable>
 
       <BottomSheetModal visible={addOpen} onClose={closeAdd}>
-        <AddStudyForm key={addKey} onSave={onSaveAdd} />
+        <AddStudyForm
+          key={addKey}
+          subjects={
+            subjectNames.length > 0
+              ? subjectNames
+              : DEFAULT_SUBJECTS.map((s) => s.name)
+          }
+          onSave={onSaveAdd}
+        />
       </BottomSheetModal>
 
       <BottomSheetModal visible={reviewOpen != null} onClose={closeReview}>
         {reviewOpen ? (
           <ReviewDetailContent
-            subjectNames={reviewOpen.subjectNames}
             intervalLabel={`${reviewOpen.intervalDays}일 전`}
+            studies={reviewOpen.studies}
           />
         ) : null}
       </BottomSheetModal>
@@ -286,26 +397,26 @@ export default function HomeScreen({
   );
 }
 
-function DemoStateControl({
+function ModeControl({
   active,
   onSelect,
 }: {
-  active: HomeDemoState;
-  onSelect: (state: HomeDemoState) => void;
+  active: DataMode;
+  onSelect: (mode: DataMode) => void;
 }) {
   return (
     <View style={styles.devControl} accessibilityRole="tablist">
-      <Text style={styles.devHintLabel}>demo</Text>
+      <Text style={styles.devHintLabel}>데이터</Text>
       <View style={styles.devSegments}>
-        {HOME_DEMO_STATES.map((state) => {
-          const selected = state === active;
+        {DATA_MODES.map((mode) => {
+          const selected = mode === active;
           return (
             <Pressable
-              key={state}
+              key={mode}
               accessibilityRole="tab"
               accessibilityState={{ selected }}
-              accessibilityLabel={`데모 ${state}`}
-              onPress={() => onSelect(state)}
+              accessibilityLabel={`${DATA_MODE_LABEL[mode]} 모드`}
+              onPress={() => onSelect(mode)}
               style={[
                 styles.devSegment,
                 selected && styles.devSegmentSelected,
@@ -315,12 +426,15 @@ function DemoStateControl({
                   styles.devSegmentText,
                   selected && styles.devSegmentTextSelected,
                 ]}>
-                {state}
+                {DATA_MODE_LABEL[mode]}
               </Text>
             </Pressable>
           );
         })}
       </View>
+      {active === 'dummy' ? (
+        <Text style={styles.dummyBadge}>미리보기</Text>
+      ) : null}
     </View>
   );
 }
@@ -487,8 +601,8 @@ function ReviewSection({
 }: {
   reviews: HomeReviewCard[];
   cardWidth: number;
-  onToggle: (id: string) => void;
-  onDetail: (id: string) => void;
+  onToggle: (card: HomeReviewCard) => void;
+  onDetail: (card: HomeReviewCard) => void;
 }) {
   const empty = reviews.length === 0;
   return (
@@ -511,8 +625,8 @@ function ReviewSection({
               key={card.id}
               card={card}
               width={cardWidth}
-              onToggle={() => onToggle(card.id)}
-              onDetail={() => onDetail(card.id)}
+              onToggle={() => onToggle(card)}
+              onDetail={() => onDetail(card)}
             />
           ))}
         </View>
@@ -587,6 +701,10 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.mainWhite,
+  },
+  loading: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   body: {
     flex: 1,
@@ -892,6 +1010,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 11,
     color: colors.mutedLight,
+  },
+  dummyBadge: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 10,
+    color: colors.accentText,
   },
   devSegments: {
     flexDirection: 'row',

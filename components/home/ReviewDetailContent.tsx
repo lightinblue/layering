@@ -1,26 +1,27 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import type { HomeReviewStudy } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
 import { colors, radii, subjectColor } from '@/constants/tokens';
 
 export type ReviewDetailContentProps = {
-  subjectNames: string[];
   intervalLabel: string;
+  studies: HomeReviewStudy[];
 };
 
-/** Stub body for review 「자세히」 sheet. */
+/** 「자세히」 sheet — that day’s study content for the selected reviews. */
 export function ReviewDetailContent({
-  subjectNames,
   intervalLabel,
+  studies,
 }: ReviewDetailContentProps) {
   return (
     <View style={styles.body}>
       <Text style={styles.title}>복습 자세히</Text>
       <Text style={styles.meta}>{intervalLabel}</Text>
 
-      {subjectNames.length > 0 ? (
+      {studies.length > 0 ? (
         <View style={styles.chipRow}>
-          {subjectNames.map((name) => (
+          {[...new Set(studies.map((s) => s.subjectName))].map((name) => (
             <View
               key={name}
               style={[
@@ -33,15 +34,22 @@ export function ReviewDetailContent({
         </View>
       ) : null}
 
-      <View style={styles.card}>
-        <Text style={styles.bodyLabel}>그날의 공부</Text>
-        <Text style={styles.bodyText}>
-          {subjectNames.length > 0
-            ? `${subjectNames.join(' · ')} 학습 내용 (placeholder)`
-            : '학습 내용 placeholder'}
-        </Text>
-        <Text style={styles.hint}>실제 기록 연동은 나중에 붙입니다.</Text>
-      </View>
+      {studies.length === 0 ? (
+        <View style={styles.card}>
+          <Text style={styles.bodyText}>연결된 공부 기록이 없어요</Text>
+        </View>
+      ) : (
+        studies.map((study, index) => (
+          <View
+            key={`${study.subjectName}-${study.studiedOn}-${index}`}
+            style={styles.card}>
+            <Text style={styles.bodyLabel}>그날의 공부</Text>
+            <Text style={styles.subjectLine}>{study.subjectName}</Text>
+            <Text style={styles.bodyText}>{study.content}</Text>
+            <Text style={styles.hint}>학습일 {study.studiedOn}</Text>
+          </View>
+        ))
+      )}
     </View>
   );
 }
@@ -91,6 +99,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 12,
     color: colors.sectionLabel,
+  },
+  subjectLine: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 14,
+    color: colors.accentText,
   },
   bodyText: {
     fontFamily: fonts.nexonMedium,

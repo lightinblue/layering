@@ -8,11 +8,9 @@ import {
   View,
 } from 'react-native';
 
+import { DUMMY_SUBJECTS } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
 import { colors, radii, subjectColor } from '@/constants/tokens';
-
-/** Demo subjects until user-managed chips exist. */
-const DEMO_SUBJECTS = ['분류', '교육학', '정검'] as const;
 
 export type AddStudyPayload = {
   subject: string;
@@ -22,13 +20,18 @@ export type AddStudyPayload = {
 
 type AddStudyFormProps = {
   onSave: (payload: AddStudyPayload) => void;
+  /** Subject chip names (defaults to demo list). */
+  subjects?: string[];
 };
 
 /**
  * 「공부 기록 추가」 form body (subject · title · optional memo).
  * Mounted inside BottomSheetModal so Expo Go always lays out content.
  */
-export function AddStudyForm({ onSave }: AddStudyFormProps) {
+export function AddStudyForm({
+  onSave,
+  subjects = [...DUMMY_SUBJECTS],
+}: AddStudyFormProps) {
   const [subject, setSubject] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [memo, setMemo] = useState('');
@@ -58,7 +61,7 @@ export function AddStudyForm({ onSave }: AddStudyFormProps) {
       <View style={styles.field}>
         <Text style={styles.label}>과목</Text>
         <View style={styles.chipRow}>
-          {DEMO_SUBJECTS.map((name) => {
+          {subjects.map((name) => {
             const selected = subject === name;
             return (
               <Pressable

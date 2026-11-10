@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import { ReviewDetailContent } from '@/components/home/ReviewDetailContent';
 import { SheetPanel } from '@/components/ui/BottomSheetModal';
+import type { HomeReviewStudy } from '@/constants/home-types';
 
 /**
  * Route fallback for review 「자세히」 (transparentModal + SheetPanel).
@@ -13,16 +14,24 @@ export default function ReviewDetailSheet() {
     id?: string;
     subjects?: string;
     interval?: string;
+    content?: string;
+    studiedOn?: string;
   }>();
 
-  const subjectNames = useMemo(
-    () =>
-      (params.subjects ?? '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-    [params.subjects],
-  );
+  const studies = useMemo((): HomeReviewStudy[] => {
+    const names = (params.subjects ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (names.length === 0) return [];
+    const content = params.content?.trim() || '학습 내용';
+    const studiedOn = params.studiedOn?.trim() || '';
+    return names.map((subjectName) => ({
+      subjectName,
+      content,
+      studiedOn,
+    }));
+  }, [params.subjects, params.content, params.studiedOn]);
 
   const intervalLabel =
     params.interval && params.interval.length > 0
@@ -35,10 +44,7 @@ export default function ReviewDetailSheet() {
 
   return (
     <SheetPanel onClose={onClose}>
-      <ReviewDetailContent
-        subjectNames={subjectNames}
-        intervalLabel={intervalLabel}
-      />
+      <ReviewDetailContent intervalLabel={intervalLabel} studies={studies} />
     </SheetPanel>
   );
 }

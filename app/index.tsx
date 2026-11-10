@@ -2,21 +2,22 @@ import { useLocalSearchParams } from 'expo-router';
 
 import HomeScreen from '@/components/home/HomeScreen';
 import {
-  HOME_DEMO_STATES,
-  type HomeDemoState,
-} from '@/constants/home-mock';
+  DEFAULT_DATA_MODE,
+  type DataMode,
+} from '@/storage/data-mode';
 
-function parseDemo(value: string | string[] | undefined): HomeDemoState {
+function parseMode(value: string | string[] | undefined): DataMode {
   const raw = Array.isArray(value) ? value[0] : value;
-  if (raw && (HOME_DEMO_STATES as string[]).includes(raw)) {
-    return raw as HomeDemoState;
+  if (raw === 'dummy' || raw === 'real' || raw === '더미' || raw === '실제') {
+    if (raw === '더미' || raw === 'dummy') return 'dummy';
+    return 'real';
   }
-  return 'full';
+  return DEFAULT_DATA_MODE;
 }
 
-/** FR-B — 오늘 홈 (공부 · 복습). Figma: 홈 full / few / empty. */
+/** FR-B — 오늘 홈 (공부 · 복습). 실제 저장 / 더미 미리보기. */
 export default function TodayScreen() {
-  const { demo } = useLocalSearchParams<{ demo?: string }>();
-  const demoState = parseDemo(demo);
-  return <HomeScreen key={demoState} initialDemoState={demoState} />;
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const initialMode = parseMode(mode);
+  return <HomeScreen key={initialMode} initialMode={initialMode} />;
 }
