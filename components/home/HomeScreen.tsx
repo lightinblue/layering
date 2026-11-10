@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -14,12 +15,18 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  AddStudyForm,
+  type AddStudyPayload,
+} from '@/components/home/AddStudyForm';
+import { ReviewDetailContent } from '@/components/home/ReviewDetailContent';
+import {
   ArrowRightIcon,
   CalendarIcon,
   CheckIcon,
   EllipseIcon,
   PlusIcon,
 } from '@/components/icons/HomeIcons';
+import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import {
   flattenWeeks,
   HOME_DEMO_STATES,
@@ -65,6 +72,13 @@ export default function HomeScreen({
   const [completedOverrides, setCompletedOverrides] = useState<
     Record<string, boolean>
   >({});
+  const [addOpen, setAddOpen] = useState(false);
+  const [addKey, setAddKey] = useState(0);
+  const [reviewOpen, setReviewOpen] = useState<{
+    id: string;
+    subjectNames: string[];
+    intervalDays: number;
+  } | null>(null);
 
   const base = dataProp ?? HOME_MOCK[demoState];
   const todayKey = base.todayKey;
@@ -108,10 +122,27 @@ export default function HomeScreen({
     [selected.reviews, completedOverrides],
   );
 
+  /** Empty-state CTA: in-screen Modal (not formSheet / not route params). */
   const goAdd = useCallback(() => {
     if (isFutureDay) return;
-    router.push('/add');
-  }, [isFutureDay, router]);
+    setAddKey((k) => k + 1);
+    setAddOpen(true);
+  }, [isFutureDay]);
+
+  const closeAdd = useCallback(() => {
+    setAddOpen(false);
+  }, []);
+
+  const onSaveAdd = useCallback(
+    (payload: AddStudyPayload) => {
+      console.log('[bokbok] save study (stub)', payload);
+      setAddOpen(false);
+      setTimeout(() => {
+        Alert.alert('저장됨', `${payload.subject} · ${payload.title}`);
+      }, 250);
+    },
+    [],
+  );
 
   const goCalendar = useCallback(() => {
     router.push('/calendar');
@@ -120,17 +151,19 @@ export default function HomeScreen({
   const onDetail = useCallback(
     (id: string) => {
       const card = selected.reviews.find((item) => item.id === id);
-      router.push({
-        pathname: '/review-detail',
-        params: {
-          id,
-          subjects: card?.subjectNames.join(',') ?? '',
-          interval: card ? String(card.intervalDays) : '',
-        },
+      if (!card) return;
+      setReviewOpen({
+        id,
+        subjectNames: card.subjectNames,
+        intervalDays: card.intervalDays,
       });
     },
-    [router, selected.reviews],
+    [selected.reviews],
   );
+
+  const closeReview = useCallback(() => {
+    setReviewOpen(null);
+  }, []);
 
   const selectDay = useCallback((dateKey: string) => {
     setCompletedOverrides({});
@@ -236,6 +269,19 @@ export default function HomeScreen({
         ]}>
         <CalendarIcon />
       </Pressable>
+
+      <BottomSheetModal visible={addOpen} onClose={closeAdd}>
+        <AddStudyForm key={addKey} onSave={onSaveAdd} />
+      </BottomSheetModal>
+
+      <BottomSheetModal visible={reviewOpen != null} onClose={closeReview}>
+        {reviewOpen ? (
+          <ReviewDetailContent
+            subjectNames={reviewOpen.subjectNames}
+            intervalLabel={`${reviewOpen.intervalDays}일 전`}
+          />
+        ) : null}
+      </BottomSheetModal>
     </View>
   );
 }

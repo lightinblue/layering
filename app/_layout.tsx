@@ -63,33 +63,21 @@ function RootLayoutNav() {
         <Stack.Screen
           name="add"
           options={{
-            presentation: 'formSheet',
+            // SheetPanel chrome (not formSheet — blank body on Expo Go).
+            presentation: 'transparentModal',
+            animation: 'none',
             headerShown: false,
-            // Fractional detents: fitToContents + ScrollView often opens as a blank sheet.
-            sheetAllowedDetents: [0.58, 0.92],
-            sheetInitialDetentIndex: 0,
-            sheetGrabberVisible: true,
-            sheetCornerRadius: 20,
-            // iOS formSheet content wrapper has no intrinsic height without this.
-            contentStyle: {
-              height: '100%',
-              backgroundColor: colors.white,
-            },
+            contentStyle: { backgroundColor: 'transparent' },
           }}
         />
         <Stack.Screen
           name="review-detail"
           options={{
-            presentation: 'formSheet',
+            // SheetPanel chrome (not formSheet — blank body on Expo Go).
+            presentation: 'transparentModal',
+            animation: 'none',
             headerShown: false,
-            sheetAllowedDetents: [0.4, 0.72],
-            sheetInitialDetentIndex: 0,
-            sheetGrabberVisible: true,
-            sheetCornerRadius: 20,
-            contentStyle: {
-              height: '100%',
-              backgroundColor: colors.white,
-            },
+            contentStyle: { backgroundColor: 'transparent' },
           }}
         />
         <Stack.Screen
