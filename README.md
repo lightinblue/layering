@@ -15,16 +15,20 @@
 git clone -b cursor/home-screen-figma-affa https://github.com/lightinblue/layering.git
 cd layering   # 로컬 폴더명이 bokbok이어도 동일
 npm install
-npx expo start
+npx expo start -c --go
 ```
 
-터미널에 나온 **QR을 Expo Go로 스캔**합니다.
+**반드시 `--go`**: 이 프로젝트에 `expo-dev-client`가 있어 기본 시작은 `exp+layering://`(개발 빌드용)로 뜹니다. Expo Go는 그걸 열지 못하고 「사용 가능한 데이터가 없습니다」처럼 빈 화면/빈 목록이 납니다.
 
-같은 Wi‑Fi에서 연결이 안 되면 터널을 쓰세요:
+터미널 QR은 **Expo Go 앱 안 스캐너**로 찍으세요 (카메라 앱 X). Expo Go는 App Store에서 **SDK 58** 지원 버전으로 업데이트하세요.
+
+같은 Wi‑Fi/핫스팟이 아니면 터널:
 
 ```bash
-npx expo start --tunnel
+npx expo start -c --go --tunnel
 ```
+
+포트 충돌: 다른 Expo(예: 단색/`lucia-a`)가 `:8081`을 쓰면 Metro는 `:8082`로 뜹니다. QR만 맞으면 괜찮아요.
 
 ### App Store 스크린샷용 데모 데이터 (`__DEV__` 전용)
 
