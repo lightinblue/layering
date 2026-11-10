@@ -44,7 +44,7 @@ export const radii = {
   reviewCard: 12,
   reviewChip: 6,
   checkbox: 8,
-  fab: 14,
+  fab: 16,
 } as const;
 
 export const sizes = {
