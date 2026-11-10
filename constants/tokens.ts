@@ -13,10 +13,13 @@ export const colors = {
   body: '#526477',
   bodyAlt: '#646464',
   accentText: '#708aa2',
-  chipBlue: '#62b3f6',
-  chipGreen: '#45c775',
-  chipYellow: '#f5c542',
-  chipGray: '#a0a0a0',
+  chipBlue: '#62B3F6',
+  chipGreen: '#5DCB85',
+  chipYellow: '#F5C21C',
+  chipPurple: '#B7A4E9',
+  chipPink: '#F65E83',
+  chipOrange: '#FE9253',
+  chipGray: '#B2B2B2',
   fabShadow: 'rgba(52, 61, 75, 0.16)',
 } as const;
 
@@ -69,16 +72,16 @@ export const SUBJECT_COLORS: Record<string, string> = {
 };
 
 /**
- * Palette for new subject chips (rainbow ROYGBIV-ish).
- * Deep primary blue (`#1991ff`) replaced with yellow; gray last.
+ * Palette for new subject chips (Figma subject swatches).
+ * Order: pink → orange → yellow → green → blue → purple → gray.
  */
 export const SUBJECT_COLOR_OPTIONS: readonly string[] = [
-  '#ef5b7a', // red / pink
-  '#ff7a45', // orange
+  colors.chipPink,
+  colors.chipOrange,
   colors.chipYellow,
   colors.chipGreen,
-  '#2bb8a8', // teal (green→blue)
   colors.chipBlue,
+  colors.chipPurple,
   colors.chipGray,
 ];
 
