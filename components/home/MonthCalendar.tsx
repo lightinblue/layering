@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   weekdayText: {
-    fontFamily: fonts.gothamMedium,
+    fontFamily: fonts.nexonBold,
     fontSize: 12,
     color: colors.mutedLight,
     textAlign: 'center',

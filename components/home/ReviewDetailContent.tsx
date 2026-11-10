@@ -61,11 +61,12 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   // Width follows label; padding tuned for a 3-char Hangul baseline.
+  // Sheet-local radius (not radii.chip) so home study chips stay at 12.
   subjectChip: {
     alignSelf: 'flex-start',
     height: 32,
     paddingHorizontal: 10,
-    borderRadius: radii.chip,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
