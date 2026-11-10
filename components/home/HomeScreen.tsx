@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -113,12 +112,11 @@ export default function HomeScreen({
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: sizes.fab + 40 },
-        ]}
-        showsVerticalScrollIndicator={false}>
+      <View
+        style={[
+          styles.body,
+          { paddingBottom: Math.max(insets.bottom, 8) + 12 },
+        ]}>
         <View style={[styles.frame, { maxWidth: frameWidth }]}>
           <Pressable
             accessibilityRole="button"
@@ -156,7 +154,7 @@ export default function HomeScreen({
             </Text>
           ) : null}
         </View>
-      </ScrollView>
+      </View>
 
       <Pressable
         accessibilityRole="button"
@@ -351,16 +349,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.mainWhite,
   },
-  scrollContent: {
+  body: {
+    flex: 1,
+    width: '100%',
     alignItems: 'center',
-    paddingBottom: 24,
   },
   frame: {
     width: '100%',
     maxWidth: spacing.frameWidth,
     gap: spacing.blockGap,
     alignItems: 'center',
-    paddingTop: 16,
+    paddingTop: 10,
   },
   headerRow: {
     width: '100%',
@@ -368,7 +367,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 4,
+    paddingBottom: 0,
   },
   dayRow: {
     flexDirection: 'row',
@@ -379,7 +378,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.gothamBold,
     fontSize: sizes.dayNumber,
     color: colors.black,
-    lineHeight: 102,
+    lineHeight: 96,
     letterSpacing: -2,
     minWidth: 91,
     flexShrink: 0,
@@ -523,18 +522,18 @@ const styles = StyleSheet.create({
     gap: spacing.reviewGap,
   },
   reviewGridSingleRow: {
-    minHeight: 120,
+    minHeight: 110,
   },
   reviewCard: {
     backgroundColor: colors.surface,
     borderRadius: radii.reviewCard,
-    paddingTop: 12,
-    paddingBottom: 11,
+    paddingTop: 10,
+    paddingBottom: 9,
     paddingLeft: 12,
     paddingRight: 8,
     borderWidth: 2,
     borderColor: 'transparent',
-    minHeight: 120,
+    minHeight: 110,
   },
   reviewCardSelected: {
     backgroundColor: colors.primarySoft,
@@ -608,7 +607,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   reviewEmpty: {
-    height: 120,
+    height: 110,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
@@ -637,7 +636,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 11,
     color: colors.mutedLight,
-    marginTop: 8,
+    marginTop: 4,
     alignSelf: 'center',
   },
 });

@@ -21,7 +21,7 @@ export const colors = {
 
 export const spacing = {
   weekGap: 1,
-  sectionGap: 29,
+  sectionGap: 20,
   blockGap: 21,
   studyRowGap: 7,
   reviewGap: 10,
@@ -43,7 +43,7 @@ export const radii = {
 export const sizes = {
   dayNumber: 88,
   ellipse: 28,
-  weekCell: { width: 50, height: 75 },
+  weekCell: { width: 50, height: 68 },
   studyChip: { width: 77, height: 49 },
   studyBodyHeight: 49,
   reviewCheckbox: 38,
