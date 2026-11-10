@@ -60,8 +60,23 @@ function RootLayoutNav() {
           headerTitleStyle: { fontFamily: fonts.nexonMedium },
         }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="add" options={{ title: '기록 추가' }} />
-        <Stack.Screen name="calendar" options={{ title: '캘린더' }} />
+        <Stack.Screen
+          name="add"
+          options={{
+            presentation: 'formSheet',
+            headerShown: false,
+            sheetAllowedDetents: 'fitToContents',
+            sheetGrabberVisible: true,
+            sheetCornerRadius: 20,
+          }}
+        />
+        <Stack.Screen
+          name="calendar"
+          options={{
+            presentation: 'modal',
+            title: '전체보기',
+          }}
+        />
       </Stack>
     </ThemeProvider>
   );

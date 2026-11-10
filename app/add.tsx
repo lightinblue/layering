@@ -1,45 +1,51 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { REVIEW_INTERVAL_DAYS, REVIEW_INTERVAL_NOTICE } from '@/constants/review';
-import { Text, View } from '@/components/Themed';
 import { colors } from '@/constants/tokens';
+import { fonts } from '@/constants/fonts';
 
-/** FR-A stub — 과목 칩·학습 내용·학습일 입력 및 복습일 자동 생성. */
-export default function AddRecordScreen() {
+/**
+ * Placeholder bottom sheet for 「공부 기록 추가」.
+ * Real input / settings / save UI lands later — keep blank for now.
+ */
+export default function AddRecordSheet() {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>기록 추가</Text>
-      <Text style={styles.body}>과목 · 학습 내용 · 학습일을 입력하는 화면입니다.</Text>
-      <Text style={styles.meta}>
-        저장 시 복습일: +{REVIEW_INTERVAL_DAYS.join(' / ')}일
+    <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+      <View style={styles.grabber} accessibilityElementsHidden />
+      <Text style={styles.title}>공부 기록 추가</Text>
+      <Text style={styles.copy}>
+        여기에 입력·설정·저장 UI가 들어올 예정입니다.
       </Text>
-      <Text style={styles.notice}>{REVIEW_INTERVAL_NOTICE}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  sheet: {
+    backgroundColor: colors.white,
     paddingHorizontal: 24,
-    paddingTop: 32,
-    backgroundColor: colors.mainWhite,
+    paddingTop: 12,
+    gap: 12,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  body: {
-    fontSize: 16,
-    marginBottom: 12,
-  },
-  meta: {
-    fontSize: 14,
+  grabber: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.mutedLight,
     marginBottom: 8,
   },
-  notice: {
-    fontSize: 13,
-    opacity: 0.55,
+  title: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 18,
+    color: colors.black,
+  },
+  copy: {
+    fontFamily: fonts.nexonRegular,
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.accentText,
   },
 });
