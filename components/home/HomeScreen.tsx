@@ -455,6 +455,8 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     intervalDays: number;
     studies: HomeReviewStudy[];
   } | null>(null);
+  /** Jump home week strip to this 학습일 after the review sheet finishes closing. */
+  const pendingReviewDateRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (dataProp) return;
@@ -714,6 +716,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   );
 
   const closeReview = useCallback(() => {
+    pendingReviewDateRef.current = null;
     setReviewOpen(null);
   }, []);
 
@@ -742,6 +745,21 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     },
     [base],
   );
+
+  const onReviewStudyPress = useCallback((studiedOn: string) => {
+    const dateKey = studiedOn.trim();
+    if (!dateKey) return;
+    pendingReviewDateRef.current = dateKey;
+    setReviewOpen(null);
+  }, []);
+
+  const onReviewDismissed = useCallback(() => {
+    const dateKey = pendingReviewDateRef.current;
+    pendingReviewDateRef.current = null;
+    if (!dateKey) return;
+    haptics.select();
+    selectDayFromCalendar(dateKey);
+  }, [selectDayFromCalendar]);
 
   const goToday = useCallback(() => {
     haptics.todayJump();
@@ -934,11 +952,15 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
         />
       </BottomSheetModal>
 
-      <BottomSheetModal visible={reviewOpen != null} onClose={closeReview}>
+      <BottomSheetModal
+        visible={reviewOpen != null}
+        onClose={closeReview}
+        onDismissed={onReviewDismissed}>
         {reviewOpen ? (
           <ReviewDetailContent
             studies={reviewOpen.studies}
             colorByName={colorByName}
+            onStudyPress={onReviewStudyPress}
           />
         ) : null}
       </BottomSheetModal>
@@ -1825,8 +1847,8 @@ const styles = StyleSheet.create({
   addStudyBtn: {
     height: sizes.addStudyHeight,
     borderRadius: radii.chip,
-    // Empty-state gray (pre-white canvas), not mainWhite.
-    backgroundColor: '#fafafa',
+    // Empty / future shell fill (`colors.surface` = #F2F6FA).
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1841,6 +1863,7 @@ const styles = StyleSheet.create({
   addStudyMoreBtn: {
     height: sizes.studyBodyHeight,
     borderRadius: radii.chip,
+    // Records exist — no gray shell behind the extra “+ 공부 기록 추가”.
     backgroundColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',

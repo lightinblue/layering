@@ -9,6 +9,7 @@ import {
 } from 'react';
 import {
   Alert,
+  Keyboard,
   LayoutAnimation,
   LayoutChangeEvent,
   PanResponder,
@@ -138,12 +139,16 @@ const CHIP_SELECTED_OPACITY = 1;
 /**
  * One push: name row + palette + actions expand together (height clip) while
  * rising in; content below is shoved down. Same ease-out; interruptible.
+ * Keyboard focus waits for `onOpenComplete` so sheet lift does not fight height.
  */
 function SubjectAddReveal({
   visible,
+  onOpenComplete,
   children,
 }: {
   visible: boolean;
+  /** Fires once when the open ease-out finishes (not on interrupt / hide). */
+  onOpenComplete?: () => void;
   children: ReactNode;
 }) {
   const progress = useSharedValue(0);
@@ -152,6 +157,8 @@ function SubjectAddReveal({
   const [presented, setPresented] = useState(false);
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  const onOpenCompleteRef = useRef(onOpenComplete);
+  onOpenCompleteRef.current = onOpenComplete;
 
   const finishHide = useCallback(() => {
     if (!visibleRef.current) {
@@ -162,13 +169,24 @@ function SubjectAddReveal({
     }
   }, [contentHeight, measured, progress]);
 
+  const notifyOpenComplete = useCallback(() => {
+    if (visibleRef.current) onOpenCompleteRef.current?.();
+  }, []);
+
+  const startOpen = useCallback(() => {
+    cancelAnimation(progress);
+    progress.value = withTiming(1, ADD_REVEAL, (finished) => {
+      if (finished) runOnJS(notifyOpenComplete)();
+    });
+  }, [notifyOpenComplete, progress]);
+
   useEffect(() => {
     cancelAnimation(progress);
     if (visible) {
       setPresented(true);
       progress.value = 0;
       if (measured.value === 1 && contentHeight.value > 0) {
-        progress.value = withTiming(1, ADD_REVEAL);
+        startOpen();
       }
       return;
     }
@@ -176,7 +194,15 @@ function SubjectAddReveal({
     progress.value = withTiming(0, ADD_REVEAL, (finished) => {
       if (finished) runOnJS(finishHide)();
     });
-  }, [contentHeight, finishHide, measured, presented, progress, visible]);
+  }, [
+    contentHeight,
+    finishHide,
+    measured,
+    presented,
+    progress,
+    startOpen,
+    visible,
+  ]);
 
   const panelStyle = useAnimatedStyle(() => {
     // Until first measure, stay invisible + unconstrained so Yoga reports full height.
@@ -209,8 +235,7 @@ function SubjectAddReveal({
           contentHeight.value = next;
           measured.value = 1;
           if (visibleRef.current) {
-            cancelAnimation(progress);
-            progress.value = withTiming(1, ADD_REVEAL);
+            startOpen();
           }
         }}>
         {children}
@@ -350,8 +375,10 @@ export function AddStudyForm({
   const [title, setTitle] = useState(() => initial?.title ?? '');
   const [memo, setMemo] = useState(() => initial?.memo ?? '');
   const [adding, setAdding] = useState(false);
+  const addingRef = useRef(false);
   const [draftName, setDraftName] = useState('');
   const [draftColor, setDraftColor] = useState<string>(SUBJECT_COLOR_OPTIONS[0]);
+  const draftInputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [chipHint, setChipHint] = useState<string | null>(null);
   const [deleteArmed, setDeleteArmed] = useState<string | null>(null);
   const [draggingName, setDraggingName] = useState<string | null>(null);
@@ -707,12 +734,23 @@ export function AddStudyForm({
     setDeleteArmed(null);
     setDraftName('');
     setDraftColor(SUBJECT_COLOR_OPTIONS[0]);
+    addingRef.current = true;
     setAdding(true);
   }, [onAddSubject, atLimit]);
 
   const cancelAdd = useCallback(() => {
+    // Dismiss keyboard first so sheet drop and height collapse don't fight.
+    Keyboard.dismiss();
+    draftInputRef.current?.blur();
+    addingRef.current = false;
     setAdding(false);
     setDraftName('');
+  }, []);
+
+  const focusDraftAfterReveal = useCallback(() => {
+    // Only focus after height settle — avoids keyboard lift fighting the reveal.
+    if (!addingRef.current) return;
+    draftInputRef.current?.focus();
   }, []);
 
   const confirmAdd = useCallback(() => {
@@ -731,8 +769,11 @@ export function AddStudyForm({
     }
     const name = draftName.trim().replace(/\s+/g, ' ');
     haptics.subjectAdd();
+    Keyboard.dismiss();
+    draftInputRef.current?.blur();
     setSubjectPick(name);
     setDeleteArmed(null);
+    addingRef.current = false;
     setAdding(false);
     setDraftName('');
     setChipHint(null);
@@ -871,10 +912,13 @@ export function AddStudyForm({
           ) : null}
         </View>
 
-        <SubjectAddReveal visible={adding}>
+        <SubjectAddReveal
+          visible={adding}
+          onOpenComplete={focusDraftAfterReveal}>
           <View style={styles.addBlock}>
             <View style={styles.addRow}>
               <TextInput
+                ref={draftInputRef}
                 value={draftName}
                 onChangeText={(text) => {
                   setDraftName(text.slice(0, MAX_SUBJECT_NAME_LENGTH));
@@ -885,7 +929,6 @@ export function AddStudyForm({
                 maxLength={MAX_SUBJECT_NAME_LENGTH}
                 returnKeyType="done"
                 onSubmitEditing={confirmAdd}
-                autoFocus={adding}
                 style={[
                   styles.input,
                   styles.addInput,
