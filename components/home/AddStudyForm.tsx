@@ -26,9 +26,6 @@ import {
 import Animated, {
   cancelAnimation,
   Easing,
-  FadeIn,
-  FadeOut,
-  LinearTransition,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -133,19 +130,14 @@ const ADD_REVEAL = {
   easing: Easing.out(Easing.cubic),
 } as const;
 
-const ADD_SLIDE_PX = 10;
+/** Inner rise distance while the block height expands (one shared progress). */
+const ADD_RISE_PX = 14;
 const CHIP_IDLE_OPACITY = 0.45;
 const CHIP_SELECTED_OPACITY = 1;
 
-const PLUS_ENTER = FadeIn.duration(EASE_OUT_MS).easing(Easing.out(Easing.cubic));
-const PLUS_EXIT = FadeOut.duration(EASE_OUT_MS).easing(Easing.out(Easing.cubic));
-const FIELD_LAYOUT = LinearTransition.duration(EASE_OUT_MS).easing(
-  Easing.out(Easing.cubic),
-);
-
 /**
- * Subject-add name row + palette: fade + slight vertical settle.
- * Parent LinearTransition owns height; cancelAnimation for rapid open/close.
+ * One push: name row + palette + actions expand together (height clip) while
+ * rising in; content below is shoved down. Same ease-out; interruptible.
  */
 function SubjectAddReveal({
   visible,
@@ -154,36 +146,77 @@ function SubjectAddReveal({
   visible: boolean;
   children: ReactNode;
 }) {
-  const progress = useSharedValue(visible ? 1 : 0);
-  const [presented, setPresented] = useState(visible);
+  const progress = useSharedValue(0);
+  const contentHeight = useSharedValue(0);
+  const measured = useSharedValue(0);
+  const [presented, setPresented] = useState(false);
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
 
   const finishHide = useCallback(() => {
-    if (!visibleRef.current) setPresented(false);
-  }, []);
+    if (!visibleRef.current) {
+      setPresented(false);
+      contentHeight.value = 0;
+      measured.value = 0;
+      progress.value = 0;
+    }
+  }, [contentHeight, measured, progress]);
 
   useEffect(() => {
     cancelAnimation(progress);
     if (visible) {
       setPresented(true);
-      progress.value = withTiming(1, ADD_REVEAL);
+      progress.value = 0;
+      if (measured.value === 1 && contentHeight.value > 0) {
+        progress.value = withTiming(1, ADD_REVEAL);
+      }
       return;
     }
     if (!presented) return;
     progress.value = withTiming(0, ADD_REVEAL, (finished) => {
       if (finished) runOnJS(finishHide)();
     });
-  }, [finishHide, presented, progress, visible]);
+  }, [contentHeight, finishHide, measured, presented, progress, visible]);
 
-  const panelStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [{ translateY: (1 - progress.value) * -ADD_SLIDE_PX }],
+  const panelStyle = useAnimatedStyle(() => {
+    // Until first measure, stay invisible + unconstrained so Yoga reports full height.
+    if (measured.value === 0) {
+      return { opacity: 0, overflow: 'hidden' as const };
+    }
+    return {
+      height: contentHeight.value * progress.value,
+      opacity: 1,
+      overflow: 'hidden' as const,
+    };
+  });
+
+  const innerStyle = useAnimatedStyle(() => ({
+    // Rise from below as the clip expands — same progress as height.
+    transform: [{ translateY: (1 - progress.value) * ADD_RISE_PX }],
   }));
 
   if (!presented) return null;
 
-  return <Animated.View style={panelStyle}>{children}</Animated.View>;
+  return (
+    <Animated.View style={panelStyle}>
+      <Animated.View
+        style={innerStyle}
+        onLayout={(event) => {
+          // Lock full intrinsic height once; ignore later clipped layouts.
+          if (measured.value === 1) return;
+          const next = event.nativeEvent.layout.height;
+          if (next <= 0) return;
+          contentHeight.value = next;
+          measured.value = 1;
+          if (visibleRef.current) {
+            cancelAnimation(progress);
+            progress.value = withTiming(1, ADD_REVEAL);
+          }
+        }}>
+        {children}
+      </Animated.View>
+    </Animated.View>
+  );
 }
 
 function DraftColorSwatch({
@@ -723,7 +756,7 @@ export function AddStudyForm({
         {isEdit ? '공부 기록 수정' : '공부 기록 추가'}
       </Text>
 
-      <Animated.View style={styles.field} layout={FIELD_LAYOUT}>
+      <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>과목</Text>
         <View
           ref={rowRef}
@@ -815,28 +848,26 @@ export function AddStudyForm({
           ) : null}
 
           {onAddSubject && !adding ? (
-            <Animated.View entering={PLUS_ENTER} exiting={PLUS_EXIT}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  atLimit ? '과목 추가 불가, 최대 10개' : '과목 추가'
-                }
-                accessibilityState={{ disabled: atLimit }}
-                onPress={openAdd}
-                style={[
-                  styles.subjectChip,
-                  styles.addChip,
-                  {
-                    borderColor: atLimit ? colors.mutedLight : colors.muted,
-                    backgroundColor: colors.surface,
-                  },
-                  atLimit && styles.addChipDisabled,
-                ]}>
-                <SoftPlusIcon
-                  color={atLimit ? colors.mutedLight : colors.muted}
-                />
-              </Pressable>
-            </Animated.View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                atLimit ? '과목 추가 불가, 최대 10개' : '과목 추가'
+              }
+              accessibilityState={{ disabled: atLimit }}
+              onPress={openAdd}
+              style={[
+                styles.subjectChip,
+                styles.addChip,
+                {
+                  borderColor: atLimit ? colors.mutedLight : colors.muted,
+                  backgroundColor: colors.surface,
+                },
+                atLimit && styles.addChipDisabled,
+              ]}>
+              <SoftPlusIcon
+                color={atLimit ? colors.mutedLight : colors.muted}
+              />
+            </Pressable>
           ) : null}
         </View>
 
@@ -906,7 +937,7 @@ export function AddStudyForm({
             {LIMIT_HINT}
           </Text>
         ) : null}
-      </Animated.View>
+      </View>
 
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>
