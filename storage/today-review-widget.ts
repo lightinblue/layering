@@ -30,10 +30,8 @@ const appGroupStorage = new ExtensionStorage(POOGAE_WIDGET_APP_GROUP_ID);
  * `UserDefaults(suiteName: POOGAE_WIDGET_APP_GROUP_ID)`.
  * No-ops on non-iOS and when the native module is missing (Expo Go).
  *
- * WidgetKit step still needs:
- * - Widget extension target with the same App Group entitlement
- * - Swift read: `UserDefaults(suiteName:)?.string(forKey: todayReviewWidget.v1)`
- * - TimelineProvider + UI (reloadTimelines is already called here)
+ * WidgetKit target: `targets/today-review` (kind `TodayReviewWidget`).
+ * Swift reads this suite/key; `reloadWidget` refreshes timelines after write.
  */
 async function writeTodayReviewWidgetSnapshotToAppGroup(
   snapshot: TodayReviewWidgetSnapshot,
@@ -44,7 +42,7 @@ async function writeTodayReviewWidgetSnapshotToAppGroup(
       POOGAE_WIDGET_SNAPSHOT_KEY,
       JSON.stringify(snapshot),
     );
-    ExtensionStorage.reloadWidget();
+    ExtensionStorage.reloadWidget('TodayReviewWidget');
   } catch {
     // Expo Go / missing native module / suite not provisioned — AsyncStorage
     // mirror remains the source of truth for the app process.
