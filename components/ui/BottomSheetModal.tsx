@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
   Easing,
   Keyboard,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -29,6 +30,11 @@ const EASE_OUT = Easing.out(Easing.cubic);
 const KEYBOARD_FILL_EXTRA = 48;
 /** Fallback when the platform event omits duration (common on Android). */
 const KEYBOARD_FALLBACK_MS = Platform.OS === 'ios' ? 250 : 220;
+/** Generous top band for drag-to-dismiss (beyond the 5pt grabber). */
+const DISMISS_BAND_HEIGHT = 52;
+/** Dy / velocity that commits a dismiss from the drag band. */
+const DISMISS_DISTANCE = 88;
+const DISMISS_VELOCITY = 0.95;
 
 type SheetPanelProps = {
   onClose: () => void;
@@ -83,6 +89,7 @@ export function SheetPanel({
   const sheetTranslateY = sheetTranslateYProp ?? localSheet;
   const keyboardLift = useRef(new Animated.Value(0)).current;
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const dragOriginY = useRef(0);
 
   useEffect(() => {
     if (!animateOnMount || backdropOpacityProp != null) return;
@@ -138,6 +145,50 @@ export function SheetPanel({
     };
   }, [keyboardLift]);
 
+  const dismissPan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_e, gesture) =>
+          Math.abs(gesture.dy) > 3 &&
+          Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderGrant: () => {
+          sheetTranslateY.stopAnimation((value) => {
+            dragOriginY.current = typeof value === 'number' ? value : 0;
+          });
+        },
+        onPanResponderMove: (_e, gesture) => {
+          // Drag down only — upward rubber-band stays at rest.
+          const next = Math.max(0, dragOriginY.current + gesture.dy);
+          sheetTranslateY.setValue(next);
+        },
+        onPanResponderRelease: (_e, gesture) => {
+          const next = Math.max(0, dragOriginY.current + gesture.dy);
+          const flingDown = gesture.vy > DISMISS_VELOCITY;
+          if (next >= DISMISS_DISTANCE || flingDown) {
+            onClose();
+            return;
+          }
+          Animated.timing(sheetTranslateY, {
+            toValue: 0,
+            duration: OPEN_MS,
+            easing: EASE_OUT,
+            useNativeDriver: true,
+          }).start();
+        },
+        onPanResponderTerminate: () => {
+          Animated.timing(sheetTranslateY, {
+            toValue: 0,
+            duration: OPEN_MS,
+            easing: EASE_OUT,
+            useNativeDriver: true,
+          }).start();
+        },
+      }),
+    [onClose, sheetTranslateY],
+  );
+
   // fill = lift + EXTRA so white paint tracks the animated keyboard gap
   const animatedFillHeight = Animated.add(
     keyboardLift,
@@ -176,7 +227,12 @@ export function SheetPanel({
               },
               sheetStyle,
             ]}>
-            <View style={styles.grabberWrap} accessibilityElementsHidden>
+            <View
+              accessibilityRole="adjustable"
+              accessibilityLabel="시트 닫기 핸들"
+              accessibilityHint="아래로 끌어서 닫아요"
+              style={styles.dismissBand}
+              {...dismissPan.panHandlers}>
               <View style={styles.grabber} />
             </View>
             {children}
@@ -317,16 +373,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopLeftRadius: radii.chip + 8,
     borderTopRightRadius: radii.chip + 8,
-    paddingTop: 4,
+    paddingTop: 0,
     overflow: 'hidden',
   },
   keyboardFill: {
     backgroundColor: colors.white,
   },
-  grabberWrap: {
+  /** ~52pt top band — drag anywhere here to dismiss, not only the 5pt pill. */
+  dismissBand: {
+    height: DISMISS_BAND_HEIGHT,
     alignItems: 'center',
-    paddingTop: 14,
-    paddingBottom: 12,
+    justifyContent: 'center',
   },
   grabber: {
     width: 36,

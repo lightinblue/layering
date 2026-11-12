@@ -1224,6 +1224,8 @@ function DayContentPager({
 }) {
   const listRef = useRef<FlatList<HomeWeekDay>>(null);
   const settledIndexRef = useRef(dayIndex);
+  /** Cross-axis size so each page fills to the content bottom (empty review still swipes). */
+  const [pageHeight, setPageHeight] = useState(0);
 
   useEffect(() => {
     if (width <= 0) return;
@@ -1264,7 +1266,12 @@ function DayContentPager({
       const dayAllowAdd =
         !dayIsFuture && day.studies.length < MAX_STUDIES_PER_DAY;
       return (
-        <View style={[styles.dayPage, { width }]}>
+        <View
+          style={[
+            styles.dayPage,
+            { width },
+            pageHeight > 0 ? { height: pageHeight } : null,
+          ]}>
           <View style={[styles.sections, { maxWidth: contentWidth }]}>
             <StudySection
               studies={day.studies}
@@ -1297,6 +1304,7 @@ function DayContentPager({
       onDetail,
       onEditStudy,
       onToggle,
+      pageHeight,
       reviewCardWidth,
       todayKey,
       width,
@@ -1318,13 +1326,17 @@ function DayContentPager({
       getItemLayout={getItemLayout}
       initialScrollIndex={dayIndex}
       onMomentumScrollEnd={onMomentumScrollEnd}
+      onLayout={(e) => {
+        const next = Math.round(e.nativeEvent.layout.height);
+        if (next > 0 && next !== pageHeight) setPageHeight(next);
+      }}
       onScrollToIndexFailed={({ index }) => {
         requestAnimationFrame(() => {
           listRef.current?.scrollToIndex({ index, animated: false });
         });
       }}
       style={[styles.dayPager, { width }]}
-      extraData={days}
+      extraData={`${pageHeight}:${days.length}`}
     />
   );
 }
@@ -1648,6 +1660,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   frame: {
+    flex: 1,
     width: '100%',
     maxWidth: spacing.frameWidth,
     gap: spacing.blockGap,
@@ -1661,6 +1674,7 @@ const styles = StyleSheet.create({
     maxWidth: spacing.frameWidth,
     gap: spacing.headerWeekGap,
     alignItems: 'center',
+    flexShrink: 0,
   },
   headerRow: {
     width: '100%',
@@ -1752,7 +1766,8 @@ const styles = StyleSheet.create({
   },
   dayPager: {
     maxWidth: spacing.frameWidth,
-    flexGrow: 0,
+    // Fill remaining frame so empty review / bottom whitespace still pages days.
+    flex: 1,
     alignSelf: 'stretch',
   },
   dayPage: {
@@ -1781,6 +1796,7 @@ const styles = StyleSheet.create({
     width: 26,
   },
   sections: {
+    flex: 1,
     width: '100%',
     maxWidth: spacing.contentWidth,
     gap: spacing.sectionGap,
@@ -1791,6 +1807,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   reviewSection: {
+    flexGrow: 1,
     gap: 7,
   },
   sectionLabelWrap: {
@@ -1963,7 +1980,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   reviewEmpty: {
-    height: 120,
+    flexGrow: 1,
+    minHeight: 120,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
