@@ -7,6 +7,7 @@ WidgetKit extension (`targets/today-review`) reads the App Group snapshot writte
 | App Group | `group.com.lightinblue.layering.poogae` |
 | UserDefaults key | `todayReviewWidget.v1` |
 | Bundle id | `com.lightinblue.layering.today-review` |
+| Xcode / EAS target name | `todayreview` (no hyphen — must match `PBXNativeTarget` + `appExtensions.targetName`) |
 | Deep link | `layering://` (today home) |
 | Sizes | Small / Medium summary · Large card list (chip + `N일 전` + checkbox; no title / 자세히) |
 
@@ -45,4 +46,4 @@ Run the app scheme on a Simulator or device, then add the widget from the galler
 
 1. App Group `group.com.lightinblue.layering.poogae`
 2. Enable App Groups on `com.lightinblue.layering` and `com.lightinblue.layering.today-review`
-3. Optional: `ios.appleTeamId` in `app.json`
+3. `ios.appleTeamId` is set in `app.json` (`R39JVZ3ZNL`)

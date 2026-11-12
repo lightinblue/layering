@@ -1,7 +1,10 @@
 /** @type {import('@bacons/apple-targets/app.plugin').ConfigFunction} */
 module.exports = (config) => ({
   type: 'widget',
-  name: 'today-review',
+  // Must match EAS appExtensions.targetName / PRODUCT_NAME (hyphens stripped).
+  // @bacons/apple-targets sanitizes for EAS as "todayreview" but uses `name`
+  // as the PBXNativeTarget name — a mismatch fails Configure Xcode project.
+  name: 'todayreview',
   displayName: '오늘 할 복습',
   deploymentTarget: '17.0',
   bundleIdentifier: '.today-review',
