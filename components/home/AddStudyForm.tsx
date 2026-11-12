@@ -373,8 +373,9 @@ export function AddStudyForm({
 }: AddStudyFormProps) {
   const colors = useThemeColors();
   const isEdit = mode === 'edit';
+  // Create: default to first chip. Edit: keep the study’s subject.
   const [subjectPick, setSubjectPick] = useState<string | null>(
-    () => initial?.subject ?? null,
+    () => initial?.subject ?? subjects[0]?.name ?? null,
   );
   // Legacy over-long text: show full on open; clamp only on save.
   const [title, setTitle] = useState(() => initial?.title ?? '');
@@ -429,6 +430,22 @@ export function AddStudyForm({
     }
     setOrderedNames(propNames);
   }, [propNames]);
+
+  // Keep a valid selection: prefer current → edit initial → first chip.
+  useEffect(() => {
+    setSubjectPick((prev) => {
+      if (prev != null && chipSubjects.some((s) => s.name === prev)) {
+        return prev;
+      }
+      if (
+        initial?.subject &&
+        chipSubjects.some((s) => s.name === initial.subject)
+      ) {
+        return initial.subject;
+      }
+      return chipSubjects[0]?.name ?? null;
+    });
+  }, [chipSubjects, initial?.subject]);
 
   const colorByName = useMemo(() => {
     const map: Record<string, string> = {};
@@ -551,7 +568,11 @@ export function AddStudyForm({
               onRemoveSubject(name);
               setChipHint(null);
               setDeleteArmed(null);
-              setSubjectPick((prev) => (prev === name ? null : prev));
+              setSubjectPick((prev) => {
+                if (prev !== name) return prev;
+                const remaining = subjects.filter((s) => s.name !== name);
+                return remaining[0]?.name ?? null;
+              });
             },
           },
         ],
