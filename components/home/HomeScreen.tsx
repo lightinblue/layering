@@ -133,17 +133,17 @@ function isDateKey(value: string): boolean {
 }
 
 /**
- * Visible roll settle (~450ms). Cubic-out keeps mid-travel readable;
- * extreme ease-out curves front-load motion and read as a swap.
+ * Visible roll settle (~300ms). Cubic-out keeps a soft landing without
+ * feeling abrupt at the shorter duration.
  */
 const DATE_SHIFT = {
   duration: durations.dateShift,
   easing: Easing.out(Easing.cubic),
 } as const;
 
-/** Micro-stagger within the same interaction (ms). */
-const DATE_LABEL_DELAY_MS = 40;
-const WEEK_PILL_DELAY_MS = 50;
+/** Micro-stagger within the same interaction (ms); keeps overall ~300–320. */
+const DATE_LABEL_DELAY_MS = 16;
+const WEEK_PILL_DELAY_MS = 20;
 
 const PRESS_SHIFT = {
   duration: durations.press,
