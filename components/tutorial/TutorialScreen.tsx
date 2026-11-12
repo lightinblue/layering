@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ForgettingCurveGraph } from '@/components/tutorial/ForgettingCurveGraph';
 import { fonts } from '@/constants/fonts';
 import { durations } from '@/constants/motion';
 import { radii } from '@/constants/tokens';
@@ -128,6 +129,9 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
           <Text style={[styles.title, { color: colors.black }]}>
             {page.title}
           </Text>
+          {index === 0 ? (
+            <ForgettingCurveGraph width={contentWidth} />
+          ) : null}
           <Text style={[styles.copy, { color: colors.body }]}>{page.body}</Text>
           {page.accent ? (
             <Animated.Text
@@ -205,7 +209,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   page: {
-    gap: 14,
+    gap: 12,
   },
   eyebrow: {
     fontFamily: fonts.nexonBold,
@@ -214,8 +218,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: fonts.nexonBold,
-    fontSize: 28,
-    lineHeight: 38,
+    fontSize: 26,
+    lineHeight: 34,
   },
   copy: {
     fontFamily: fonts.nexonRegular,
@@ -223,10 +227,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   accent: {
-    marginTop: 6,
+    marginTop: 2,
     fontFamily: fonts.nexonMedium,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
   },
   footer: {
     paddingTop: 8,
