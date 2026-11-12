@@ -43,6 +43,10 @@ import {
   type SubjectOption,
 } from '@/components/home/AddStudyForm';
 import { ReviewDetailContent } from '@/components/home/ReviewDetailContent';
+import {
+  REVIEW_COMPLETE_TOASTS,
+  ReviewCompleteToast,
+} from '@/components/home/ReviewCompleteToast';
 import { SettingsSheet } from '@/components/home/SettingsSheet';
 import {
   ArrowRightIcon,
@@ -459,6 +463,12 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   } | null>(null);
   /** Jump home week strip to this 학습일 after the review sheet finishes closing. */
   const pendingReviewDateRef = useRef<string | null>(null);
+  /** Round-robin index for review-complete toast copies. */
+  const toastIndexRef = useRef(0);
+  const [completeToast, setCompleteToast] = useState<{
+    token: number;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (dataProp) return;
@@ -541,10 +551,30 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   const selectedDateKey = selected?.dateKey ?? todayKey;
 
+  const hideCompleteToast = useCallback(() => {
+    setCompleteToast(null);
+  }, []);
+
+  const showCompleteToast = useCallback(() => {
+    const message =
+      REVIEW_COMPLETE_TOASTS[
+        toastIndexRef.current % REVIEW_COMPLETE_TOASTS.length
+      ];
+    toastIndexRef.current += 1;
+    setCompleteToast((prev) => ({
+      token: (prev?.token ?? 0) + 1,
+      message,
+    }));
+  }, []);
+
   const toggleReview = useCallback(
     (dateKey: string, card: HomeReviewCard) => {
-      if (card.completed) haptics.checkOff();
-      else haptics.checkOn();
+      if (card.completed) {
+        haptics.checkOff();
+      } else {
+        haptics.checkOn();
+        showCompleteToast();
+      }
       if (dataProp || !appData) return;
       let next = appData;
       for (const id of card.scheduleIds) {
@@ -552,7 +582,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       }
       void persistApp(next);
     },
-    [dataProp, appData, persistApp],
+    [dataProp, appData, persistApp, showCompleteToast],
   );
 
   const goAdd = useCallback(() => {
@@ -933,6 +963,15 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
         ]}>
         <CalendarTodayFabIcon showCalendar={isToday} />
       </SoftFab>
+
+      {completeToast ? (
+        <ReviewCompleteToast
+          token={completeToast.token}
+          message={completeToast.message}
+          bottom={fabBottom + sizes.fab + 12}
+          onHidden={hideCompleteToast}
+        />
+      ) : null}
 
       <BottomSheetModal
         visible={addOpen}
