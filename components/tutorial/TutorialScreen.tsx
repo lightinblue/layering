@@ -1,5 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
+  FlatList,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   StyleSheet,
   Text,
@@ -9,8 +12,6 @@ import {
 import Animated, {
   Easing,
   FadeIn,
-  FadeInUp,
-  FadeOut,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -18,7 +19,10 @@ import { ForgettingCurveGraph } from '@/components/tutorial/ForgettingCurveGraph
 import { fonts } from '@/constants/fonts';
 import { durations } from '@/constants/motion';
 import { radii } from '@/constants/tokens';
-import { TUTORIAL_PAGES } from '@/constants/tutorial';
+import {
+  TUTORIAL_PAGES,
+  type TutorialPage,
+} from '@/constants/tutorial';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import { haptics } from '@/utils/haptics';
 
@@ -28,15 +32,14 @@ type TutorialScreenProps = {
 
 /**
  * Minimal first-launch intro: forgetting curve → how to use.
- * Skip is always available; finish lands on home.
- * Previous page is weakly available via muted 「이전」 only (no swipe).
+ * Horizontal swipe pager; 「이전」/「다음」 stay available.
  */
 export function TutorialScreen({ onFinished }: TutorialScreenProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const listRef = useRef<FlatList<TutorialPage>>(null);
   const [index, setIndex] = useState(0);
-  const page = TUTORIAL_PAGES[index];
   const isFirst = index <= 0;
   const isLast = index >= TUTORIAL_PAGES.length - 1;
   const contentWidth = Math.min(332, width - 48);
@@ -46,25 +49,79 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
     onFinished();
   }, [onFinished]);
 
+  const scrollTo = useCallback(
+    (next: number) => {
+      const clamped = Math.max(0, Math.min(next, TUTORIAL_PAGES.length - 1));
+      listRef.current?.scrollToIndex({ index: clamped, animated: true });
+      setIndex(clamped);
+    },
+    [],
+  );
+
   const goNext = useCallback(() => {
     if (isLast) {
       finish();
       return;
     }
     haptics.select();
-    setIndex((i) => Math.min(i + 1, TUTORIAL_PAGES.length - 1));
-  }, [finish, isLast]);
+    scrollTo(index + 1);
+  }, [finish, index, isLast, scrollTo]);
 
   const goPrev = useCallback(() => {
     if (isFirst) return;
     haptics.select();
-    setIndex((i) => Math.max(i - 1, 0));
-  }, [isFirst]);
+    scrollTo(index - 1);
+  }, [index, isFirst, scrollTo]);
 
   const skip = useCallback(() => {
     haptics.sheetOpen();
     onFinished();
   }, [onFinished]);
+
+  const onMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const next = Math.round(e.nativeEvent.contentOffset.x / width);
+      if (next === index) return;
+      haptics.select();
+      setIndex(next);
+    },
+    [index, width],
+  );
+
+  const renderPage = useCallback(
+    ({ item, index: pageIndex }: { item: TutorialPage; index: number }) => (
+      <View style={[styles.pageSlide, { width }]}>
+        <View style={[styles.page, { width: contentWidth }]}>
+          <Text style={[styles.eyebrow, { color: colors.primary }]}>
+            {item.eyebrow}
+          </Text>
+          <Text style={[styles.title, { color: colors.black }]}>
+            {item.title}
+          </Text>
+          {pageIndex === 0 ? (
+            <ForgettingCurveGraph
+              width={Math.min(292, contentWidth * 0.88)}
+            />
+          ) : null}
+          {/* Same token as page-1+ body / secondary copy */}
+          <Text style={[styles.copy, { color: colors.body }]}>{item.body}</Text>
+          {item.sub ? (
+            <Text style={[styles.copy, { color: colors.body }]}>{item.sub}</Text>
+          ) : null}
+          {item.accent ? (
+            <Animated.Text
+              entering={FadeIn.delay(80).duration(durations.fadeIn).easing(
+                Easing.out(Easing.cubic),
+              )}
+              style={[styles.accent, { color: colors.primary }]}>
+              {item.accent}
+            </Animated.Text>
+          ) : null}
+        </View>
+      </View>
+    ),
+    [colors.black, colors.body, colors.primary, contentWidth, width],
+  );
 
   return (
     <View
@@ -115,45 +172,24 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
         </Pressable>
       </View>
 
-      <View style={[styles.body, { width: contentWidth }]}>
-        <Animated.View
-          key={index}
-          entering={FadeInUp.duration(durations.fadeIn).easing(
-            Easing.out(Easing.cubic),
-          )}
-          exiting={FadeOut.duration(durations.fadeOut)}
-          style={styles.page}>
-          <Text style={[styles.eyebrow, { color: colors.primary }]}>
-            {page.eyebrow}
-          </Text>
-          <Text style={[styles.title, { color: colors.black }]}>
-            {page.title}
-          </Text>
-          {index === 0 ? (
-            <ForgettingCurveGraph
-              width={Math.min(292, contentWidth * 0.88)}
-            />
-          ) : null}
-          <Text
-            style={[
-              index === 0 ? styles.copySoft : styles.copy,
-              { color: index === 0 ? colors.muted : colors.body },
-            ]}>
-            {page.body}
-          </Text>
-          {page.sub ? (
-            <Text style={[styles.copySoft, { color: colors.muted }]}>
-              {page.sub}
-            </Text>
-          ) : null}
-          {page.accent ? (
-            <Animated.Text
-              entering={FadeIn.delay(80).duration(durations.fadeIn)}
-              style={[styles.accent, { color: colors.primary }]}>
-              {page.accent}
-            </Animated.Text>
-          ) : null}
-        </Animated.View>
+      <View style={styles.body}>
+        <FlatList
+          ref={listRef}
+          data={TUTORIAL_PAGES as TutorialPage[]}
+          keyExtractor={(_, i) => `tutorial-${i}`}
+          horizontal
+          pagingEnabled
+          bounces={false}
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={onMomentumScrollEnd}
+          getItemLayout={(_, i) => ({
+            length: width,
+            offset: width * i,
+            index: i,
+          })}
+          renderItem={renderPage}
+          style={styles.pager}
+        />
       </View>
 
       <View style={[styles.footer, { width: contentWidth }]}>
@@ -218,8 +254,16 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    justifyContent: 'center',
+    alignSelf: 'stretch',
     paddingBottom: 24,
+  },
+  pager: {
+    flex: 1,
+  },
+  pageSlide: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   page: {
     gap: 12,
@@ -234,16 +278,11 @@ const styles = StyleSheet.create({
     fontSize: 26,
     lineHeight: 34,
   },
+  /** Secondary body — shared by page-0 main/sub and page-1+ body. */
   copy: {
     fontFamily: fonts.nexonRegular,
     fontSize: 14,
     lineHeight: 22,
-  },
-  /** Page-0 main + sub — matched softer secondary body. */
-  copySoft: {
-    fontFamily: fonts.nexonRegular,
-    fontSize: 13,
-    lineHeight: 20,
   },
   accent: {
     marginTop: 2,
