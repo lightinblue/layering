@@ -134,9 +134,17 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
               width={Math.min(292, contentWidth * 0.88)}
             />
           ) : null}
-          <Text style={[styles.copy, { color: colors.body }]}>{page.body}</Text>
+          <Text
+            style={[
+              index === 0 ? styles.copySoft : styles.copy,
+              { color: index === 0 ? colors.muted : colors.body },
+            ]}>
+            {page.body}
+          </Text>
           {page.sub ? (
-            <Text style={[styles.sub, { color: colors.muted }]}>{page.sub}</Text>
+            <Text style={[styles.copySoft, { color: colors.muted }]}>
+              {page.sub}
+            </Text>
           ) : null}
           {page.accent ? (
             <Animated.Text
@@ -228,10 +236,11 @@ const styles = StyleSheet.create({
   },
   copy: {
     fontFamily: fonts.nexonRegular,
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 22,
   },
-  sub: {
+  /** Page-0 main + sub — matched softer secondary body. */
+  copySoft: {
     fontFamily: fonts.nexonRegular,
     fontSize: 13,
     lineHeight: 20,
