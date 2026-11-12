@@ -25,6 +25,8 @@ export type ReviewStudyDetail = {
   content: string;
   studiedOn: string;
   memo?: string;
+  subjectColor?: string;
+  subjectMissing?: boolean;
 };
 
 /** Group schedules due on a day by interval (matches Figma multi-subject cards). */
@@ -60,12 +62,17 @@ function reviewsForDay(
       intervalDays,
       subjectNames,
       completed: schedules.every((s) => s.completed),
-      studies: studies.map((s) => ({
-        subjectName: s.subjectName,
-        content: s.content,
-        studiedOn: s.studiedOn,
-        ...(s.memo?.trim() ? { memo: s.memo.trim() } : {}),
-      })),
+      studies: studies.map((s) => {
+        const missing = !data.subjects.some((c) => c.name === s.subjectName);
+        return {
+          subjectName: s.subjectName,
+          content: s.content,
+          studiedOn: s.studiedOn,
+          ...(s.memo?.trim() ? { memo: s.memo.trim() } : {}),
+          ...(s.subjectColor ? { subjectColor: s.subjectColor } : {}),
+          ...(missing ? { subjectMissing: true } : {}),
+        };
+      }),
     });
   }
   return cards;
@@ -74,12 +81,17 @@ function reviewsForDay(
 function studiesForDay(dateKey: string, data: AppData): HomeStudyRow[] {
   return data.records
     .filter((r) => r.studiedOn === dateKey)
-    .map((r) => ({
-      id: r.id,
-      subjectName: r.subjectName,
-      content: r.content,
-      ...(r.memo?.trim() ? { memo: r.memo.trim() } : {}),
-    }));
+    .map((r) => {
+      const missing = !data.subjects.some((c) => c.name === r.subjectName);
+      return {
+        id: r.id,
+        subjectName: r.subjectName,
+        content: r.content,
+        ...(r.memo?.trim() ? { memo: r.memo.trim() } : {}),
+        ...(r.subjectColor ? { subjectColor: r.subjectColor } : {}),
+        ...(missing ? { subjectMissing: true } : {}),
+      };
+    });
 }
 
 function buildWeek(weekStart: Date, data: AppData): HomeWeekDay[] {
@@ -134,11 +146,14 @@ export function studyDetailsForSchedules(
     const record = data.records.find((r) => r.id === schedule.studyRecordId);
     if (!record || seen.has(record.id)) continue;
     seen.add(record.id);
+    const missing = !data.subjects.some((c) => c.name === record.subjectName);
     studies.push({
       subjectName: record.subjectName,
       content: record.content,
       studiedOn: record.studiedOn,
       ...(record.memo?.trim() ? { memo: record.memo.trim() } : {}),
+      ...(record.subjectColor ? { subjectColor: record.subjectColor } : {}),
+      ...(missing ? { subjectMissing: true } : {}),
     });
   }
   return studies;

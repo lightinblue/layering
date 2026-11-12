@@ -31,8 +31,8 @@ export const MAX_STUDY_TITLE_LENGTH = 40;
 export const MAX_STUDY_MEMO_LENGTH = 120;
 
 /**
- * Silent trim/clamp for non-UI writers (seed, import). The add/edit sheet
- * uses TextInput `maxLength` so users never hit a save-time length error.
+ * Trim + clamp title/memo on persist (legacy over-long edits; seed/import).
+ * Empty title → content ''. UI blocks save when trim is empty.
  */
 export function clampStudyFields(content: string, memo?: string): {
   content: string;
@@ -44,6 +44,17 @@ export function clampStudyFields(content: string, memo?: string): {
     content: nextContent,
     ...(nextMemo ? { memo: nextMemo } : {}),
   };
+}
+
+function snapshotSubjectColor(
+  data: AppData,
+  subjectName: string,
+  previous?: string,
+): string | undefined {
+  const chip = data.subjects.find((s) => s.name === subjectName);
+  if (chip) return withSubjectColor(chip).color;
+  const prev = previous?.trim();
+  return prev || undefined;
 }
 
 /** Seed chip for first real-mode load (palette blue). */
@@ -233,17 +244,22 @@ export function appendStudyWithReviews(
     return data;
   }
 
-  // Prefer chip list; if chip was deleted, still allow save via name snapshot
-  // without re-adding the subject (FR-A3: delete chip ≠ delete history).
-  const existing = data.subjects.find((s) => s.name === input.subjectName);
-  const subjectId = existing?.id ?? newId('sub');
-  const subjectName = input.subjectName;
-
   const fields = clampStudyFields(input.content, input.memo);
+  if (!fields.content) return data;
+
+  // New studies require a live subject chip (no fake default).
+  const existing = data.subjects.find((s) => s.name === input.subjectName);
+  if (!existing) return data;
+
+  const subjectId = existing.id;
+  const subjectName = input.subjectName;
+  const subjectColorSnap = snapshotSubjectColor(data, subjectName);
+
   const record: StudyRecord = {
     id: newId('study'),
     subjectId,
     subjectName,
+    ...(subjectColorSnap ? { subjectColor: subjectColorSnap } : {}),
     content: fields.content,
     ...(fields.memo ? { memo: fields.memo } : {}),
     studiedOn: input.studiedOn,
@@ -327,12 +343,21 @@ export function updateStudyWithReviews(
     if (othersOnTarget >= MAX_STUDIES_PER_DAY) return data;
   }
 
-  const chip = data.subjects.find((s) => s.name === input.subjectName);
   const fields = clampStudyFields(input.content, input.memo);
+  if (!fields.content) return data;
+
+  const chip = data.subjects.find((s) => s.name === input.subjectName);
+  // Edit may keep a deleted subject name snapshot (FR-A3).
+  const subjectColorSnap = snapshotSubjectColor(
+    data,
+    input.subjectName,
+    existing.subjectColor,
+  );
   const nextRecord: StudyRecord = {
     id: existing.id,
     subjectId: chip?.id ?? existing.subjectId,
     subjectName: input.subjectName,
+    ...(subjectColorSnap ? { subjectColor: subjectColorSnap } : {}),
     content: fields.content,
     studiedOn: input.studiedOn,
     createdAt: existing.createdAt,

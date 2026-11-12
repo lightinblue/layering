@@ -188,13 +188,14 @@ export function SheetPanel({
    * Modal-owned sheets just forward; BottomSheetModal runs the same curve.
    */
   const requestClose = useCallback(() => {
-    if (!ownsCloseAnimation) {
-      onCloseRef.current();
-      return;
-    }
     if (closingRef.current) return;
     closingRef.current = true;
     Keyboard.dismiss();
+    if (!ownsCloseAnimation) {
+      // Modal owns the close animation; ignore further drag while it runs.
+      onCloseRef.current();
+      return;
+    }
     animateSheetClosed(backdropOpacity, sheetTranslateY, () => {
       onCloseRef.current();
     });
@@ -210,16 +211,20 @@ export function SheetPanel({
           Math.abs(gesture.dy) > Math.abs(gesture.dx),
         onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: () => {
+          if (closingRef.current) return;
+          Keyboard.dismiss();
           sheetTranslateY.stopAnimation((value) => {
             dragOriginY.current = typeof value === 'number' ? value : 0;
           });
         },
         onPanResponderMove: (_e, gesture) => {
+          if (closingRef.current) return;
           // Drag down only — upward rubber-band stays at rest.
           const next = Math.max(0, dragOriginY.current + gesture.dy);
           sheetTranslateY.setValue(next);
         },
         onPanResponderRelease: (_e, gesture) => {
+          if (closingRef.current) return;
           const next = Math.max(0, dragOriginY.current + gesture.dy);
           const flingDown = gesture.vy > DISMISS_VELOCITY;
           if (next >= DISMISS_DISTANCE || flingDown) {

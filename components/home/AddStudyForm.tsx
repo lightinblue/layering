@@ -43,6 +43,7 @@ import {
   radii,
   subjectBorderColor,
   subjectColor,
+  studySubjectFill,
 } from '@/constants/tokens';
 
 if (
@@ -88,6 +89,9 @@ export type AddStudyFormInitial = {
   subject: string;
   title: string;
   memo?: string;
+  /** Snapshot fill when the subject chip was deleted. */
+  subjectColor?: string;
+  subjectMissing?: boolean;
 };
 
 type AddStudyFormProps = {
@@ -374,12 +378,9 @@ export function AddStudyForm({
   const [subjectPick, setSubjectPick] = useState<string | null>(
     () => initial?.subject ?? null,
   );
-  const [title, setTitle] = useState(
-    () => (initial?.title ?? '').slice(0, MAX_STUDY_TITLE_LENGTH),
-  );
-  const [memo, setMemo] = useState(
-    () => (initial?.memo ?? '').slice(0, MAX_STUDY_MEMO_LENGTH),
-  );
+  // Legacy over-long text: show full on open; clamp only on save.
+  const [title, setTitle] = useState(() => initial?.title ?? '');
+  const [memo, setMemo] = useState(() => initial?.memo ?? '');
   const [adding, setAdding] = useState(false);
   const addingRef = useRef(false);
   const [draftName, setDraftName] = useState('');
@@ -394,14 +395,18 @@ export function AddStudyForm({
   const chipSubjects = useMemo(() => {
     if (!initial?.subject) return subjects;
     if (subjects.some((s) => s.name === initial.subject)) return subjects;
+    // Deleted subject: keep name snapshot + stored/gray fill (no fake default).
     return [
       ...subjects,
       {
         name: initial.subject,
-        color: subjectColor(initial.subject),
+        color: studySubjectFill(initial.subject, {
+          storedColor: initial.subjectColor,
+          missing: true,
+        }),
       },
     ];
-  }, [subjects, initial?.subject]);
+  }, [subjects, initial?.subject, initial?.subjectColor]);
 
   const propNames = useMemo(
     () => chipSubjects.map((s) => s.name),
@@ -455,6 +460,7 @@ export function AddStudyForm({
 
   // Cap is MAX_SUBJECTS (10). Keep + visible (disabled) at capacity — do not unmount it.
   const atLimit = subjects.length >= maxSubjects;
+  const noSubjects = subjects.length === 0;
   const subjectNames = useMemo(
     () => orderedChips.map((s) => s.name),
     [orderedChips],
@@ -464,10 +470,17 @@ export function AddStudyForm({
       ? subjectPick
       : null;
 
-  const canSave = useMemo(
-    () => subject != null && title.trim().length > 0,
-    [subject, title],
-  );
+  const canSave = useMemo(() => {
+    if (title.trim().length === 0) return false;
+    if (subject == null) return false;
+    // Create requires at least one live subject chip.
+    if (!isEdit && noSubjects) return false;
+    return true;
+  }, [isEdit, noSubjects, subject, title]);
+
+  const emptySubjectHint = '과목을 먼저 추가해 주세요';
+  const titleMaxLength = Math.max(MAX_STUDY_TITLE_LENGTH, title.length);
+  const memoMaxLength = Math.max(MAX_STUDY_MEMO_LENGTH, memo.length);
 
   const rowRef = useRef<ComponentRef<typeof View>>(null);
 
@@ -705,10 +718,12 @@ export function AddStudyForm({
 
   const handleSave = useCallback(() => {
     if (!canSave || subject == null) return;
-    // Length is gated by TextInput maxLength only — never reject on save.
+    const nextTitle = title.trim();
+    if (!nextTitle) return;
+    // Persist clamps legacy over-long text silently; empty title already blocked.
     onSave({
       subject,
-      title: title.trim(),
+      title: nextTitle,
       memo: memo.trim(),
     });
   }, [canSave, subject, title, memo, onSave]);
@@ -993,6 +1008,10 @@ export function AddStudyForm({
           <Text style={[styles.chipHint, { color: colors.muted }]}>
             {chipHint}
           </Text>
+        ) : !isEdit && noSubjects ? (
+          <Text style={[styles.chipHint, { color: colors.muted }]}>
+            {emptySubjectHint}
+          </Text>
         ) : atLimit ? (
           <Text style={[styles.chipHint, { color: colors.mutedLight }]}>
             {LIMIT_HINT}
@@ -1009,8 +1028,8 @@ export function AddStudyForm({
           onChangeText={setTitle}
           placeholder="1-3단원 / p. 22-36"
           placeholderTextColor={colors.mutedLight}
-          // Hard cap — users cannot type past 40; no save-time reject.
-          maxLength={MAX_STUDY_TITLE_LENGTH}
+          // New typing capped at 40; legacy longer values stay visible until save clamp.
+          maxLength={titleMaxLength}
           style={[
             styles.input,
             { backgroundColor: colors.surface, color: colors.body },
@@ -1027,8 +1046,7 @@ export function AddStudyForm({
           onChangeText={setMemo}
           placeholder="추가로 기록하고 싶은 내용"
           placeholderTextColor={colors.mutedLight}
-          // Hard cap — users cannot type past 120; no save-time reject.
-          maxLength={MAX_STUDY_MEMO_LENGTH}
+          maxLength={memoMaxLength}
           style={[
             styles.input,
             styles.memoInput,

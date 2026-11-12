@@ -2,7 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { HomeReviewStudy } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
-import { colors, radii, subjectColor } from '@/constants/tokens';
+import { colors, radii, studySubjectFill } from '@/constants/tokens';
 
 export type ReviewDetailContentProps = {
   studies: HomeReviewStudy[];
@@ -38,14 +38,15 @@ export function ReviewDetailContent({
                 style={[
                   styles.subjectChip,
                   {
-                    backgroundColor: subjectColor(
-                      study.subjectName,
+                    backgroundColor: studySubjectFill(study.subjectName, {
+                      storedColor: study.subjectColor,
+                      missing: study.subjectMissing,
                       colorByName,
-                    ),
+                    }),
                   },
                 ]}>
                 <Text style={styles.subjectChipText} numberOfLines={1}>
-                  {study.subjectName}
+                  {study.subjectMissing ? '삭제된 과목' : study.subjectName}
                 </Text>
               </View>
               {study.studiedOn ? (

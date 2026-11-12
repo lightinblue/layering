@@ -10,6 +10,7 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -74,6 +75,7 @@ import {
   sizes,
   spacing,
   subjectColor,
+  studySubjectFill,
 } from '@/constants/tokens';
 import {
   addSubject,
@@ -442,6 +444,8 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   /** When set, week strip is recentered on this date (calendar jump). */
   const [weekAnchorKey, setWeekAnchorKey] = useState<string | null>(null);
   const appliedDayRef = useRef<string | null>(null);
+  /** Bumps on foreground so local “today” recomputes after midnight / TZ. */
+  const [clockNonce, setClockNonce] = useState(0);
 
   const [selectedKey, setSelectedKey] = useState(deviceTodayKey);
   const [weekIndex, setWeekIndex] = useState(WEEKS_BEFORE);
@@ -475,6 +479,13 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     };
   }, [dataProp]);
 
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') setClockNonce((n) => n + 1);
+    });
+    return () => sub.remove();
+  }, []);
+
   const base: HomeScreenData = useMemo(() => {
     if (dataProp) return dataProp;
     return homeScreenDataFromAppData(
@@ -482,7 +493,9 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       new Date(),
       weekAnchorKey ? { weekAnchor: parseKey(weekAnchorKey) } : undefined,
     );
-  }, [dataProp, appData, weekAnchorKey]);
+    // clockNonce: recompute local todayKey on foreground
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataProp, appData, weekAnchorKey, clockNonce]);
 
   const todayKey = base.todayKey;
   const allDays = useMemo(() => flattenWeeks(base.weeks), [base.weeks]);
@@ -497,10 +510,10 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   const studies = selected?.studies ?? [];
 
-  const isFutureDay = selected != null && selected.dateKey > todayKey;
   const isToday = selected != null && selected.dateKey === todayKey;
   const atStudyCap = studies.length >= MAX_STUDIES_PER_DAY;
-  const allowAdd = !isFutureDay && !atStudyCap;
+  // Future days may add studies; reviews stay on dueOn only (not “오늘 할 복습”).
+  const allowAdd = !atStudyCap;
 
   const frameWidth = Math.min(windowWidth - 16, spacing.frameWidth);
   const contentWidth = Math.min(frameWidth, spacing.contentWidth);
@@ -544,11 +557,14 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   );
 
   const goAdd = useCallback(() => {
-    if (!allowAdd) return;
+    if (atStudyCap) {
+      haptics.reject();
+      return;
+    }
     setEditingStudy(null);
     setAddKey((k) => k + 1);
     setAddOpen(true);
-  }, [allowAdd]);
+  }, [atStudyCap]);
 
   const goEditStudy = useCallback(
     (row: HomeStudyRow) => {
@@ -557,11 +573,18 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
         const record = appData.records.find((r) => r.id === row.id);
         if (record) {
           const memo = record.memo?.trim();
+          const missing = !appData.subjects.some(
+            (s) => s.name === record.subjectName,
+          );
           next = {
             id: record.id,
             subjectName: record.subjectName,
             content: record.content,
             ...(memo ? { memo } : {}),
+            ...(record.subjectColor
+              ? { subjectColor: record.subjectColor }
+              : {}),
+            ...(missing ? { subjectMissing: true } : {}),
           };
         }
       }
@@ -587,6 +610,10 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       const memo = payload.memo.trim();
       const studiedOn = selectedDateKey;
       if (dataProp || !appData) return;
+      if (!content) {
+        haptics.reject();
+        return;
+      }
 
       if (editingStudy) {
         const next = updateStudyWithReviews(appData, editingStudy.id, {
@@ -598,6 +625,11 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
         void persistApp(next);
         haptics.save();
         setAddOpen(false);
+        return;
+      }
+
+      if (appData.subjects.length === 0) {
+        haptics.reject();
         return;
       }
 
@@ -920,6 +952,12 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
                   subject: editingStudy.subjectName,
                   title: editingStudy.content,
                   ...(editingStudy.memo ? { memo: editingStudy.memo } : {}),
+                  ...(editingStudy.subjectColor
+                    ? { subjectColor: editingStudy.subjectColor }
+                    : {}),
+                  ...(editingStudy.subjectMissing
+                    ? { subjectMissing: true }
+                    : {}),
                 }
               : undefined
           }
@@ -981,9 +1019,11 @@ function WeekStripPager({
 }) {
   const listRef = useRef<FlatList<HomeWeekDay[]>>(null);
   const settledIndexRef = useRef(weekIndex);
+  const draggingRef = useRef(false);
 
   useEffect(() => {
     if (width <= 0) return;
+    if (draggingRef.current) return;
     if (settledIndexRef.current === weekIndex) return;
     const delta = Math.abs(weekIndex - settledIndexRef.current);
     const animate = delta > 0 && delta <= JUMP_ANIMATE_MAX_DELTA;
@@ -993,6 +1033,7 @@ function WeekStripPager({
 
   const onMomentumScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      draggingRef.current = false;
       if (width <= 0) return;
       const next = Math.round(e.nativeEvent.contentOffset.x / width);
       const clamped = Math.max(0, Math.min(weeks.length - 1, next));
@@ -1043,6 +1084,9 @@ function WeekStripPager({
       renderItem={renderWeek}
       getItemLayout={getItemLayout}
       initialScrollIndex={weekIndex}
+      onScrollBeginDrag={() => {
+        draggingRef.current = true;
+      }}
       onMomentumScrollEnd={onMomentumScrollEnd}
       onScrollToIndexFailed={({ index }) => {
         requestAnimationFrame(() => {
@@ -1224,11 +1268,13 @@ function DayContentPager({
 }) {
   const listRef = useRef<FlatList<HomeWeekDay>>(null);
   const settledIndexRef = useRef(dayIndex);
+  const draggingRef = useRef(false);
   /** Cross-axis size so each page fills to the content bottom (empty review still swipes). */
   const [pageHeight, setPageHeight] = useState(0);
 
   useEffect(() => {
     if (width <= 0) return;
+    if (draggingRef.current) return;
     if (settledIndexRef.current === dayIndex) return;
     const delta = Math.abs(dayIndex - settledIndexRef.current);
     // Near jumps (incl. FAB 「오늘」) animate — 슈루룩; far jumps snap.
@@ -1239,6 +1285,7 @@ function DayContentPager({
 
   const onMomentumScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      draggingRef.current = false;
       if (width <= 0) return;
       const next = Math.round(e.nativeEvent.contentOffset.x / width);
       const clamped = Math.max(0, Math.min(days.length - 1, next));
@@ -1262,9 +1309,7 @@ function DayContentPager({
   const renderDay = useCallback(
     ({ item: day }: { item: HomeWeekDay }) => {
       const dayIsToday = day.dateKey === todayKey;
-      const dayIsFuture = day.dateKey > todayKey;
-      const dayAllowAdd =
-        !dayIsFuture && day.studies.length < MAX_STUDIES_PER_DAY;
+      const dayAtCap = day.studies.length >= MAX_STUDIES_PER_DAY;
       return (
         <View
           style={[
@@ -1275,7 +1320,8 @@ function DayContentPager({
           <View style={[styles.sections, { maxWidth: contentWidth }]}>
             <StudySection
               studies={day.studies}
-              allowAdd={dayAllowAdd}
+              allowAdd={!dayAtCap}
+              atCap={dayAtCap}
               isToday={dayIsToday}
               colorByName={colorByName}
               onAdd={onAdd}
@@ -1325,6 +1371,9 @@ function DayContentPager({
       renderItem={renderDay}
       getItemLayout={getItemLayout}
       initialScrollIndex={dayIndex}
+      onScrollBeginDrag={() => {
+        draggingRef.current = true;
+      }}
       onMomentumScrollEnd={onMomentumScrollEnd}
       onLayout={(e) => {
         const next = Math.round(e.nativeEvent.layout.height);
@@ -1344,6 +1393,7 @@ function DayContentPager({
 function StudySection({
   studies,
   allowAdd,
+  atCap,
   isToday,
   colorByName,
   onAdd,
@@ -1351,11 +1401,25 @@ function StudySection({
 }: {
   studies: HomeStudyRow[];
   allowAdd: boolean;
+  atCap: boolean;
   isToday: boolean;
   colorByName: Record<string, string>;
   onAdd: () => void;
   onEditStudy: (row: HomeStudyRow) => void;
 }) {
+  const [capHint, setCapHint] = useState<string | null>(null);
+  const capMessage = `하루 ${MAX_STUDIES_PER_DAY}개까지`;
+
+  const handleAdd = () => {
+    if (atCap) {
+      haptics.reject();
+      setCapHint(capMessage);
+      return;
+    }
+    setCapHint(null);
+    onAdd();
+  };
+
   return (
     <View style={styles.section}>
       <View style={styles.sectionLabelWrap}>
@@ -1369,15 +1433,16 @@ function StudySection({
             accessibilityRole="button"
             accessibilityLabel="공부 기록 추가"
             accessibilityState={{ disabled: !allowAdd }}
-            disabled={!allowAdd}
-            onPress={onAdd}
+            onPress={handleAdd}
             style={styles.addStudyBtn}>
             {allowAdd ? (
               <>
                 <PlusIcon size={16} />
                 <Text style={styles.addStudyText}>공부 기록 추가</Text>
               </>
-            ) : null}
+            ) : (
+              <Text style={styles.addStudyText}>{capMessage}</Text>
+            )}
           </Pressable>
         ) : (
           <>
@@ -1394,16 +1459,29 @@ function StudySection({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="공부 기록 추가"
-                  onPress={onAdd}
+                  onPress={handleAdd}
                   style={styles.addStudyMoreBtn}>
                   <PlusIcon size={16} />
                   <Text style={styles.addStudyMoreText}>공부 기록 추가</Text>
                 </Pressable>
               </Animated.View>
-            ) : null}
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={capMessage}
+                onPress={handleAdd}
+                style={styles.addStudyMoreBtn}>
+                <Text style={[styles.addStudyMoreText, { opacity: 0.7 }]}>
+                  {capMessage}
+                </Text>
+              </Pressable>
+            )}
           </>
         )}
       </Animated.View>
+      {capHint || atCap ? (
+        <Text style={styles.studyCapHint}>{capHint ?? capMessage}</Text>
+      ) : null}
     </View>
   );
 }
@@ -1438,10 +1516,16 @@ function StudyRow({
         <View
           style={[
             styles.studyChip,
-            { backgroundColor: subjectColor(row.subjectName, colorByName) },
+            {
+              backgroundColor: studySubjectFill(row.subjectName, {
+                storedColor: row.subjectColor,
+                missing: row.subjectMissing,
+                colorByName,
+              }),
+            },
           ]}>
           <Text style={styles.studyChipText} numberOfLines={1} ellipsizeMode="tail">
-            {row.subjectName}
+            {row.subjectMissing ? '삭제된 과목' : row.subjectName}
           </Text>
         </View>
         <View style={styles.studyBody}>
@@ -1622,17 +1706,25 @@ function ReviewCard({
               </Text>
             </View>
             <View style={styles.reviewChips}>
-              {card.subjectNames.map((name) => (
-                <View
-                  key={name}
-                  accessibilityLabel={name}
-                  style={[
-                    styles.reviewChip,
-                    { backgroundColor: subjectColor(name, colorByName) },
-                  ]}>
-                  <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
-                </View>
-              ))}
+              {card.subjectNames.map((name) => {
+                const study = card.studies.find((s) => s.subjectName === name);
+                const fill = studySubjectFill(name, {
+                  storedColor: study?.subjectColor,
+                  missing: study?.subjectMissing,
+                  colorByName,
+                });
+                const label = study?.subjectMissing ? '삭' : name.charAt(0);
+                return (
+                  <View
+                    key={name}
+                    accessibilityLabel={
+                      study?.subjectMissing ? '삭제된 과목' : name
+                    }
+                    style={[styles.reviewChip, { backgroundColor: fill }]}>
+                    <Text style={styles.reviewChipText}>{label}</Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
           <View style={styles.detailRow}>
@@ -1892,6 +1984,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
     color: colors.accentText,
+  },
+  studyCapHint: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 13,
+    color: colors.muted,
+    paddingHorizontal: spacing.labelPad,
   },
   reviewGrid: {
     width: '100%',
