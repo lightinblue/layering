@@ -8,7 +8,9 @@ WidgetKit extension (`targets/today-review`) reads the App Group snapshot writte
 | UserDefaults key | `todayReviewWidget.v1` |
 | Bundle id | `com.lightinblue.layering.today-review` |
 | Xcode / EAS target name | `todayreview` (no hyphen — must match `PBXNativeTarget` + `appExtensions.targetName`) |
+| Widget kind | `TodayReviewWidget` (`ExtensionStorage.reloadWidget()` + ofKind) |
 | Deep link | `layering://` (today home) |
+| Chrome | Signature blue theme-dot before title; tokens match home (`primary` / `primarySoft` / `surface`) |
 | Sizes | Small / Medium summary · Large card list (chip + `N일 전` + checkbox; no title / 자세히) |
 
 Expo Go cannot show this widget — use a **dev client** or **TestFlight** binary.

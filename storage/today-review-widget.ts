@@ -21,6 +21,12 @@ export const POOGAE_WIDGET_APP_GROUP_ID = 'group.com.lightinblue.layering.poogae
 /** UserDefaults suite key WidgetKit should read. */
 export const POOGAE_WIDGET_SNAPSHOT_KEY = 'todayReviewWidget.v1';
 
+/**
+ * Must match `TodayReviewWidget.kind` in
+ * `targets/today-review/TodayReviewWidget.swift`.
+ */
+export const POOGAE_WIDGET_KIND = 'TodayReviewWidget';
+
 const appGroupStorage = new ExtensionStorage(POOGAE_WIDGET_APP_GROUP_ID);
 
 /**
@@ -31,7 +37,9 @@ const appGroupStorage = new ExtensionStorage(POOGAE_WIDGET_APP_GROUP_ID);
  * No-ops on non-iOS and when the native module is missing (Expo Go).
  *
  * WidgetKit target: `targets/today-review` (kind `TodayReviewWidget`).
- * Swift reads this suite/key; `reloadWidget` refreshes timelines after write.
+ * After write we reload timelines — prefer `reloadAllTimelines` because a
+ * mismatched `ofKind` silently no-ops and the provider only self-refreshes
+ * on a coarse schedule.
  */
 async function writeTodayReviewWidgetSnapshotToAppGroup(
   snapshot: TodayReviewWidgetSnapshot,
@@ -42,7 +50,9 @@ async function writeTodayReviewWidgetSnapshotToAppGroup(
       POOGAE_WIDGET_SNAPSHOT_KEY,
       JSON.stringify(snapshot),
     );
-    ExtensionStorage.reloadWidget('TodayReviewWidget');
+    // Reload all first — ofKind alone no-ops if the kind string ever drifts.
+    ExtensionStorage.reloadWidget();
+    ExtensionStorage.reloadWidget(POOGAE_WIDGET_KIND);
   } catch {
     // Expo Go / missing native module / suite not provisioned — AsyncStorage
     // mirror remains the source of truth for the app process.

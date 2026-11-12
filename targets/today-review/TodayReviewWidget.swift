@@ -22,9 +22,10 @@ struct TodayReviewProvider: TimelineProvider {
     let now = Date()
     let snapshot = TodayReviewStore.loadSnapshot()
     let entry = TodayReviewEntry(date: now, snapshot: snapshot)
+    // Prefer app-side reloadWidget; midnight + 15m is a safety net if ofKind misses.
     let timeline = Timeline(
       entries: [entry],
-      policy: .after(TodayReviewStore.nextMidnight(after: now))
+      policy: .after(TodayReviewStore.nextTimelineReload(after: now))
     )
     completion(timeline)
   }
@@ -74,7 +75,7 @@ struct TodayReviewWidget: Widget {
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: Self.kind, provider: TodayReviewProvider()) { entry in
       TodayReviewWidgetView(entry: entry)
-        .containerBackground(Color.white, for: .widget)
+        .containerBackground(WidgetPalette.canvas, for: .widget)
         .widgetURL(TodayReviewStore.homeURL)
     }
     .configurationDisplayName("오늘 할 복습")
@@ -103,15 +104,30 @@ struct TodayReviewWidgetView: View {
 
 // MARK: - Small / Medium summaries
 
+/// Signature blue theme-dot + section title (matches home accent ellipse / primary).
+private struct WidgetSectionTitle: View {
+  var fontSize: CGFloat = 14
+
+  var body: some View {
+    HStack(spacing: 6) {
+      Circle()
+        .fill(WidgetPalette.primary)
+        .frame(width: 7, height: 7)
+        .accessibilityHidden(true)
+      Text("오늘 할 복습")
+        .font(.system(size: fontSize, weight: .semibold))
+        .foregroundStyle(WidgetPalette.accentText)
+        .lineLimit(1)
+    }
+  }
+}
+
 private struct SmallSummaryView: View {
   let snapshot: TodayReviewSnapshot
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
-      Text("오늘 할 복습")
-        .font(.system(size: 13, weight: .semibold))
-        .foregroundStyle(WidgetPalette.accentText)
-        .lineLimit(1)
+      WidgetSectionTitle(fontSize: 13)
 
       if snapshot.isEmpty {
         Spacer(minLength: 0)
@@ -148,9 +164,7 @@ private struct MediumSummaryView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text("오늘 할 복습")
-        .font(.system(size: 14, weight: .semibold))
-        .foregroundStyle(WidgetPalette.accentText)
+      WidgetSectionTitle(fontSize: 14)
 
       if snapshot.isEmpty {
         Spacer(minLength: 0)
@@ -196,9 +210,7 @@ private struct LargeCardListView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack {
-        Text("오늘 할 복습")
-          .font(.system(size: 14, weight: .semibold))
-          .foregroundStyle(WidgetPalette.accentText)
+        WidgetSectionTitle(fontSize: 14)
         Spacer(minLength: 0)
         if !snapshot.isEmpty {
           Text("\(snapshot.remainingCount)/\(snapshot.totalCount)")
@@ -222,6 +234,8 @@ private struct LargeCardListView: View {
         VStack(spacing: 8) {
           ForEach(Array(snapshot.items.prefix(maxCards))) { item in
             ReviewCardRow(item: item)
+              // Force checkbox chrome to redraw when completed flips.
+              .id("\(item.id)-\(item.completed)")
           }
         }
         Spacer(minLength: 0)
@@ -258,13 +272,14 @@ private struct ReviewCardRow: View {
     .padding(.vertical, 9)
     .background(
       RoundedRectangle(cornerRadius: 12, style: .continuous)
-        .fill(item.completed ? WidgetPalette.primary.opacity(0.12) : WidgetPalette.surface)
+        // Home review card: surface → primarySoft when completed.
+        .fill(item.completed ? WidgetPalette.primarySoft : WidgetPalette.surface)
     )
     .overlay(
       RoundedRectangle(cornerRadius: 12, style: .continuous)
         .strokeBorder(
-          item.completed ? WidgetPalette.primary.opacity(0.55) : Color.clear,
-          lineWidth: 1
+          item.completed ? WidgetPalette.primary : Color.clear,
+          lineWidth: 1.5
         )
     )
   }
@@ -308,8 +323,11 @@ private struct SubjectChip: View {
 
 // MARK: - Palette / helpers
 
+/// Mirrors `constants/tokens.ts` colors (generated via expo-target.config.js).
 private enum WidgetPalette {
+  static let canvas = Color("canvas")
   static let primary = Color("primary")
+  static let primarySoft = Color("primarySoft")
   static let surface = Color("surface")
   static let muted = Color("muted")
   static let mutedLight = Color("mutedLight")
