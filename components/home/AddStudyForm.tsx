@@ -52,6 +52,8 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 import {
+  MAX_STUDY_MEMO_LENGTH,
+  MAX_STUDY_TITLE_LENGTH,
   MAX_SUBJECT_NAME_LENGTH,
   MAX_SUBJECTS,
 } from '@/storage/app-data';
@@ -372,8 +374,12 @@ export function AddStudyForm({
   const [subjectPick, setSubjectPick] = useState<string | null>(
     () => initial?.subject ?? null,
   );
-  const [title, setTitle] = useState(() => initial?.title ?? '');
-  const [memo, setMemo] = useState(() => initial?.memo ?? '');
+  const [title, setTitle] = useState(
+    () => (initial?.title ?? '').slice(0, MAX_STUDY_TITLE_LENGTH),
+  );
+  const [memo, setMemo] = useState(
+    () => (initial?.memo ?? '').slice(0, MAX_STUDY_MEMO_LENGTH),
+  );
   const [adding, setAdding] = useState(false);
   const addingRef = useRef(false);
   const [draftName, setDraftName] = useState('');
@@ -701,8 +707,8 @@ export function AddStudyForm({
     if (!canSave || subject == null) return;
     onSave({
       subject,
-      title: title.trim(),
-      memo: memo.trim(),
+      title: title.trim().slice(0, MAX_STUDY_TITLE_LENGTH),
+      memo: memo.trim().slice(0, MAX_STUDY_MEMO_LENGTH),
     });
   }, [canSave, subject, title, memo, onSave]);
 
@@ -999,9 +1005,12 @@ export function AddStudyForm({
         </Text>
         <TextInput
           value={title}
-          onChangeText={setTitle}
+          onChangeText={(text) =>
+            setTitle(text.slice(0, MAX_STUDY_TITLE_LENGTH))
+          }
           placeholder="1-3단원 / p. 22-36"
           placeholderTextColor={colors.mutedLight}
+          maxLength={MAX_STUDY_TITLE_LENGTH}
           style={[
             styles.input,
             { backgroundColor: colors.surface, color: colors.body },
@@ -1015,9 +1024,12 @@ export function AddStudyForm({
         <Text style={[styles.label, { color: colors.sectionLabel }]}>메모</Text>
         <TextInput
           value={memo}
-          onChangeText={setMemo}
+          onChangeText={(text) =>
+            setMemo(text.slice(0, MAX_STUDY_MEMO_LENGTH))
+          }
           placeholder="추가로 기록하고 싶은 내용"
           placeholderTextColor={colors.mutedLight}
+          maxLength={MAX_STUDY_MEMO_LENGTH}
           style={[
             styles.input,
             styles.memoInput,

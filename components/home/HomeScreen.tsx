@@ -1413,19 +1413,27 @@ function StudyRow({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${row.subjectName} ${row.content} 수정`}
+        accessibilityHint="탭하거나 길게 누르면 수정 시트가 열려요"
         onPress={onPress}
+        // Same edit sheet as tap. delayLongPress stays above scroll cancel so
+        // week/day swipes do not open the sheet mid-gesture.
+        delayLongPress={380}
+        onLongPress={() => {
+          haptics.sheetOpen();
+          onPress();
+        }}
         style={styles.studyRow}>
         <View
           style={[
             styles.studyChip,
             { backgroundColor: subjectColor(row.subjectName, colorByName) },
           ]}>
-          <Text style={styles.studyChipText} numberOfLines={1}>
+          <Text style={styles.studyChipText} numberOfLines={1} ellipsizeMode="tail">
             {row.subjectName}
           </Text>
         </View>
         <View style={styles.studyBody}>
-          <Text style={styles.studyBodyText} numberOfLines={1}>
+          <Text style={styles.studyBodyText} numberOfLines={1} ellipsizeMode="tail">
             {row.content}
           </Text>
         </View>

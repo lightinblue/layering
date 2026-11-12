@@ -24,6 +24,25 @@ export const MAX_SUBJECTS = 10;
 /** Max characters for a subject chip name (enforced on add). */
 export const MAX_SUBJECT_NAME_LENGTH = 4;
 
+/** Max characters for study 「학습 내용」(title). */
+export const MAX_STUDY_TITLE_LENGTH = 40;
+
+/** Max characters for study memo. */
+export const MAX_STUDY_MEMO_LENGTH = 120;
+
+/** Trim + clamp title/memo for persist (UI also enforces via maxLength). */
+export function clampStudyFields(content: string, memo?: string): {
+  content: string;
+  memo?: string;
+} {
+  const nextContent = content.trim().slice(0, MAX_STUDY_TITLE_LENGTH);
+  const nextMemo = memo?.trim().slice(0, MAX_STUDY_MEMO_LENGTH);
+  return {
+    content: nextContent,
+    ...(nextMemo ? { memo: nextMemo } : {}),
+  };
+}
+
 /** Seed chip for first real-mode load (palette blue). */
 export const DEFAULT_SUBJECTS: SubjectChip[] = [
   { id: 'sub-jeongong', name: '전공', color: colors.chipBlue },
@@ -217,13 +236,13 @@ export function appendStudyWithReviews(
   const subjectId = existing?.id ?? newId('sub');
   const subjectName = input.subjectName;
 
-  const memo = input.memo?.trim();
+  const fields = clampStudyFields(input.content, input.memo);
   const record: StudyRecord = {
     id: newId('study'),
     subjectId,
     subjectName,
-    content: input.content,
-    ...(memo ? { memo } : {}),
+    content: fields.content,
+    ...(fields.memo ? { memo: fields.memo } : {}),
     studiedOn: input.studiedOn,
     createdAt: new Date().toISOString(),
   };
@@ -306,15 +325,15 @@ export function updateStudyWithReviews(
   }
 
   const chip = data.subjects.find((s) => s.name === input.subjectName);
-  const memo = input.memo?.trim();
+  const fields = clampStudyFields(input.content, input.memo);
   const nextRecord: StudyRecord = {
     id: existing.id,
     subjectId: chip?.id ?? existing.subjectId,
     subjectName: input.subjectName,
-    content: input.content,
+    content: fields.content,
     studiedOn: input.studiedOn,
     createdAt: existing.createdAt,
-    ...(memo ? { memo } : {}),
+    ...(fields.memo ? { memo: fields.memo } : {}),
   };
 
   const records = data.records.map((r) =>
