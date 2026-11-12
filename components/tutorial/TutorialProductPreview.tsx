@@ -31,8 +31,8 @@ const SAMPLE_REVIEWS = [
   },
 ] as const;
 
-/** Shorter cards (no 자세히): checkbox row + chips + padding ≈ 86. */
-const REVIEW_CARD_H = 86;
+/** Home review card minHeight (詳しく/자세히 row omitted). */
+const REVIEW_CARD_H = 120;
 const STACK_GAP = spacing.studyRowGap + 3;
 const NATURAL_STACK_H = sizes.studyBodyHeight + STACK_GAP + REVIEW_CARD_H;
 const FRAME_PAD_X = 14;
@@ -44,8 +44,8 @@ type TutorialProductPreviewProps = {
 };
 
 /**
- * Page-1 product snapshot: one study row + two compact review check cards.
- * Gray frame keeps soft inset padding; no 자세히 affordance.
+ * Page-1 product snapshot: one study row + two home-chrome review cards
+ * (checkbox + chips, no 「자세히」). Soft gray frame padding around the stack.
  */
 export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
   const theme = useThemeColors();
@@ -96,38 +96,43 @@ export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
                   width: cardW,
                   backgroundColor: card.completed
                     ? theme.primarySoft
-                    : colors.white,
-                  borderColor: card.completed ? theme.primary : '#e4eaef',
-                  borderWidth: card.completed ? 2 : 1,
+                    : colors.surface,
+                  borderColor: card.completed ? theme.primary : 'transparent',
                 },
               ]}>
-              <View style={styles.reviewTop}>
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: card.completed
-                        ? theme.primary
-                        : colors.mutedLight,
-                    },
-                  ]}>
-                  {card.completed ? <CheckIcon /> : null}
-                </View>
-                <Text style={styles.intervalText} numberOfLines={1}>
-                  {intervalLabel(card.days)}
-                </Text>
-              </View>
-              <View style={styles.reviewChips}>
-                {card.subjects.map((name) => (
-                  <View
-                    key={name}
-                    style={[
-                      styles.reviewChip,
-                      { backgroundColor: subjectColor(name) },
-                    ]}>
-                    <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
+              <View style={styles.reviewCardInner}>
+                <View style={styles.reviewTopBlock}>
+                  <View style={styles.reviewTop}>
+                    <View
+                      style={[
+                        styles.checkbox,
+                        {
+                          backgroundColor: card.completed
+                            ? theme.primary
+                            : colors.mutedLight,
+                        },
+                      ]}>
+                      {card.completed ? <CheckIcon /> : null}
+                    </View>
+                    <Text style={styles.intervalText} numberOfLines={1}>
+                      {intervalLabel(card.days)}
+                    </Text>
                   </View>
-                ))}
+                  <View style={styles.reviewChips}>
+                    {card.subjects.map((name) => (
+                      <View
+                        key={name}
+                        style={[
+                          styles.reviewChip,
+                          { backgroundColor: subjectColor(name) },
+                        ]}>
+                        <Text style={styles.reviewChipText}>
+                          {name.charAt(0)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
               </View>
             </View>
           ))}
@@ -189,14 +194,24 @@ const styles = StyleSheet.create({
     gap: spacing.reviewGap,
     width: '100%',
   },
+  /** Match HomeScreen reviewCard chrome (minus 자세히 row). */
   reviewCard: {
     borderRadius: radii.reviewCard,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 12,
+    paddingBottom: 11,
     paddingLeft: 12,
-    paddingRight: 10,
+    paddingRight: 8,
+    borderWidth: 2,
     minHeight: REVIEW_CARD_H,
-    gap: 8,
+  },
+  reviewCardInner: {
+    flex: 1,
+    gap: 12,
+    justifyContent: 'flex-start',
+    minHeight: REVIEW_CARD_H - 23,
+  },
+  reviewTopBlock: {
+    gap: 9,
   },
   reviewTop: {
     flexDirection: 'row',
