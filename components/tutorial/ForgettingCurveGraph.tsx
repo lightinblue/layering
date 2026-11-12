@@ -15,12 +15,29 @@ import { useThemeColors } from '@/theme/ThemeProvider';
 /**
  * High internal resolution so strokes stay crisp when scaled to layout width.
  * Medium on the tutorial page (~292 wide); viewBox stays 2× for retina sharpness.
+ * Keep VB_* in sync with `tutorialVisualSize` so page-1 preview matches this box.
  */
-const VB_W = 640;
-const VB_H = 318;
+export const TUTORIAL_VISUAL_VB_W = 640;
+export const TUTORIAL_VISUAL_VB_H = 318;
+const VB_W = TUTORIAL_VISUAL_VB_W;
+const VB_H = TUTORIAL_VISUAL_VB_H;
 const PAD = { l: 72, r: 28, t: 36, b: 56 } as const;
 const PLOT_W = VB_W - PAD.l - PAD.r;
 const PLOT_H = VB_H - PAD.t - PAD.b;
+
+/** Same layout width used by the page-0 graph (and page-1 product preview). */
+export function tutorialVisualWidth(contentWidth: number) {
+  return Math.min(292, contentWidth * 0.88);
+}
+
+/** Exact pixel-snapped box for tutorial visuals (graph + product preview). */
+export function tutorialVisualSize(width: number) {
+  const layoutW = PixelRatio.roundToNearestPixel(width);
+  const layoutH = PixelRatio.roundToNearestPixel(
+    (layoutW * TUTORIAL_VISUAL_VB_H) / TUTORIAL_VISUAL_VB_W,
+  );
+  return { width: layoutW, height: layoutH };
+}
 
 /** Map retention % + normalized time → SVG coords. */
 function pt(t: number, retention: number) {
@@ -100,9 +117,7 @@ export function ForgettingCurveGraph({
   width = 332,
 }: ForgettingCurveGraphProps) {
   const colors = useThemeColors();
-  // Snap layout to the device pixel grid so strokes don’t sit on half-pixels.
-  const layoutW = PixelRatio.roundToNearestPixel(width);
-  const layoutH = PixelRatio.roundToNearestPixel((layoutW * VB_H) / VB_W);
+  const { width: layoutW, height: layoutH } = tutorialVisualSize(width);
 
   return (
     <View

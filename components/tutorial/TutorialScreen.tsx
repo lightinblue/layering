@@ -15,7 +15,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ForgettingCurveGraph } from '@/components/tutorial/ForgettingCurveGraph';
+import {
+  ForgettingCurveGraph,
+  tutorialVisualWidth,
+} from '@/components/tutorial/ForgettingCurveGraph';
+import { TutorialProductPreview } from '@/components/tutorial/TutorialProductPreview';
 import { fonts } from '@/constants/fonts';
 import { durations } from '@/constants/motion';
 import { radii } from '@/constants/tokens';
@@ -43,6 +47,7 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
   const isFirst = index <= 0;
   const isLast = index >= TUTORIAL_PAGES.length - 1;
   const contentWidth = Math.min(332, width - 48);
+  const visualWidth = tutorialVisualWidth(contentWidth);
 
   const finish = useCallback(() => {
     haptics.save();
@@ -99,9 +104,10 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
             {item.title}
           </Text>
           {pageIndex === 0 ? (
-            <ForgettingCurveGraph
-              width={Math.min(292, contentWidth * 0.88)}
-            />
+            <ForgettingCurveGraph width={visualWidth} />
+          ) : null}
+          {pageIndex === 1 ? (
+            <TutorialProductPreview width={visualWidth} />
           ) : null}
           {/* Same token as page-1+ body / secondary copy */}
           <Text style={[styles.copy, { color: colors.body }]}>{item.body}</Text>
@@ -120,7 +126,14 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
         </View>
       </View>
     ),
-    [colors.black, colors.body, colors.primary, contentWidth, width],
+    [
+      colors.black,
+      colors.body,
+      colors.primary,
+      contentWidth,
+      visualWidth,
+      width,
+    ],
   );
 
   return (
@@ -275,8 +288,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: fonts.nexonBold,
-    fontSize: 26,
-    lineHeight: 34,
+    fontSize: 24,
+    lineHeight: 32,
   },
   /** Secondary body — shared by page-0 main/sub and page-1+ body. */
   copy: {
@@ -287,7 +300,7 @@ const styles = StyleSheet.create({
   accent: {
     marginTop: 2,
     fontFamily: fonts.nexonMedium,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
   },
   footer: {
