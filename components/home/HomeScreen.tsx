@@ -1670,13 +1670,9 @@ function EmptyReviewSlot({
   const label = intervalLabel(days);
   return (
     <View
-      accessibilityLabel={`${label} 공부 기록이 없어요`}
+      accessibilityLabel={label}
       style={[styles.reviewCard, styles.reviewCardEmpty, { width }]}>
-      <View style={styles.emptySlotCopy}>
-        <Text style={[styles.intervalText, styles.emptySlotLine]}>{label}</Text>
-        <Text style={styles.emptySlotLine}>공부 기록이</Text>
-        <Text style={styles.emptySlotLine}>없어요</Text>
-      </View>
+      <Text style={[styles.intervalText, styles.emptySlotLine]}>{label}</Text>
     </View>
   );
 }
@@ -2100,9 +2096,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 12,
     justifyContent: 'space-between',
-  },
-  emptySlotCopy: {
-    gap: 2,
   },
   reviewTopBlock: {
     gap: 9,
