@@ -1,6 +1,7 @@
-import { PixelRatio, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ArrowRightIcon, CheckIcon } from '@/components/icons/HomeIcons';
+import { tutorialVisualSize } from '@/components/tutorial/ForgettingCurveGraph';
 import { fonts } from '@/constants/fonts';
 import { intervalLabel } from '@/constants/home-mock';
 import {
@@ -17,81 +18,138 @@ const SAMPLE_STUDY = {
   content: '기출 10문항',
 } as const;
 
-const SAMPLE_REVIEW = {
-  days: 1 as const,
-  subjects: ['전공', '교육학'] as const,
-} as const;
+const SAMPLE_REVIEWS = [
+  {
+    days: 1 as const,
+    completed: true,
+    subjects: ['전공', '교육학'] as const,
+  },
+  {
+    days: 3 as const,
+    completed: false,
+    subjects: ['전공'] as const,
+  },
+] as const;
+
+/** Natural stacked height: study 44 + gap 8 + review card 120. */
+const NATURAL_STACK_H =
+  sizes.studyBodyHeight + spacing.studyRowGap + 8 + 120;
+const FRAME_PAD = 10;
 
 type TutorialProductPreviewProps = {
-  /** Match page-0 graph width; heights stay natural home sizes. */
+  /** Same width passed to page-0 ForgettingCurveGraph. */
   width: number;
 };
 
 /**
- * Tutorial page-1 product snapshot: one home-sized study row + one review card
- * (checkbox). Width aligns with the forgetting-curve visual; no height squash.
+ * Page-1 product snapshot in the exact graph W×H frame.
+ * One home-sized study row + two review check cards; uniform scale + center
+ * so cards aren’t individually squashed.
  */
 export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
   const theme = useThemeColors();
-  const layoutW = PixelRatio.roundToNearestPixel(width);
+  const { width: layoutW, height: layoutH } = tutorialVisualSize(width);
+  const innerW = layoutW - FRAME_PAD * 2;
+  const innerH = layoutH - FRAME_PAD * 2;
+  const cardW = (innerW - spacing.reviewGap) / 2;
+  const scale = Math.min(1, innerH / NATURAL_STACK_H);
+  const scaledH = NATURAL_STACK_H * scale;
 
   return (
     <View
       accessibilityLabel="공부 기록과 복습 카드 미리보기"
-      style={[styles.wrap, { width: layoutW }]}>
-      <View style={styles.studyRow}>
+      style={[
+        styles.frame,
+        {
+          width: layoutW,
+          height: layoutH,
+          backgroundColor: theme.surface,
+        },
+      ]}>
+      {/* Layout footprint matches visual size so the group centers cleanly. */}
+      <View style={{ width: innerW, height: scaledH, justifyContent: 'center' }}>
         <View
           style={[
-            styles.studyChip,
-            { backgroundColor: subjectColor(SAMPLE_STUDY.subject) },
+            styles.scaled,
+            {
+              width: innerW,
+              height: NATURAL_STACK_H,
+              transform: [{ scale }],
+            },
           ]}>
-          <Text style={styles.studyChipText} numberOfLines={1}>
-            {SAMPLE_STUDY.subject}
-          </Text>
+        <View style={styles.studyRow}>
+          <View
+            style={[
+              styles.studyChip,
+              { backgroundColor: subjectColor(SAMPLE_STUDY.subject) },
+            ]}>
+            <Text style={styles.studyChipText} numberOfLines={1}>
+              {SAMPLE_STUDY.subject}
+            </Text>
+          </View>
+          <View style={styles.studyBody}>
+            <Text style={styles.studyBodyText} numberOfLines={1}>
+              {SAMPLE_STUDY.content}
+            </Text>
+          </View>
         </View>
-        <View style={styles.studyBody}>
-          <Text style={styles.studyBodyText} numberOfLines={1}>
-            {SAMPLE_STUDY.content}
-          </Text>
-        </View>
-      </View>
 
-      <View
-        style={[
-          styles.reviewCard,
-          {
-            backgroundColor: theme.primarySoft,
-            borderColor: theme.primary,
-          },
-        ]}>
-        <View style={styles.reviewCardInner}>
-          <View style={styles.reviewTopBlock}>
-            <View style={styles.reviewTop}>
-              <View
-                style={[styles.checkbox, { backgroundColor: theme.primary }]}>
-                <CheckIcon />
-              </View>
-              <Text style={styles.intervalText} numberOfLines={1}>
-                {intervalLabel(SAMPLE_REVIEW.days)}
-              </Text>
-            </View>
-            <View style={styles.reviewChips}>
-              {SAMPLE_REVIEW.subjects.map((name) => (
-                <View
-                  key={name}
-                  style={[
-                    styles.reviewChip,
-                    { backgroundColor: subjectColor(name) },
-                  ]}>
-                  <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
+        <View style={styles.reviewRow}>
+          {SAMPLE_REVIEWS.map((card) => (
+            <View
+              key={card.days}
+              style={[
+                styles.reviewCard,
+                {
+                  width: cardW,
+                  backgroundColor: card.completed
+                    ? theme.primarySoft
+                    : colors.white,
+                  borderColor: card.completed ? theme.primary : '#e4eaef',
+                  borderWidth: card.completed ? 2 : 1,
+                },
+              ]}>
+              <View style={styles.reviewCardInner}>
+                <View style={styles.reviewTopBlock}>
+                  <View style={styles.reviewTop}>
+                    <View
+                      style={[
+                        styles.checkbox,
+                        {
+                          backgroundColor: card.completed
+                            ? theme.primary
+                            : colors.mutedLight,
+                        },
+                      ]}>
+                      {card.completed ? <CheckIcon /> : null}
+                    </View>
+                    <Text style={styles.intervalText} numberOfLines={1}>
+                      {intervalLabel(card.days)}
+                    </Text>
+                  </View>
+                  <View style={styles.reviewChips}>
+                    {card.subjects.map((name) => (
+                      <View
+                        key={name}
+                        style={[
+                          styles.reviewChip,
+                          { backgroundColor: subjectColor(name) },
+                        ]}>
+                        <Text style={styles.reviewChipText}>
+                          {name.charAt(0)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
-              ))}
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailText}>자세히</Text>
+                  <ArrowRightIcon />
+                </View>
+              </View>
             </View>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailText}>자세히</Text>
-            <ArrowRightIcon />
-          </View>
+          ))}
+        </View>
         </View>
       </View>
     </View>
@@ -99,9 +157,15 @@ export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
 }
 
 const styles = StyleSheet.create({
-  wrap: {
+  frame: {
     alignSelf: 'center',
-    gap: spacing.studyRowGap + 6,
+    borderRadius: radii.reviewCard,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scaled: {
+    gap: spacing.studyRowGap + 3,
   },
   studyRow: {
     flexDirection: 'row',
@@ -128,7 +192,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     height: sizes.studyBodyHeight,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.white,
     borderRadius: radii.chip,
     justifyContent: 'center',
     paddingLeft: 14,
@@ -139,14 +203,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.body,
   },
-  reviewCard: {
+  reviewRow: {
+    flexDirection: 'row',
+    gap: spacing.reviewGap,
     width: '100%',
+  },
+  reviewCard: {
     borderRadius: radii.reviewCard,
     paddingTop: 12,
     paddingBottom: 11,
     paddingLeft: 12,
     paddingRight: 8,
-    borderWidth: 2,
     minHeight: 120,
   },
   reviewCardInner: {

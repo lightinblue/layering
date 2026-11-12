@@ -36,7 +36,7 @@ type TutorialScreenProps = {
 
 /**
  * Minimal first-launch intro: forgetting curve → how to use.
- * Horizontal swipe pager; 「이전」/「다음」 stay available.
+ * Horizontal swipe pager; dots left, skip right, next/finish CTA.
  */
 export function TutorialScreen({ onFinished }: TutorialScreenProps) {
   const colors = useThemeColors();
@@ -44,7 +44,6 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<TutorialPage>>(null);
   const [index, setIndex] = useState(0);
-  const isFirst = index <= 0;
   const isLast = index >= TUTORIAL_PAGES.length - 1;
   const contentWidth = Math.min(332, width - 48);
   const visualWidth = tutorialVisualWidth(contentWidth);
@@ -54,14 +53,11 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
     onFinished();
   }, [onFinished]);
 
-  const scrollTo = useCallback(
-    (next: number) => {
-      const clamped = Math.max(0, Math.min(next, TUTORIAL_PAGES.length - 1));
-      listRef.current?.scrollToIndex({ index: clamped, animated: true });
-      setIndex(clamped);
-    },
-    [],
-  );
+  const scrollTo = useCallback((next: number) => {
+    const clamped = Math.max(0, Math.min(next, TUTORIAL_PAGES.length - 1));
+    listRef.current?.scrollToIndex({ index: clamped, animated: true });
+    setIndex(clamped);
+  }, []);
 
   const goNext = useCallback(() => {
     if (isLast) {
@@ -71,12 +67,6 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
     haptics.select();
     scrollTo(index + 1);
   }, [finish, index, isLast, scrollTo]);
-
-  const goPrev = useCallback(() => {
-    if (isFirst) return;
-    haptics.select();
-    scrollTo(index - 1);
-  }, [index, isFirst, scrollTo]);
 
   const skip = useCallback(() => {
     haptics.sheetOpen();
@@ -147,34 +137,19 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
         },
       ]}>
       <View style={[styles.topBar, { width: contentWidth }]}>
-        <View style={styles.topLeft}>
-          <View style={styles.backSlot}>
-            {!isFirst ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="이전 페이지"
-                hitSlop={12}
-                onPress={goPrev}>
-                <Text style={[styles.back, { color: colors.mutedLight }]}>
-                  이전
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-          <View style={styles.dots}>
-            {TUTORIAL_PAGES.map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.dot,
-                  {
-                    backgroundColor:
-                      i === index ? colors.primary : colors.mutedLight,
-                  },
-                ]}
-              />
-            ))}
-          </View>
+        <View style={styles.dots}>
+          {TUTORIAL_PAGES.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.dot,
+                {
+                  backgroundColor:
+                    i === index ? colors.primary : colors.mutedLight,
+                },
+              ]}
+            />
+          ))}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -236,20 +211,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  topLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  backSlot: {
-    width: 32,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  back: {
-    fontFamily: fonts.nexonRegular,
-    fontSize: 13,
   },
   dots: {
     flexDirection: 'row',
