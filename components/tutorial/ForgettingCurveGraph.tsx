@@ -14,10 +14,10 @@ import { useThemeColors } from '@/theme/ThemeProvider';
 
 /**
  * High internal resolution so strokes stay crisp when scaled to layout width.
- * Layout size stays ~332×174; viewBox is 2× for sharper paths on retina.
+ * Compact on the tutorial page (~252 wide); viewBox stays 2× for retina sharpness.
  */
 const VB_W = 640;
-const VB_H = 336;
+const VB_H = 300;
 const PAD = { l: 72, r: 28, t: 36, b: 56 } as const;
 const PLOT_W = VB_W - PAD.l - PAD.r;
 const PLOT_H = VB_H - PAD.t - PAD.b;

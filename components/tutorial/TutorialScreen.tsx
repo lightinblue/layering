@@ -130,7 +130,9 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
             {page.title}
           </Text>
           {index === 0 ? (
-            <ForgettingCurveGraph width={contentWidth} />
+            <ForgettingCurveGraph
+              width={Math.min(252, contentWidth * 0.76)}
+            />
           ) : null}
           <Text style={[styles.copy, { color: colors.body }]}>{page.body}</Text>
           {page.accent ? (
