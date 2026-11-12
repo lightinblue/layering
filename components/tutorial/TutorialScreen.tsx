@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   },
   page: {
     // Extra air between title → visual → body.
-    gap: 18,
+    gap: 22,
   },
   eyebrow: {
     fontFamily: fonts.nexonBold,
