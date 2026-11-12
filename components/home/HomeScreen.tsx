@@ -74,6 +74,10 @@ import {
   durations,
 } from '@/constants/motion';
 import {
+  REVIEW_INTERVAL_DAYS,
+  type ReviewIntervalDay,
+} from '@/constants/review';
+import {
   colors,
   radii,
   sizes,
@@ -1582,7 +1586,14 @@ function ReviewSection({
   onToggle: (card: HomeReviewCard) => void;
   onDetail: (card: HomeReviewCard) => void;
 }) {
-  const empty = reviews.length === 0;
+  const byInterval = useMemo(() => {
+    const map = new Map<ReviewIntervalDay, HomeReviewCard>();
+    for (const card of reviews) {
+      map.set(card.intervalDays, card);
+    }
+    return map;
+  }, [reviews]);
+
   return (
     <View style={[styles.section, styles.reviewSection]}>
       <View style={styles.sectionLabelWrap}>
@@ -1590,30 +1601,50 @@ function ReviewSection({
           {isToday ? '오늘 할 복습' : '이 날 할 복습'}
         </Text>
       </View>
-      {empty ? (
-        <View style={styles.reviewEmpty}>
-          <Text style={styles.reviewEmptyText}>아직 복습할 내용이 없어요</Text>
-        </View>
-      ) : (
-        <View
-          style={[
-            styles.reviewGrid,
-            reviews.length <= 3 && styles.reviewGridSingleRow,
-          ]}>
-          {reviews.map((card) => (
-            <ReviewCard
-              key={card.id}
-              card={card}
-              width={cardWidth}
-              accent={accent}
-              accentSoft={accentSoft}
-              colorByName={colorByName}
-              onToggle={() => onToggle(card)}
-              onDetail={() => onDetail(card)}
-            />
-          ))}
-        </View>
-      )}
+      <View style={styles.reviewGrid}>
+        {REVIEW_INTERVAL_DAYS.map((days) => {
+          const card = byInterval.get(days);
+          if (card) {
+            return (
+              <ReviewCard
+                key={card.id}
+                card={card}
+                width={cardWidth}
+                accent={accent}
+                accentSoft={accentSoft}
+                colorByName={colorByName}
+                onToggle={() => onToggle(card)}
+                onDetail={() => onDetail(card)}
+              />
+            );
+          }
+          return (
+            <EmptyReviewSlot key={`empty-${days}`} days={days} width={cardWidth} />
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/** Placeholder for a due-interval with no study scheduled that day. */
+function EmptyReviewSlot({
+  days,
+  width,
+}: {
+  days: ReviewIntervalDay;
+  width: number;
+}) {
+  const label = intervalLabel(days);
+  return (
+    <View
+      accessibilityLabel={`${label} 공부 기록이 없어요`}
+      style={[styles.reviewCard, styles.reviewCardEmpty, { width }]}>
+      <View style={styles.emptySlotCopy}>
+        <Text style={styles.intervalText}>{label}</Text>
+        <Text style={styles.emptySlotLine}>공부 기록이</Text>
+        <Text style={styles.emptySlotLine}>없어요</Text>
+      </View>
     </View>
   );
 }
@@ -2014,9 +2045,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.reviewGap,
   },
-  reviewGridSingleRow: {
-    minHeight: 120,
-  },
   reviewCard: {
     backgroundColor: colors.surface,
     borderRadius: radii.reviewCard,
@@ -2028,10 +2056,17 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     minHeight: 120,
   },
+  reviewCardEmpty: {
+    // No checkbox / detail — copy only.
+    justifyContent: 'flex-start',
+  },
   reviewCardInner: {
     flex: 1,
     gap: 12,
     justifyContent: 'space-between',
+  },
+  emptySlotCopy: {
+    gap: 2,
   },
   reviewTopBlock: {
     gap: 9,
@@ -2057,6 +2092,12 @@ const styles = StyleSheet.create({
     color: colors.accentText,
     letterSpacing: -0.44,
     flexShrink: 1,
+  },
+  emptySlotLine: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 11,
+    color: colors.accentText,
+    letterSpacing: -0.44,
   },
   reviewChips: {
     flexDirection: 'row',
@@ -2093,18 +2134,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     lineHeight: 12,
     flexShrink: 0,
-  },
-  reviewEmpty: {
-    flexGrow: 1,
-    minHeight: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  reviewEmptyText: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 14,
-    color: colors.muted,
   },
   fab: {
     position: 'absolute',
