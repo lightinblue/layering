@@ -2057,7 +2057,9 @@ const styles = StyleSheet.create({
     minHeight: 120,
   },
   reviewCardEmpty: {
-    // No checkbox / detail — copy only.
+    // No checkbox / detail — white shell + light border (not gray fill).
+    backgroundColor: colors.white,
+    borderColor: colors.mutedLight,
     justifyContent: 'flex-start',
   },
   reviewCardInner: {
