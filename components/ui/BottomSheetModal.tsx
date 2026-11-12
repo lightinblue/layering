@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   Animated,
   Easing,
@@ -46,6 +53,30 @@ type SheetPanelProps = {
   sheetTranslateY?: Animated.Value;
 };
 
+/** Same parallel close as BottomSheetModal (settings / add). */
+function animateSheetClosed(
+  backdropOpacity: Animated.Value,
+  sheetTranslateY: Animated.Value,
+  onFinished: () => void,
+) {
+  Animated.parallel([
+    Animated.timing(backdropOpacity, {
+      toValue: 0,
+      duration: BACKDROP_CLOSE_MS,
+      easing: EASE_OUT,
+      useNativeDriver: true,
+    }),
+    Animated.timing(sheetTranslateY, {
+      toValue: SHEET_OFFSCREEN,
+      duration: CLOSE_MS,
+      easing: EASE_OUT,
+      useNativeDriver: true,
+    }),
+  ]).start(({ finished }) => {
+    if (finished) onFinished();
+  });
+}
+
 function keyboardEasing(event: KeyboardEvent) {
   switch (event.easing) {
     case 'easeIn':
@@ -87,9 +118,15 @@ export function SheetPanel({
   ).current;
   const backdropOpacity = backdropOpacityProp ?? localBackdrop;
   const sheetTranslateY = sheetTranslateYProp ?? localSheet;
+  /** Route sheets own values; BottomSheetModal passes shared ones. */
+  const ownsCloseAnimation =
+    backdropOpacityProp == null && sheetTranslateYProp == null;
   const keyboardLift = useRef(new Animated.Value(0)).current;
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const dragOriginY = useRef(0);
+  const closingRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!animateOnMount || backdropOpacityProp != null) return;
@@ -145,11 +182,30 @@ export function SheetPanel({
     };
   }, [keyboardLift]);
 
+  /**
+   * Settings-style dismiss: ease-out slide + backdrop fade, then unmount.
+   * Route sheets (calendar) must animate here — router.back() alone is abrupt.
+   * Modal-owned sheets just forward; BottomSheetModal runs the same curve.
+   */
+  const requestClose = useCallback(() => {
+    if (!ownsCloseAnimation) {
+      onCloseRef.current();
+      return;
+    }
+    if (closingRef.current) return;
+    closingRef.current = true;
+    Keyboard.dismiss();
+    animateSheetClosed(backdropOpacity, sheetTranslateY, () => {
+      onCloseRef.current();
+    });
+  }, [backdropOpacity, ownsCloseAnimation, sheetTranslateY]);
+
   const dismissPan = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponder: () => !closingRef.current,
         onMoveShouldSetPanResponder: (_e, gesture) =>
+          !closingRef.current &&
           Math.abs(gesture.dy) > 3 &&
           Math.abs(gesture.dy) > Math.abs(gesture.dx),
         onPanResponderTerminationRequest: () => false,
@@ -167,7 +223,7 @@ export function SheetPanel({
           const next = Math.max(0, dragOriginY.current + gesture.dy);
           const flingDown = gesture.vy > DISMISS_VELOCITY;
           if (next >= DISMISS_DISTANCE || flingDown) {
-            onClose();
+            requestClose();
             return;
           }
           Animated.timing(sheetTranslateY, {
@@ -178,6 +234,7 @@ export function SheetPanel({
           }).start();
         },
         onPanResponderTerminate: () => {
+          if (closingRef.current) return;
           Animated.timing(sheetTranslateY, {
             toValue: 0,
             duration: OPEN_MS,
@@ -186,7 +243,7 @@ export function SheetPanel({
           }).start();
         },
       }),
-    [onClose, sheetTranslateY],
+    [requestClose, sheetTranslateY],
   );
 
   // fill = lift + EXTRA so white paint tracks the animated keyboard gap
@@ -204,7 +261,7 @@ export function SheetPanel({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="닫기"
-        onPress={onClose}
+        onPress={requestClose}
         style={styles.backdropHit}
       />
       {/*
@@ -312,25 +369,11 @@ export function BottomSheetModal({
     if (!presentedRef.current) return;
 
     closingRef.current = true;
-    Animated.parallel([
-      Animated.timing(backdropOpacity, {
-        toValue: 0,
-        duration: BACKDROP_CLOSE_MS,
-        easing: EASE_OUT,
-        useNativeDriver: true,
-      }),
-      Animated.timing(sheetTranslateY, {
-        toValue: SHEET_OFFSCREEN,
-        duration: CLOSE_MS,
-        easing: EASE_OUT,
-        useNativeDriver: true,
-      }),
-    ]).start(({ finished }) => {
-      if (finished && closingRef.current) {
-        presentedRef.current = false;
-        setPresented(false);
-        onDismissedRef.current?.();
-      }
+    animateSheetClosed(backdropOpacity, sheetTranslateY, () => {
+      if (!closingRef.current) return;
+      presentedRef.current = false;
+      setPresented(false);
+      onDismissedRef.current?.();
     });
   }, [visible, backdropOpacity, sheetTranslateY]);
 
