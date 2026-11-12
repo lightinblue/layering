@@ -48,8 +48,8 @@ export const durations = {
   fill: EASE_OUT_MS,
   /** Calendar FAB ↔ today-arrow icon crossfade. */
   crossfade: EASE_OUT_MS,
-  /** Date header + week selection pill (visible roll / pill slide). */
-  dateShift: 300,
+  /** Date header + week selection pill (ease-out slide). */
+  dateShift: EASE_OUT_MS,
   /** FAB press scale (ease-out, no spring). */
   press: 300,
   /** Bottom sheet slide open. */

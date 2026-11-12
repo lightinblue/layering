@@ -3,7 +3,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -26,16 +25,13 @@ import {
 import Animated, {
   cancelAnimation,
   Easing,
-  Extrapolation,
   FadeIn,
   FadeOut,
   LinearTransition,
-  interpolate,
   interpolateColor,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -132,18 +128,11 @@ function isDateKey(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-/**
- * Visible roll settle (~300ms). Cubic-out keeps a soft landing without
- * feeling abrupt at the shorter duration.
- */
+/** Soft ease-out (300–450ms); interruptible via cancelAnimation. */
 const DATE_SHIFT = {
   duration: durations.dateShift,
   easing: Easing.out(Easing.cubic),
 } as const;
-
-/** Micro-stagger within the same interaction (ms); keeps overall ~300–320. */
-const DATE_LABEL_DELAY_MS = 16;
-const WEEK_PILL_DELAY_MS = 20;
 
 const PRESS_SHIFT = {
   duration: durations.press,
@@ -162,23 +151,12 @@ const ROW_LAYOUT = LinearTransition.duration(durations.listRow).easing(
   ROW_EASE,
 );
 
-/** Slot height = travel so outgoing/incoming fully clip at the ends. */
 const DAY_NUMBER_TRAVEL = 86;
-const DATE_META_TRAVEL = 12;
-const DATE_LABEL_TRAVEL = 8;
-const WEEKDAY_SLOT_H = 28;
-const DATE_LABEL_SLOT_H = 26;
+const DATE_META_TRAVEL = 10;
 
 /**
- * Big day number — real clipped reel slide (not a text swap).
- *
- * Root cause of “instant swap”: animations used to start in `useEffect`
- * *after* paint, while outgoing was still unmounted — one frame showed the
- * new digit at rest, then layers/transforms caught up. Feels like a snap.
- *
- * Fix: detect dateKey change during render (setState → re-render before
- * paint), keep progress at 0 with both layers mounted, start `withTiming`
- * in `useLayoutEffect` so the first painted frame is mid-transition start.
+ * Big day number — clipped vertical slide.
+ * Forward: outgoing up / incoming from below; reverse for previous dates.
  */
 function AnimatedDayNumber({
   dateKey,
@@ -187,51 +165,39 @@ function AnimatedDayNumber({
   dateKey: string;
   dayNumber: string;
 }) {
-  const progress = useSharedValue(1);
-  const direction = useSharedValue(1);
-  const dateKeyRef = useRef(dateKey);
   const [incoming, setIncoming] = useState(dayNumber);
   const [outgoing, setOutgoing] = useState<string | null>(null);
-  const animGen = useRef(0);
-  const startAnim = useRef(false);
+  const dateKeyRef = useRef(dateKey);
+  const incomingRef = useRef(dayNumber);
+  const progress = useSharedValue(1);
+  const direction = useSharedValue(1);
 
-  if (dateKey !== dateKeyRef.current) {
+  const clearOutgoing = useCallback(() => {
+    setOutgoing(null);
+  }, []);
+
+  useEffect(() => {
+    if (dateKey === dateKeyRef.current) {
+      incomingRef.current = dayNumber;
+      setIncoming(dayNumber);
+      return;
+    }
     const dir = dateKey > dateKeyRef.current ? 1 : -1;
     dateKeyRef.current = dateKey;
     direction.value = dir;
+    setOutgoing(incomingRef.current);
+    incomingRef.current = dayNumber;
+    setIncoming(dayNumber);
     cancelAnimation(progress);
     progress.value = 0;
-    setOutgoing(incoming);
-    setIncoming(dayNumber);
-    animGen.current += 1;
-    startAnim.current = true;
-  }
-
-  const clearOutgoingIf = useCallback((gen: number) => {
-    if (animGen.current === gen) setOutgoing(null);
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!startAnim.current) return;
-    startAnim.current = false;
-    const gen = animGen.current;
-    progress.value = 0;
     progress.value = withTiming(1, DATE_SHIFT, (finished) => {
-      if (finished) runOnJS(clearOutgoingIf)(gen);
+      if (finished) runOnJS(clearOutgoing)();
     });
-  });
-
-  useEffect(() => {
-    if (dateKey !== dateKeyRef.current) return;
-    if (outgoing != null) return;
-    setIncoming(dayNumber);
-  }, [dateKey, dayNumber, outgoing]);
+  }, [clearOutgoing, dateKey, dayNumber, direction, progress]);
 
   const outgoingStyle = useAnimatedStyle(() => ({
     transform: [
-      {
-        translateY: -direction.value * DAY_NUMBER_TRAVEL * progress.value,
-      },
+      { translateY: -direction.value * DAY_NUMBER_TRAVEL * progress.value },
     ],
   }));
 
@@ -249,24 +215,19 @@ function AnimatedDayNumber({
       {outgoing != null ? (
         <Animated.Text
           pointerEvents="none"
-          style={[styles.dayNumber, styles.dayNumberLayer, outgoingStyle]}
+          style={[styles.dayNumber, styles.dayNumberOutgoing, outgoingStyle]}
           numberOfLines={1}>
           {outgoing}
         </Animated.Text>
       ) : null}
-      <Animated.Text
-        style={[styles.dayNumber, styles.dayNumberLayer, incomingStyle]}
-        numberOfLines={1}>
+      <Animated.Text style={[styles.dayNumber, incomingStyle]} numberOfLines={1}>
         {incoming}
       </Animated.Text>
     </View>
   );
 }
 
-/**
- * Weekday + month/day — dual-layer short slide + non-overlapping fade.
- * Same pre-paint start as the day number; fixed slot sizes avoid layout jump.
- */
+/** Weekday + month/day — same direction/timing as the day number. */
 function AnimatedDateMeta({
   dateKey,
   weekdayLabel,
@@ -276,119 +237,83 @@ function AnimatedDateMeta({
   weekdayLabel: string;
   dateLabel: string;
 }) {
-  const weekdayProgress = useSharedValue(1);
-  const labelProgress = useSharedValue(1);
-  const direction = useSharedValue(1);
-  const dateKeyRef = useRef(dateKey);
   const [incomingWeekday, setIncomingWeekday] = useState(weekdayLabel);
   const [outgoingWeekday, setOutgoingWeekday] = useState<string | null>(null);
   const [incomingLabel, setIncomingLabel] = useState(dateLabel);
   const [outgoingLabel, setOutgoingLabel] = useState<string | null>(null);
-  const animGen = useRef(0);
-  const startAnim = useRef(false);
+  const dateKeyRef = useRef(dateKey);
+  const weekdayRef = useRef(weekdayLabel);
+  const labelRef = useRef(dateLabel);
+  const progress = useSharedValue(1);
+  const direction = useSharedValue(1);
 
-  if (dateKey !== dateKeyRef.current) {
+  const clearOutgoing = useCallback(() => {
+    setOutgoingWeekday(null);
+    setOutgoingLabel(null);
+  }, []);
+
+  useEffect(() => {
+    if (dateKey === dateKeyRef.current) {
+      weekdayRef.current = weekdayLabel;
+      labelRef.current = dateLabel;
+      setIncomingWeekday(weekdayLabel);
+      setIncomingLabel(dateLabel);
+      return;
+    }
     const dir = dateKey > dateKeyRef.current ? 1 : -1;
     dateKeyRef.current = dateKey;
     direction.value = dir;
-    cancelAnimation(weekdayProgress);
-    cancelAnimation(labelProgress);
-    weekdayProgress.value = 0;
-    labelProgress.value = 0;
-    setOutgoingWeekday(incomingWeekday);
-    setIncomingWeekday(weekdayLabel);
-    setOutgoingLabel(incomingLabel);
-    setIncomingLabel(dateLabel);
-    animGen.current += 1;
-    startAnim.current = true;
-  }
-
-  const clearOutgoingIf = useCallback((gen: number) => {
-    if (animGen.current === gen) {
-      setOutgoingWeekday(null);
-      setOutgoingLabel(null);
-    }
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!startAnim.current) return;
-    startAnim.current = false;
-    const gen = animGen.current;
-    weekdayProgress.value = 0;
-    labelProgress.value = 0;
-    weekdayProgress.value = withTiming(1, DATE_SHIFT);
-    labelProgress.value = withDelay(
-      DATE_LABEL_DELAY_MS,
-      withTiming(1, DATE_SHIFT, (finished) => {
-        if (finished) runOnJS(clearOutgoingIf)(gen);
-      }),
-    );
-  });
-
-  useEffect(() => {
-    if (dateKey !== dateKeyRef.current) return;
-    if (outgoingWeekday != null || outgoingLabel != null) return;
+    setOutgoingWeekday(weekdayRef.current);
+    setOutgoingLabel(labelRef.current);
+    weekdayRef.current = weekdayLabel;
+    labelRef.current = dateLabel;
     setIncomingWeekday(weekdayLabel);
     setIncomingLabel(dateLabel);
-  }, [dateKey, dateLabel, outgoingLabel, outgoingWeekday, weekdayLabel]);
+    cancelAnimation(progress);
+    progress.value = 0;
+    progress.value = withTiming(1, DATE_SHIFT, (finished) => {
+      if (finished) runOnJS(clearOutgoing)();
+    });
+  }, [
+    clearOutgoing,
+    dateKey,
+    dateLabel,
+    direction,
+    progress,
+    weekdayLabel,
+  ]);
 
   const outgoingWeekdayStyle = useAnimatedStyle(() => ({
-    // Fade out before mid so old/new don’t ghost on top of each other.
-    opacity: interpolate(
-      weekdayProgress.value,
-      [0, 0.4],
-      [1, 0],
-      Extrapolation.CLAMP,
-    ),
+    opacity: 1 - progress.value,
     transform: [
-      {
-        translateY:
-          -direction.value * DATE_META_TRAVEL * weekdayProgress.value,
-      },
+      { translateY: -direction.value * DATE_META_TRAVEL * progress.value },
     ],
   }));
 
   const incomingWeekdayStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      weekdayProgress.value,
-      [0.35, 0.75],
-      [0, 1],
-      Extrapolation.CLAMP,
-    ),
+    opacity: progress.value,
     transform: [
       {
-        translateY:
-          direction.value * DATE_META_TRAVEL * (1 - weekdayProgress.value),
+        translateY: direction.value * DATE_META_TRAVEL * (1 - progress.value),
       },
     ],
   }));
 
   const outgoingLabelStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      labelProgress.value,
-      [0, 0.4],
-      [1, 0],
-      Extrapolation.CLAMP,
-    ),
+    opacity: 1 - progress.value,
     transform: [
       {
-        translateY:
-          -direction.value * DATE_LABEL_TRAVEL * labelProgress.value,
+        translateY: -direction.value * (DATE_META_TRAVEL * 0.6) * progress.value,
       },
     ],
   }));
 
   const incomingLabelStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      labelProgress.value,
-      [0.35, 0.75],
-      [0, 1],
-      Extrapolation.CLAMP,
-    ),
+    opacity: progress.value,
     transform: [
       {
         translateY:
-          direction.value * DATE_LABEL_TRAVEL * (1 - labelProgress.value),
+          direction.value * (DATE_META_TRAVEL * 0.6) * (1 - progress.value),
       },
     ],
   }));
@@ -401,14 +326,13 @@ function AnimatedDateMeta({
             pointerEvents="none"
             style={[
               styles.weekday,
-              styles.dateMetaLayer,
+              styles.dateMetaOutgoing,
               outgoingWeekdayStyle,
             ]}>
             {outgoingWeekday}
           </Animated.Text>
         ) : null}
-        <Animated.Text
-          style={[styles.weekday, styles.dateMetaLayer, incomingWeekdayStyle]}>
+        <Animated.Text style={[styles.weekday, incomingWeekdayStyle]}>
           {incomingWeekday}
         </Animated.Text>
       </View>
@@ -418,14 +342,13 @@ function AnimatedDateMeta({
             pointerEvents="none"
             style={[
               styles.dateLabel,
-              styles.dateMetaLayer,
+              styles.dateMetaOutgoing,
               outgoingLabelStyle,
             ]}>
             {outgoingLabel}
           </Animated.Text>
         ) : null}
-        <Animated.Text
-          style={[styles.dateLabel, styles.dateMetaLayer, incomingLabelStyle]}>
+        <Animated.Text style={[styles.dateLabel, incomingLabelStyle]}>
           {incomingLabel}
         </Animated.Text>
       </View>
@@ -1235,7 +1158,7 @@ function WeekStripPage({
   const primed = useRef(false);
   const cellWidthRef = useRef(cellWidth);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const widthChanged = cellWidthRef.current !== cellWidth;
     cellWidthRef.current = cellWidth;
 
@@ -1251,7 +1174,6 @@ function WeekStripPage({
     if (!primed.current || widthChanged) {
       cancelAnimation(pillX);
       cancelAnimation(pillOpacity);
-      // Snap without fade — one pill that will later translate.
       pillX.value = targetX;
       pillOpacity.value = 1;
       primed.current = true;
@@ -1261,8 +1183,7 @@ function WeekStripPage({
     cancelAnimation(pillX);
     cancelAnimation(pillOpacity);
     pillOpacity.value = 1;
-    // Continuous X from current position → new index (never opacity swap).
-    pillX.value = withDelay(WEEK_PILL_DELAY_MS, withTiming(targetX, DATE_SHIFT));
+    pillX.value = withTiming(targetX, DATE_SHIFT);
   }, [cellWidth, pillOpacity, pillX, selectedIndex]);
 
   const pillStyle = useAnimatedStyle(() => ({
@@ -1309,12 +1230,9 @@ function WeekDayCell({
 }) {
   const selectedProgress = useSharedValue(selected ? 1 : 0);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     cancelAnimation(selectedProgress);
-    selectedProgress.value = withDelay(
-      WEEK_PILL_DELAY_MS,
-      withTiming(selected ? 1 : 0, DATE_SHIFT),
-    );
+    selectedProgress.value = withTiming(selected ? 1 : 0, DATE_SHIFT);
   }, [selected, selectedProgress]);
 
   const dayNumStyle = useAnimatedStyle(() => ({
@@ -1913,10 +1831,8 @@ const styles = StyleSheet.create({
   },
   dayNumberSlot: {
     height: DAY_NUMBER_TRAVEL,
-    // Fixed viewport so absolute dual layers don’t collapse width.
-    minWidth: 72,
     overflow: 'hidden',
-    position: 'relative',
+    justifyContent: 'center',
     flexShrink: 0,
   },
   dayNumber: {
@@ -1925,9 +1841,10 @@ const styles = StyleSheet.create({
     color: colors.black,
     lineHeight: DAY_NUMBER_TRAVEL,
     letterSpacing: -2,
+    flexShrink: 0,
     includeFontPadding: false,
   },
-  dayNumberLayer: {
+  dayNumberOutgoing: {
     position: 'absolute',
     left: 0,
     top: 0,
@@ -1939,17 +1856,17 @@ const styles = StyleSheet.create({
   },
   weekdaySlot: {
     width: '100%',
-    height: WEEKDAY_SLOT_H,
+    height: 28,
     overflow: 'hidden',
-    position: 'relative',
+    justifyContent: 'center',
   },
   dateLabelSlot: {
     width: '100%',
-    height: DATE_LABEL_SLOT_H,
+    height: 26,
     overflow: 'hidden',
-    position: 'relative',
+    justifyContent: 'center',
   },
-  dateMetaLayer: {
+  dateMetaOutgoing: {
     position: 'absolute',
     left: 0,
     right: 0,
@@ -1958,20 +1875,16 @@ const styles = StyleSheet.create({
   weekday: {
     fontFamily: fonts.nexonMedium,
     fontSize: 22,
-    lineHeight: WEEKDAY_SLOT_H,
     color: colors.muted,
     textAlign: 'right',
     width: '100%',
-    includeFontPadding: false,
   },
   dateLabel: {
     fontFamily: fonts.nexonMedium,
     fontSize: 20,
-    lineHeight: DATE_LABEL_SLOT_H,
     color: colors.mutedLight,
     textAlign: 'right',
     width: '100%',
-    includeFontPadding: false,
   },
   weekPager: {
     maxWidth: spacing.frameWidth,
@@ -2144,7 +2057,7 @@ const styles = StyleSheet.create({
     minHeight: 120,
   },
   reviewCardEmpty: {
-    // No checkbox / detail — white shell + light border (not gray fill).
+    // No checkbox / detail — white shell + hairline border (not gray fill).
     backgroundColor: colors.white,
     borderWidth: 1,
     // One step lighter than mutedLight (#ced7e0).
