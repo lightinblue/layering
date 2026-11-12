@@ -705,10 +705,11 @@ export function AddStudyForm({
 
   const handleSave = useCallback(() => {
     if (!canSave || subject == null) return;
+    // Length is gated by TextInput maxLength only — never reject on save.
     onSave({
       subject,
-      title: title.trim().slice(0, MAX_STUDY_TITLE_LENGTH),
-      memo: memo.trim().slice(0, MAX_STUDY_MEMO_LENGTH),
+      title: title.trim(),
+      memo: memo.trim(),
     });
   }, [canSave, subject, title, memo, onSave]);
 
@@ -1005,11 +1006,10 @@ export function AddStudyForm({
         </Text>
         <TextInput
           value={title}
-          onChangeText={(text) =>
-            setTitle(text.slice(0, MAX_STUDY_TITLE_LENGTH))
-          }
+          onChangeText={setTitle}
           placeholder="1-3단원 / p. 22-36"
           placeholderTextColor={colors.mutedLight}
+          // Hard cap — users cannot type past 40; no save-time reject.
           maxLength={MAX_STUDY_TITLE_LENGTH}
           style={[
             styles.input,
@@ -1024,11 +1024,10 @@ export function AddStudyForm({
         <Text style={[styles.label, { color: colors.sectionLabel }]}>메모</Text>
         <TextInput
           value={memo}
-          onChangeText={(text) =>
-            setMemo(text.slice(0, MAX_STUDY_MEMO_LENGTH))
-          }
+          onChangeText={setMemo}
           placeholder="추가로 기록하고 싶은 내용"
           placeholderTextColor={colors.mutedLight}
+          // Hard cap — users cannot type past 120; no save-time reject.
           maxLength={MAX_STUDY_MEMO_LENGTH}
           style={[
             styles.input,

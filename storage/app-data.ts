@@ -30,7 +30,10 @@ export const MAX_STUDY_TITLE_LENGTH = 40;
 /** Max characters for study memo. */
 export const MAX_STUDY_MEMO_LENGTH = 120;
 
-/** Trim + clamp title/memo for persist (UI also enforces via maxLength). */
+/**
+ * Silent trim/clamp for non-UI writers (seed, import). The add/edit sheet
+ * uses TextInput `maxLength` so users never hit a save-time length error.
+ */
 export function clampStudyFields(content: string, memo?: string): {
   content: string;
   memo?: string;
