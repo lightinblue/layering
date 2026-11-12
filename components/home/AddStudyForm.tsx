@@ -43,7 +43,6 @@ import {
   radii,
   subjectBorderColor,
   subjectColor,
-  studySubjectFill,
 } from '@/constants/tokens';
 
 if (
@@ -89,9 +88,8 @@ export type AddStudyFormInitial = {
   subject: string;
   title: string;
   memo?: string;
-  /** Snapshot fill when the subject chip was deleted. */
+  /** Optional chip fill when editing a study whose subject chip is gone. */
   subjectColor?: string;
-  subjectMissing?: boolean;
 };
 
 type AddStudyFormProps = {
@@ -395,17 +393,10 @@ export function AddStudyForm({
   const chipSubjects = useMemo(() => {
     if (!initial?.subject) return subjects;
     if (subjects.some((s) => s.name === initial.subject)) return subjects;
-    // Deleted subject: keep name snapshot + stored/gray fill (no fake default).
-    return [
-      ...subjects,
-      {
-        name: initial.subject,
-        color: studySubjectFill(initial.subject, {
-          storedColor: initial.subjectColor,
-          missing: true,
-        }),
-      },
-    ];
+    // Subject chip removed: still show the study’s subject name so edit works.
+    const fill =
+      initial.subjectColor?.trim() || subjectColor(initial.subject);
+    return [...subjects, { name: initial.subject, color: fill }];
   }, [subjects, initial?.subject, initial?.subjectColor]);
 
   const propNames = useMemo(

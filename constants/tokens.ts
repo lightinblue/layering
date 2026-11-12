@@ -101,24 +101,6 @@ export function subjectColor(
   return SUBJECT_COLORS[name] ?? colors.chipGray;
 }
 
-/**
- * Study/review chip fill when the subject may have been deleted.
- * Prefer stored hex → live map → neutral gray (never re-hue a deleted name).
- */
-export function studySubjectFill(
-  subjectName: string,
-  options?: {
-    storedColor?: string | null;
-    missing?: boolean;
-    colorByName?: Record<string, string> | null;
-  },
-): string {
-  const stored = options?.storedColor?.trim();
-  if (stored) return stored;
-  if (options?.missing) return colors.chipGray;
-  return subjectColor(subjectName, options?.colorByName);
-}
-
 /** Parse `#RRGGBB` / `#RGB` → 0–255 channels (or null). */
 function parseHexRgb(hex: string): { r: number; g: number; b: number } | null {
   const raw = hex.replace('#', '');

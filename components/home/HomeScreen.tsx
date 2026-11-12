@@ -75,7 +75,6 @@ import {
   sizes,
   spacing,
   subjectColor,
-  studySubjectFill,
 } from '@/constants/tokens';
 import {
   addSubject,
@@ -573,9 +572,6 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
         const record = appData.records.find((r) => r.id === row.id);
         if (record) {
           const memo = record.memo?.trim();
-          const missing = !appData.subjects.some(
-            (s) => s.name === record.subjectName,
-          );
           next = {
             id: record.id,
             subjectName: record.subjectName,
@@ -584,7 +580,6 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
             ...(record.subjectColor
               ? { subjectColor: record.subjectColor }
               : {}),
-            ...(missing ? { subjectMissing: true } : {}),
           };
         }
       }
@@ -954,9 +949,6 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
                   ...(editingStudy.memo ? { memo: editingStudy.memo } : {}),
                   ...(editingStudy.subjectColor
                     ? { subjectColor: editingStudy.subjectColor }
-                    : {}),
-                  ...(editingStudy.subjectMissing
-                    ? { subjectMissing: true }
                     : {}),
                 }
               : undefined
@@ -1516,16 +1508,10 @@ function StudyRow({
         <View
           style={[
             styles.studyChip,
-            {
-              backgroundColor: studySubjectFill(row.subjectName, {
-                storedColor: row.subjectColor,
-                missing: row.subjectMissing,
-                colorByName,
-              }),
-            },
+            { backgroundColor: subjectColor(row.subjectName, colorByName) },
           ]}>
           <Text style={styles.studyChipText} numberOfLines={1} ellipsizeMode="tail">
-            {row.subjectMissing ? '삭제된 과목' : row.subjectName}
+            {row.subjectName}
           </Text>
         </View>
         <View style={styles.studyBody}>
@@ -1706,25 +1692,17 @@ function ReviewCard({
               </Text>
             </View>
             <View style={styles.reviewChips}>
-              {card.subjectNames.map((name) => {
-                const study = card.studies.find((s) => s.subjectName === name);
-                const fill = studySubjectFill(name, {
-                  storedColor: study?.subjectColor,
-                  missing: study?.subjectMissing,
-                  colorByName,
-                });
-                const label = study?.subjectMissing ? '삭' : name.charAt(0);
-                return (
-                  <View
-                    key={name}
-                    accessibilityLabel={
-                      study?.subjectMissing ? '삭제된 과목' : name
-                    }
-                    style={[styles.reviewChip, { backgroundColor: fill }]}>
-                    <Text style={styles.reviewChipText}>{label}</Text>
-                  </View>
-                );
-              })}
+              {card.subjectNames.map((name) => (
+                <View
+                  key={name}
+                  accessibilityLabel={name}
+                  style={[
+                    styles.reviewChip,
+                    { backgroundColor: subjectColor(name, colorByName) },
+                  ]}>
+                  <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
+                </View>
+              ))}
             </View>
           </View>
           <View style={styles.detailRow}>
