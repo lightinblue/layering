@@ -447,6 +447,7 @@ export function AddStudyForm({
     return list;
   }, [chipSubjects, orderedNames]);
 
+  // Cap is MAX_SUBJECTS (10). Keep + visible (disabled) at capacity — do not unmount it.
   const atLimit = subjects.length >= maxSubjects;
   const subjectNames = useMemo(
     () => orderedChips.map((s) => s.name),
@@ -888,25 +889,35 @@ export function AddStudyForm({
             </View>
           ) : null}
 
-          {onAddSubject && !adding ? (
+          {onAddSubject ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={
-                atLimit ? '과목 추가 불가, 최대 10개' : '과목 추가'
+                adding
+                  ? '과목 추가 취소'
+                  : atLimit
+                    ? '과목 추가 불가, 최대 10개'
+                    : '과목 추가'
               }
-              accessibilityState={{ disabled: atLimit }}
-              onPress={openAdd}
+              accessibilityState={{ disabled: atLimit && !adding }}
+              // Stay mounted while adding so a packed row never drops the +.
+              // Under max: opens the name row; while open: same control cancels.
+              disabled={atLimit && !adding}
+              onPress={adding ? cancelAdd : openAdd}
               style={[
                 styles.subjectChip,
                 styles.addChip,
                 {
-                  borderColor: atLimit ? colors.mutedLight : colors.muted,
+                  borderColor:
+                    atLimit && !adding ? colors.mutedLight : colors.muted,
                   backgroundColor: colors.surface,
                 },
-                atLimit && styles.addChipDisabled,
+                (atLimit || adding) && styles.addChipDisabled,
               ]}>
               <SoftPlusIcon
-                color={atLimit ? colors.mutedLight : colors.muted}
+                color={
+                  atLimit && !adding ? colors.mutedLight : colors.muted
+                }
               />
             </Pressable>
           ) : null}
@@ -1085,11 +1096,14 @@ const styles = StyleSheet.create({
     position: 'relative',
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'center',
     gap: 8,
     overflow: 'visible',
   },
   chipWrap: {
     position: 'relative',
+    // RN defaults flexShrink:1 — packed rows were crushing chips/+ instead of wrapping.
+    flexShrink: 0,
     overflow: 'visible',
   },
   dragFloating: {
@@ -1105,6 +1119,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
+    flexShrink: 0,
   },
   subjectChipPlaceholderText: {
     opacity: 0.55,
@@ -1144,7 +1159,11 @@ const styles = StyleSheet.create({
   },
   addChip: {
     width: 44,
+    minWidth: 44,
+    maxWidth: 44,
     paddingHorizontal: 0,
+    flexShrink: 0,
+    flexGrow: 0,
   },
   addChipDisabled: {
     opacity: 0.55,

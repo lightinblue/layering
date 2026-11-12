@@ -78,7 +78,6 @@ import {
 import {
   addSubject,
   appendStudyWithReviews,
-  DEFAULT_SUBJECTS,
   deleteStudyWithReviews,
   EMPTY_APP_DATA,
   loadAppData,
@@ -924,14 +923,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
                 }
               : undefined
           }
-          subjects={
-            subjectOptions.length > 0
-              ? subjectOptions
-              : DEFAULT_SUBJECTS.map((s) => ({
-                  name: s.name,
-                  color: s.color ?? subjectColor(s.name),
-                }))
-          }
+          subjects={subjectOptions}
           onSave={onSaveAdd}
           onDelete={editingStudy ? onDeleteStudy : undefined}
           onAddSubject={onAddSubject}

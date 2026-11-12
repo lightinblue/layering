@@ -165,6 +165,7 @@ export function reorderSubjects(
 export async function loadAppData(): Promise<AppData> {
   const raw = await AsyncStorage.getItem(STORAGE_KEYS.appData);
   if (!raw) {
+    // First launch only — seed a starter chip. An explicit empty list is kept.
     return {
       subjects: [...DEFAULT_SUBJECTS],
       records: [],
@@ -173,10 +174,9 @@ export async function loadAppData(): Promise<AppData> {
   }
   try {
     const parsed = JSON.parse(raw) as AppData;
-    const subjects =
-      parsed.subjects && parsed.subjects.length > 0
-        ? parsed.subjects.map(withSubjectColor)
-        : [...DEFAULT_SUBJECTS];
+    const subjects = Array.isArray(parsed.subjects)
+      ? parsed.subjects.map(withSubjectColor)
+      : [...DEFAULT_SUBJECTS];
     return {
       subjects,
       records: parsed.records ?? [],
