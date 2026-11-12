@@ -21,6 +21,7 @@ import {
   saveAppData,
   withSubjectColor,
 } from '@/storage/app-data';
+import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
 import type { AppData } from '@/types/domain';
 import { todayKey } from '@/utils/date';
 import { haptics } from '@/utils/haptics';
@@ -62,6 +63,8 @@ export default function AddRecordSheet() {
     setAppData(next);
     setSubjects(toOptions(next));
     await saveAppData(next);
+    // 포개 widget: study/subject mutations from the add sheet route.
+    await syncTodayReviewWidgetSnapshot(next);
   }, []);
 
   const onSave = useCallback(

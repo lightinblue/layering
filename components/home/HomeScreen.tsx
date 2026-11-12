@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   useCallback,
   useEffect,
@@ -106,6 +106,7 @@ import {
   buildDefaultAppData,
   buildScreenshotAppData,
 } from '@/storage/screenshot-seed';
+import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import type { AppData } from '@/types/domain';
 import { parseKey, todayKey as deviceTodayKey } from '@/utils/date';
@@ -518,6 +519,8 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       setSelectedKey(screen.todayKey);
       setWeekIndex(screen.currentWeekIndex);
       setHydrated(true);
+      // 포개 widget: seed snapshot after first load.
+      void syncTodayReviewWidgetSnapshot(storedApp);
     })();
     return () => {
       cancelled = true;
@@ -526,10 +529,23 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
-      if (next === 'active') setClockNonce((n) => n + 1);
+      if (next !== 'active') return;
+      setClockNonce((n) => n + 1);
+      // 포개 widget: rewrite on foreground (covers todayKey rollover).
+      if (!dataProp && appData) {
+        void syncTodayReviewWidgetSnapshot(appData);
+      }
     });
     return () => sub.remove();
-  }, []);
+  }, [dataProp, appData]);
+
+  // 포개 widget: rewrite whenever home regains focus.
+  useFocusEffect(
+    useCallback(() => {
+      if (dataProp || !appData) return;
+      void syncTodayReviewWidgetSnapshot(appData);
+    }, [dataProp, appData]),
+  );
 
   const base: HomeScreenData = useMemo(() => {
     if (dataProp) return dataProp;
@@ -583,6 +599,8 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   const persistApp = useCallback(async (next: AppData) => {
     setAppData(next);
     await saveAppData(next);
+    // 포개 widget: review toggle · study add/delete/edit · subject changes.
+    await syncTodayReviewWidgetSnapshot(next);
   }, []);
 
   const selectedDateKey = selected?.dateKey ?? todayKey;

@@ -8,4 +8,9 @@ export const STORAGE_KEYS = {
   themePrimary: '@bokbok/theme-primary/v1',
   /** First-launch tutorial / forgetting-curve intro seen (`'1'`). */
   tutorialSeen: '@bokbok/tutorial-seen/v1',
+  /**
+   * 포개 today-review widget snapshot JSON (app-side mirror).
+   * WidgetKit will read App Group instead — see storage/today-review-widget.ts.
+   */
+  todayReviewWidget: '@bokbok/today-review-widget/v1',
 } as const;
