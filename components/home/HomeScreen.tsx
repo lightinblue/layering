@@ -2115,11 +2115,11 @@ const styles = StyleSheet.create({
     minHeight: 120,
   },
   reviewCardEmpty: {
-    // No checkbox / detail — white shell + hairline border (not gray fill).
+    // No checkbox / detail — white shell + light border (not gray fill).
     backgroundColor: colors.white,
-    borderWidth: StyleSheet.hairlineWidth,
-    // One step lighter than prior #e4eaef.
-    borderColor: '#edf1f4',
+    borderWidth: 1,
+    // One step lighter than mutedLight (#ced7e0).
+    borderColor: '#e4eaef',
     justifyContent: 'flex-start',
   },
   reviewCardInner: {
