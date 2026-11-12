@@ -79,7 +79,7 @@ struct TodayReviewWidget: Widget {
         .widgetURL(TodayReviewStore.homeURL)
     }
     .configurationDisplayName("오늘 할 복습")
-    .description("오늘 남은 복습 건수와 카드를 보여 줘요.")
+    .description("오늘 남은 복습을 보여 줘요.")
     .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
   }
 }
