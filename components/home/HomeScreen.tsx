@@ -32,6 +32,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -128,11 +129,19 @@ function isDateKey(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-/** Soft ease-out (300–450ms); interruptible via cancelAnimation. */
+/**
+ * Soft decelerating settle (~380ms). Bezier flattens the end so slides
+ * don’t feel like they hit a wall (vs cubic-out).
+ */
+const DATE_EASE = Easing.bezier(0.22, 1, 0.36, 1);
 const DATE_SHIFT = {
   duration: durations.dateShift,
-  easing: Easing.out(Easing.cubic),
+  easing: DATE_EASE,
 } as const;
+
+/** Micro-stagger: weekday with day number; label/pill trail slightly. */
+const DATE_LABEL_DELAY_MS = 28;
+const WEEK_PILL_DELAY_MS = 40;
 
 const PRESS_SHIFT = {
   duration: durations.press,
@@ -152,11 +161,15 @@ const ROW_LAYOUT = LinearTransition.duration(durations.listRow).easing(
 );
 
 const DAY_NUMBER_TRAVEL = 86;
-const DATE_META_TRAVEL = 10;
+const DATE_META_TRAVEL = 8;
+const DATE_LABEL_TRAVEL = 5;
+const WEEKDAY_SLOT_H = 28;
+const DATE_LABEL_SLOT_H = 26;
 
 /**
  * Big day number — clipped vertical slide.
  * Forward: outgoing up / incoming from below; reverse for previous dates.
+ * Live Y shared values keep rapid date changes continuous (no snap-back).
  */
 function AnimatedDayNumber({
   dateKey,
@@ -169,8 +182,8 @@ function AnimatedDayNumber({
   const [outgoing, setOutgoing] = useState<string | null>(null);
   const dateKeyRef = useRef(dateKey);
   const incomingRef = useRef(dayNumber);
-  const progress = useSharedValue(1);
-  const direction = useSharedValue(1);
+  const outY = useSharedValue(0);
+  const inY = useSharedValue(0);
 
   const clearOutgoing = useCallback(() => {
     setOutgoing(null);
@@ -184,30 +197,31 @@ function AnimatedDayNumber({
     }
     const dir = dateKey > dateKeyRef.current ? 1 : -1;
     dateKeyRef.current = dateKey;
-    direction.value = dir;
+
+    cancelAnimation(outY);
+    cancelAnimation(inY);
+
+    // Promote the live incoming digit to outgoing — preserve its Y so a
+    // mid-flight interrupt continues as one slide instead of resetting.
+    outY.value = inY.value;
     setOutgoing(incomingRef.current);
+
     incomingRef.current = dayNumber;
     setIncoming(dayNumber);
-    cancelAnimation(progress);
-    progress.value = 0;
-    progress.value = withTiming(1, DATE_SHIFT, (finished) => {
+    inY.value = dir * DAY_NUMBER_TRAVEL;
+
+    outY.value = withTiming(-dir * DAY_NUMBER_TRAVEL, DATE_SHIFT, (finished) => {
       if (finished) runOnJS(clearOutgoing)();
     });
-  }, [clearOutgoing, dateKey, dayNumber, direction, progress]);
+    inY.value = withTiming(0, DATE_SHIFT);
+  }, [clearOutgoing, dateKey, dayNumber, inY, outY]);
 
   const outgoingStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: -direction.value * DAY_NUMBER_TRAVEL * progress.value },
-    ],
+    transform: [{ translateY: outY.value }],
   }));
 
   const incomingStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY:
-          direction.value * DAY_NUMBER_TRAVEL * (1 - progress.value),
-      },
-    ],
+    transform: [{ translateY: inY.value }],
   }));
 
   return (
@@ -227,7 +241,7 @@ function AnimatedDayNumber({
   );
 }
 
-/** Weekday + month/day — same direction/timing as the day number. */
+/** Weekday + month/day — same start as day number; short slide + fade. */
 function AnimatedDateMeta({
   dateKey,
   weekdayLabel,
@@ -244,8 +258,14 @@ function AnimatedDateMeta({
   const dateKeyRef = useRef(dateKey);
   const weekdayRef = useRef(weekdayLabel);
   const labelRef = useRef(dateLabel);
-  const progress = useSharedValue(1);
-  const direction = useSharedValue(1);
+  const weekdayOutY = useSharedValue(0);
+  const weekdayInY = useSharedValue(0);
+  const weekdayOutOpacity = useSharedValue(1);
+  const weekdayInOpacity = useSharedValue(1);
+  const labelOutY = useSharedValue(0);
+  const labelInY = useSharedValue(0);
+  const labelOutOpacity = useSharedValue(1);
+  const labelInOpacity = useSharedValue(1);
 
   const clearOutgoing = useCallback(() => {
     setOutgoingWeekday(null);
@@ -262,60 +282,90 @@ function AnimatedDateMeta({
     }
     const dir = dateKey > dateKeyRef.current ? 1 : -1;
     dateKeyRef.current = dateKey;
-    direction.value = dir;
+
+    cancelAnimation(weekdayOutY);
+    cancelAnimation(weekdayInY);
+    cancelAnimation(weekdayOutOpacity);
+    cancelAnimation(weekdayInOpacity);
+    cancelAnimation(labelOutY);
+    cancelAnimation(labelInY);
+    cancelAnimation(labelOutOpacity);
+    cancelAnimation(labelInOpacity);
+
+    weekdayOutY.value = weekdayInY.value;
+    weekdayOutOpacity.value = weekdayInOpacity.value;
+    labelOutY.value = labelInY.value;
+    labelOutOpacity.value = labelInOpacity.value;
+
     setOutgoingWeekday(weekdayRef.current);
     setOutgoingLabel(labelRef.current);
     weekdayRef.current = weekdayLabel;
     labelRef.current = dateLabel;
     setIncomingWeekday(weekdayLabel);
     setIncomingLabel(dateLabel);
-    cancelAnimation(progress);
-    progress.value = 0;
-    progress.value = withTiming(1, DATE_SHIFT, (finished) => {
-      if (finished) runOnJS(clearOutgoing)();
-    });
+
+    weekdayInY.value = dir * DATE_META_TRAVEL;
+    weekdayInOpacity.value = 0;
+    labelInY.value = dir * DATE_LABEL_TRAVEL;
+    labelInOpacity.value = 0;
+
+    // Weekday starts with the day number; month/day trails a hair.
+    weekdayOutY.value = withTiming(-dir * DATE_META_TRAVEL, DATE_SHIFT);
+    weekdayOutOpacity.value = withTiming(0, DATE_SHIFT);
+    weekdayInY.value = withTiming(0, DATE_SHIFT);
+    weekdayInOpacity.value = withTiming(1, DATE_SHIFT);
+
+    labelOutY.value = withDelay(
+      DATE_LABEL_DELAY_MS,
+      withTiming(-dir * DATE_LABEL_TRAVEL, DATE_SHIFT),
+    );
+    labelOutOpacity.value = withDelay(
+      DATE_LABEL_DELAY_MS,
+      withTiming(0, DATE_SHIFT),
+    );
+    labelInY.value = withDelay(
+      DATE_LABEL_DELAY_MS,
+      withTiming(0, DATE_SHIFT, (finished) => {
+        if (finished) runOnJS(clearOutgoing)();
+      }),
+    );
+    labelInOpacity.value = withDelay(
+      DATE_LABEL_DELAY_MS,
+      withTiming(1, DATE_SHIFT),
+    );
   }, [
     clearOutgoing,
     dateKey,
     dateLabel,
-    direction,
-    progress,
+    labelInOpacity,
+    labelInY,
+    labelOutOpacity,
+    labelOutY,
+    weekdayInOpacity,
+    weekdayInY,
     weekdayLabel,
+    weekdayOutOpacity,
+    weekdayOutY,
   ]);
 
   const outgoingWeekdayStyle = useAnimatedStyle(() => ({
-    opacity: 1 - progress.value,
-    transform: [
-      { translateY: -direction.value * DATE_META_TRAVEL * progress.value },
-    ],
+    opacity: weekdayOutOpacity.value,
+    transform: [{ translateY: weekdayOutY.value }],
   }));
 
   const incomingWeekdayStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [
-      {
-        translateY: direction.value * DATE_META_TRAVEL * (1 - progress.value),
-      },
-    ],
+    opacity: weekdayInOpacity.value,
+    transform: [{ translateY: weekdayInY.value }],
   }));
 
   const outgoingLabelStyle = useAnimatedStyle(() => ({
-    opacity: 1 - progress.value,
-    transform: [
-      {
-        translateY: -direction.value * (DATE_META_TRAVEL * 0.6) * progress.value,
-      },
-    ],
+    opacity: labelOutOpacity.value,
+    transform: [{ translateY: labelOutY.value }],
   }));
 
   const incomingLabelStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [
-      {
-        translateY:
-          direction.value * (DATE_META_TRAVEL * 0.6) * (1 - progress.value),
-      },
-    ],
+    opacity: labelInOpacity.value,
+    transform: [{ translateY: labelInY.value }],
   }));
 
   return (
@@ -1183,7 +1233,8 @@ function WeekStripPage({
     cancelAnimation(pillX);
     cancelAnimation(pillOpacity);
     pillOpacity.value = 1;
-    pillX.value = withTiming(targetX, DATE_SHIFT);
+    // Trail the header by a beat so the pill reads as connected motion.
+    pillX.value = withDelay(WEEK_PILL_DELAY_MS, withTiming(targetX, DATE_SHIFT));
   }, [cellWidth, pillOpacity, pillX, selectedIndex]);
 
   const pillStyle = useAnimatedStyle(() => ({
@@ -1232,7 +1283,10 @@ function WeekDayCell({
 
   useEffect(() => {
     cancelAnimation(selectedProgress);
-    selectedProgress.value = withTiming(selected ? 1 : 0, DATE_SHIFT);
+    selectedProgress.value = withDelay(
+      WEEK_PILL_DELAY_MS,
+      withTiming(selected ? 1 : 0, DATE_SHIFT),
+    );
   }, [selected, selectedProgress]);
 
   const dayNumStyle = useAnimatedStyle(() => ({
@@ -1856,13 +1910,13 @@ const styles = StyleSheet.create({
   },
   weekdaySlot: {
     width: '100%',
-    height: 28,
+    height: WEEKDAY_SLOT_H,
     overflow: 'hidden',
     justifyContent: 'center',
   },
   dateLabelSlot: {
     width: '100%',
-    height: 26,
+    height: DATE_LABEL_SLOT_H,
     overflow: 'hidden',
     justifyContent: 'center',
   },
@@ -1875,16 +1929,20 @@ const styles = StyleSheet.create({
   weekday: {
     fontFamily: fonts.nexonMedium,
     fontSize: 22,
+    lineHeight: WEEKDAY_SLOT_H,
     color: colors.muted,
     textAlign: 'right',
     width: '100%',
+    includeFontPadding: false,
   },
   dateLabel: {
     fontFamily: fonts.nexonMedium,
     fontSize: 20,
+    lineHeight: DATE_LABEL_SLOT_H,
     color: colors.mutedLight,
     textAlign: 'right',
     width: '100%',
+    includeFontPadding: false,
   },
   weekPager: {
     maxWidth: spacing.frameWidth,
@@ -2059,9 +2117,9 @@ const styles = StyleSheet.create({
   reviewCardEmpty: {
     // No checkbox / detail — white shell + hairline border (not gray fill).
     backgroundColor: colors.white,
-    borderWidth: 1,
-    // One step lighter than mutedLight (#ced7e0).
-    borderColor: '#e4eaef',
+    borderWidth: StyleSheet.hairlineWidth,
+    // One step lighter than prior #e4eaef.
+    borderColor: '#edf1f4',
     justifyContent: 'flex-start',
   },
   reviewCardInner: {
