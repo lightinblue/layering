@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "\ub808\uc774\uc5b4\ub9c1",
+    "name": "레이어링",
     "slug": "layering",
     "version": "1.0.1",
     "orientation": "portrait",
@@ -9,10 +9,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.lightinblue.layering",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "supportsTablet": true,
       "infoPlist": {
-        "CFBundleDisplayName": "\ub808\uc774\uc5b4\ub9c1",
+        "CFBundleDisplayName": "레이어링",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -44,7 +44,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "storeDisplayName": "\ub808\uc774\uc5b4\ub9c1 - \uaddc\uce59\uc801\uc778 \ubcf5\uc2b5 \uc2a4\ucf00\uc904\ub7ec",
+      "storeDisplayName": "레이어링 - 규칙적인 복습 스케줄러",
       "router": {
         "asyncRoutes": {
           "web": true
