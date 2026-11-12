@@ -9,6 +9,7 @@ import {
 } from 'react';
 import {
   Alert,
+  Keyboard,
   LayoutAnimation,
   LayoutChangeEvent,
   PanResponder,
@@ -24,14 +25,17 @@ import {
   type PanResponderGestureState,
 } from 'react-native';
 import Animated, {
+  cancelAnimation,
+  Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { DUMMY_SUBJECTS } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
-import { durations, springs } from '@/constants/motion';
+import { EASE_OUT_MS, durations } from '@/constants/motion';
 import {
   SUBJECT_COLOR_OPTIONS,
   SUBJECT_COLORS,
@@ -113,10 +117,132 @@ const MOVE_CANCEL_PX = 10;
 const CHIP_SHIFT_ANIM = {
   duration: durations.chipShift,
   update: {
-    type: LayoutAnimation.Types.spring,
-    springDamping: 0.92,
+    type: LayoutAnimation.Types.easeOut,
   },
 };
+
+const CHIP_EASE = {
+  duration: durations.chipShift,
+  easing: Easing.out(Easing.cubic),
+} as const;
+
+const ADD_REVEAL = {
+  duration: EASE_OUT_MS,
+  easing: Easing.out(Easing.cubic),
+} as const;
+
+/** Inner rise distance while the block height expands (one shared progress). */
+const ADD_RISE_PX = 14;
+const CHIP_IDLE_OPACITY = 0.45;
+const CHIP_SELECTED_OPACITY = 1;
+
+/**
+ * One push: name row + palette + actions expand together (height clip) while
+ * rising in; content below is shoved down. Same ease-out; interruptible.
+ * Keyboard focus waits for `onOpenComplete` so sheet lift does not fight height.
+ */
+function SubjectAddReveal({
+  visible,
+  onOpenComplete,
+  children,
+}: {
+  visible: boolean;
+  /** Fires once when the open ease-out finishes (not on interrupt / hide). */
+  onOpenComplete?: () => void;
+  children: ReactNode;
+}) {
+  const progress = useSharedValue(0);
+  const contentHeight = useSharedValue(0);
+  const measured = useSharedValue(0);
+  const [presented, setPresented] = useState(false);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  const onOpenCompleteRef = useRef(onOpenComplete);
+  onOpenCompleteRef.current = onOpenComplete;
+
+  const finishHide = useCallback(() => {
+    if (!visibleRef.current) {
+      setPresented(false);
+      contentHeight.value = 0;
+      measured.value = 0;
+      progress.value = 0;
+    }
+  }, [contentHeight, measured, progress]);
+
+  const notifyOpenComplete = useCallback(() => {
+    if (visibleRef.current) onOpenCompleteRef.current?.();
+  }, []);
+
+  const startOpen = useCallback(() => {
+    cancelAnimation(progress);
+    progress.value = withTiming(1, ADD_REVEAL, (finished) => {
+      if (finished) runOnJS(notifyOpenComplete)();
+    });
+  }, [notifyOpenComplete, progress]);
+
+  useEffect(() => {
+    cancelAnimation(progress);
+    if (visible) {
+      setPresented(true);
+      progress.value = 0;
+      if (measured.value === 1 && contentHeight.value > 0) {
+        startOpen();
+      }
+      return;
+    }
+    if (!presented) return;
+    progress.value = withTiming(0, ADD_REVEAL, (finished) => {
+      if (finished) runOnJS(finishHide)();
+    });
+  }, [
+    contentHeight,
+    finishHide,
+    measured,
+    presented,
+    progress,
+    startOpen,
+    visible,
+  ]);
+
+  const panelStyle = useAnimatedStyle(() => {
+    // Until first measure, stay invisible + unconstrained so Yoga reports full height.
+    if (measured.value === 0) {
+      return { opacity: 0, overflow: 'hidden' as const };
+    }
+    return {
+      height: contentHeight.value * progress.value,
+      opacity: 1,
+      overflow: 'hidden' as const,
+    };
+  });
+
+  const innerStyle = useAnimatedStyle(() => ({
+    // Rise from below as the clip expands — same progress as height.
+    transform: [{ translateY: (1 - progress.value) * ADD_RISE_PX }],
+  }));
+
+  if (!presented) return null;
+
+  return (
+    <Animated.View style={panelStyle}>
+      <Animated.View
+        style={innerStyle}
+        onLayout={(event) => {
+          // Lock full intrinsic height once; ignore later clipped layouts.
+          if (measured.value === 1) return;
+          const next = event.nativeEvent.layout.height;
+          if (next <= 0) return;
+          contentHeight.value = next;
+          measured.value = 1;
+          if (visibleRef.current) {
+            startOpen();
+          }
+        }}>
+        {children}
+      </Animated.View>
+    </Animated.View>
+  );
+}
 
 function DraftColorSwatch({
   hex,
@@ -129,36 +255,17 @@ function DraftColorSwatch({
   borderColor: string;
   onPress: () => void;
 }) {
-  const scale = useSharedValue(1);
-  const primed = useRef(false);
-
-  useEffect(() => {
-    if (!primed.current) {
-      primed.current = true;
-      return;
-    }
-    if (!selected) return;
-    scale.value = withSpring(1.12, springs.snappy, (finished) => {
-      if (finished) scale.value = withSpring(1, springs.soft);
-    });
-  }, [selected, scale]);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={`과목 색상 ${hex}`}
       onPress={onPress}>
-      <Animated.View
+      <View
         style={[
           styles.swatch,
           { backgroundColor: hex },
           selected && { borderColor, borderWidth: 2 },
-          animStyle,
         ]}
       />
     </Pressable>
@@ -167,6 +274,7 @@ function DraftColorSwatch({
 
 function SelectableChip({
   selected,
+  dimmed = false,
   style,
   children,
   panHandlers,
@@ -174,22 +282,40 @@ function SelectableChip({
   accessibilityHint,
 }: {
   selected: boolean;
+  /** Drag placeholder — keeps opacity below selection settle. */
+  dimmed?: boolean;
   style: object | object[];
   children: ReactNode;
   panHandlers?: object;
   accessibilityLabel?: string;
   accessibilityHint?: string;
 }) {
+  const targetOpacity = dimmed
+    ? 0.28
+    : selected
+      ? CHIP_SELECTED_OPACITY
+      : CHIP_IDLE_OPACITY;
+  const opacity = useSharedValue(targetOpacity);
+
+  useEffect(() => {
+    cancelAnimation(opacity);
+    opacity.value = withTiming(targetOpacity, CHIP_EASE);
+  }, [opacity, targetOpacity]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
   return (
-    <View
+    <Animated.View
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
-      style={style}
+      style={[style, animStyle]}
       {...(panHandlers ?? {})}>
       {children}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -249,8 +375,10 @@ export function AddStudyForm({
   const [title, setTitle] = useState(() => initial?.title ?? '');
   const [memo, setMemo] = useState(() => initial?.memo ?? '');
   const [adding, setAdding] = useState(false);
+  const addingRef = useRef(false);
   const [draftName, setDraftName] = useState('');
   const [draftColor, setDraftColor] = useState<string>(SUBJECT_COLOR_OPTIONS[0]);
+  const draftInputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [chipHint, setChipHint] = useState<string | null>(null);
   const [deleteArmed, setDeleteArmed] = useState<string | null>(null);
   const [draggingName, setDraggingName] = useState<string | null>(null);
@@ -606,12 +734,23 @@ export function AddStudyForm({
     setDeleteArmed(null);
     setDraftName('');
     setDraftColor(SUBJECT_COLOR_OPTIONS[0]);
+    addingRef.current = true;
     setAdding(true);
   }, [onAddSubject, atLimit]);
 
   const cancelAdd = useCallback(() => {
+    // Dismiss keyboard first so sheet drop and height collapse don't fight.
+    Keyboard.dismiss();
+    draftInputRef.current?.blur();
+    addingRef.current = false;
     setAdding(false);
     setDraftName('');
+  }, []);
+
+  const focusDraftAfterReveal = useCallback(() => {
+    // Only focus after height settle — avoids keyboard lift fighting the reveal.
+    if (!addingRef.current) return;
+    draftInputRef.current?.focus();
   }, []);
 
   const confirmAdd = useCallback(() => {
@@ -630,8 +769,11 @@ export function AddStudyForm({
     }
     const name = draftName.trim().replace(/\s+/g, ' ');
     haptics.subjectAdd();
+    Keyboard.dismiss();
+    draftInputRef.current?.blur();
     setSubjectPick(name);
     setDeleteArmed(null);
+    addingRef.current = false;
     setAdding(false);
     setDraftName('');
     setChipHint(null);
@@ -675,6 +817,7 @@ export function AddStudyForm({
                 style={styles.chipWrap}>
                 <SelectableChip
                   selected={selected}
+                  dimmed={dragging}
                   panHandlers={pan?.panHandlers}
                   accessibilityLabel={`과목 ${name}`}
                   accessibilityHint={
@@ -688,9 +831,6 @@ export function AddStudyForm({
                       backgroundColor: fill,
                       borderColor: subjectBorderColor(name, fill),
                     },
-                    selected && styles.subjectChipSelected,
-                    !selected && styles.subjectChipIdle,
-                    dragging && styles.subjectChipPlaceholder,
                   ]}>
                   <Text
                     style={[
@@ -772,10 +912,13 @@ export function AddStudyForm({
           ) : null}
         </View>
 
-        {adding ? (
+        <SubjectAddReveal
+          visible={adding}
+          onOpenComplete={focusDraftAfterReveal}>
           <View style={styles.addBlock}>
             <View style={styles.addRow}>
               <TextInput
+                ref={draftInputRef}
                 value={draftName}
                 onChangeText={(text) => {
                   setDraftName(text.slice(0, MAX_SUBJECT_NAME_LENGTH));
@@ -786,7 +929,6 @@ export function AddStudyForm({
                 maxLength={MAX_SUBJECT_NAME_LENGTH}
                 returnKeyType="done"
                 onSubmitEditing={confirmAdd}
-                autoFocus
                 style={[
                   styles.input,
                   styles.addInput,
@@ -827,7 +969,7 @@ export function AddStudyForm({
               ))}
             </View>
           </View>
-        ) : null}
+        </SubjectAddReveal>
 
         {chipHint ? (
           <Text style={[styles.chipHint, { color: colors.muted }]}>
@@ -963,15 +1105,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-  },
-  subjectChipIdle: {
-    opacity: 0.45,
-  },
-  subjectChipSelected: {
-    opacity: 1,
-  },
-  subjectChipPlaceholder: {
-    opacity: 0.28,
   },
   subjectChipPlaceholderText: {
     opacity: 0.55,

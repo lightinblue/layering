@@ -24,11 +24,13 @@ import {
 import Animated, {
   cancelAnimation,
   Easing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
   interpolateColor,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -65,7 +67,6 @@ import {
   JUMP_ANIMATE_MAX_DELTA,
   PAGER_DECELERATION,
   durations,
-  springs,
 } from '@/constants/motion';
 import {
   colors,
@@ -119,11 +120,28 @@ function isDateKey(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-/** Date-area ease-out (300–450ms); interruptible via cancelAnimation. */
+/** Soft ease-out (300–450ms); interruptible via cancelAnimation. */
 const DATE_SHIFT = {
   duration: durations.dateShift,
   easing: Easing.out(Easing.cubic),
 } as const;
+
+const PRESS_SHIFT = {
+  duration: durations.press,
+  easing: Easing.out(Easing.cubic),
+} as const;
+
+const FILL_SHIFT = {
+  duration: durations.fill,
+  easing: Easing.out(Easing.cubic),
+} as const;
+
+const ROW_EASE = Easing.out(Easing.cubic);
+const ROW_ENTER = FadeIn.duration(durations.listRow).easing(ROW_EASE);
+const ROW_EXIT = FadeOut.duration(durations.listRow).easing(ROW_EASE);
+const ROW_LAYOUT = LinearTransition.duration(durations.listRow).easing(
+  ROW_EASE,
+);
 
 const DAY_NUMBER_TRAVEL = 86;
 const DATE_META_TRAVEL = 10;
@@ -330,8 +348,8 @@ function AnimatedDateMeta({
   );
 }
 
-/** Light press spring for FABs. */
-function SpringFab({
+/** Soft press ease-out for FABs (no spring overshoot). */
+function SoftFab({
   onPress,
   accessibilityLabel,
   style,
@@ -352,10 +370,12 @@ function SpringFab({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPressIn={() => {
-        scale.value = withSpring(0.92, springs.snappy);
+        cancelAnimation(scale);
+        scale.value = withTiming(0.94, PRESS_SHIFT);
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, springs.soft);
+        cancelAnimation(scale);
+        scale.value = withTiming(1, PRESS_SHIFT);
       }}
       onPress={onPress}
       style={style}>
@@ -364,7 +384,7 @@ function SpringFab({
   );
 }
 
-/** Calendar ↔ today-arrow: opacity crossfade, no scale. */
+/** Calendar ↔ today-arrow: opacity crossfade, ease-out. */
 function CalendarTodayFabIcon({ showCalendar }: { showCalendar: boolean }) {
   const calendarOpacity = useSharedValue(showCalendar ? 1 : 0);
   const arrowOpacity = useSharedValue(showCalendar ? 0 : 1);
@@ -379,8 +399,10 @@ function CalendarTodayFabIcon({ showCalendar }: { showCalendar: boolean }) {
     }
     const timing = {
       duration: durations.crossfade,
-      easing: Easing.inOut(Easing.cubic),
+      easing: Easing.out(Easing.cubic),
     };
+    cancelAnimation(calendarOpacity);
+    cancelAnimation(arrowOpacity);
     calendarOpacity.value = withTiming(showCalendar ? 1 : 0, timing);
     arrowOpacity.value = withTiming(showCalendar ? 0 : 1, timing);
   }, [showCalendar, calendarOpacity, arrowOpacity]);
@@ -433,6 +455,8 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     intervalDays: number;
     studies: HomeReviewStudy[];
   } | null>(null);
+  /** Jump home week strip to this 학습일 after the review sheet finishes closing. */
+  const pendingReviewDateRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (dataProp) return;
@@ -692,6 +716,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   );
 
   const closeReview = useCallback(() => {
+    pendingReviewDateRef.current = null;
     setReviewOpen(null);
   }, []);
 
@@ -720,6 +745,21 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     },
     [base],
   );
+
+  const onReviewStudyPress = useCallback((studiedOn: string) => {
+    const dateKey = studiedOn.trim();
+    if (!dateKey) return;
+    pendingReviewDateRef.current = dateKey;
+    setReviewOpen(null);
+  }, []);
+
+  const onReviewDismissed = useCallback(() => {
+    const dateKey = pendingReviewDateRef.current;
+    pendingReviewDateRef.current = null;
+    if (!dateKey) return;
+    haptics.select();
+    selectDayFromCalendar(dateKey);
+  }, [selectDayFromCalendar]);
 
   const goToday = useCallback(() => {
     haptics.todayJump();
@@ -842,7 +882,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
         </View>
       </View>
 
-      <SpringFab
+      <SoftFab
         accessibilityLabel="설정"
         onPress={openSettings}
         style={[
@@ -853,9 +893,9 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
           },
         ]}>
         <SettingsIcon />
-      </SpringFab>
+      </SoftFab>
 
-      <SpringFab
+      <SoftFab
         accessibilityLabel={isToday ? '캘린더' : '오늘로 이동'}
         onPress={isToday ? goCalendar : goToday}
         style={[
@@ -866,7 +906,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
           },
         ]}>
         <CalendarTodayFabIcon showCalendar={isToday} />
-      </SpringFab>
+      </SoftFab>
 
       <BottomSheetModal
         visible={addOpen}
@@ -912,11 +952,15 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
         />
       </BottomSheetModal>
 
-      <BottomSheetModal visible={reviewOpen != null} onClose={closeReview}>
+      <BottomSheetModal
+        visible={reviewOpen != null}
+        onClose={closeReview}
+        onDismissed={onReviewDismissed}>
         {reviewOpen ? (
           <ReviewDetailContent
             studies={reviewOpen.studies}
             colorByName={colorByName}
+            onStudyPress={onReviewStudyPress}
           />
         ) : null}
       </BottomSheetModal>
@@ -1315,7 +1359,7 @@ function StudySection({
           {isToday ? '오늘 한 공부' : '이 날 한 공부'}
         </Text>
       </View>
-      <View style={styles.studyList}>
+      <Animated.View style={styles.studyList} layout={ROW_LAYOUT}>
         {studies.length === 0 ? (
           <Pressable
             accessibilityRole="button"
@@ -1342,18 +1386,20 @@ function StudySection({
               />
             ))}
             {allowAdd ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="공부 기록 추가"
-                onPress={onAdd}
-                style={styles.addStudyMoreBtn}>
-                <PlusIcon size={16} />
-                <Text style={styles.addStudyMoreText}>공부 기록 추가</Text>
-              </Pressable>
+              <Animated.View layout={ROW_LAYOUT}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="공부 기록 추가"
+                  onPress={onAdd}
+                  style={styles.addStudyMoreBtn}>
+                  <PlusIcon size={16} />
+                  <Text style={styles.addStudyMoreText}>공부 기록 추가</Text>
+                </Pressable>
+              </Animated.View>
             ) : null}
           </>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -1368,26 +1414,31 @@ function StudyRow({
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${row.subjectName} ${row.content} 수정`}
-      onPress={onPress}
-      style={styles.studyRow}>
-      <View
-        style={[
-          styles.studyChip,
-          { backgroundColor: subjectColor(row.subjectName, colorByName) },
-        ]}>
-        <Text style={styles.studyChipText} numberOfLines={1}>
-          {row.subjectName}
-        </Text>
-      </View>
-      <View style={styles.studyBody}>
-        <Text style={styles.studyBodyText} numberOfLines={1}>
-          {row.content}
-        </Text>
-      </View>
-    </Pressable>
+    <Animated.View
+      entering={ROW_ENTER}
+      exiting={ROW_EXIT}
+      layout={ROW_LAYOUT}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${row.subjectName} ${row.content} 수정`}
+        onPress={onPress}
+        style={styles.studyRow}>
+        <View
+          style={[
+            styles.studyChip,
+            { backgroundColor: subjectColor(row.subjectName, colorByName) },
+          ]}>
+          <Text style={styles.studyChipText} numberOfLines={1}>
+            {row.subjectName}
+          </Text>
+        </View>
+        <View style={styles.studyBody}>
+          <Text style={styles.studyBodyText} numberOfLines={1}>
+            {row.content}
+          </Text>
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -1465,12 +1516,8 @@ function ReviewCheck({
       progress.value = completed ? 1 : 0;
       return;
     }
-    progress.value = withTiming(completed ? 1 : 0, {
-      duration: durations.fill,
-      easing: completed
-        ? Easing.in(Easing.cubic)
-        : Easing.out(Easing.cubic),
-    });
+    cancelAnimation(progress);
+    progress.value = withTiming(completed ? 1 : 0, FILL_SHIFT);
   }, [completed, progress]);
 
   const boxStyle = useAnimatedStyle(
@@ -1524,12 +1571,8 @@ function ReviewCard({
       progress.value = card.completed ? 1 : 0;
       return;
     }
-    progress.value = withTiming(card.completed ? 1 : 0, {
-      duration: durations.fill,
-      easing: card.completed
-        ? Easing.in(Easing.cubic)
-        : Easing.out(Easing.cubic),
-    });
+    cancelAnimation(progress);
+    progress.value = withTiming(card.completed ? 1 : 0, FILL_SHIFT);
   }, [card.completed, progress]);
 
   const cardStyle = useAnimatedStyle(
@@ -1804,7 +1847,8 @@ const styles = StyleSheet.create({
   addStudyBtn: {
     height: sizes.addStudyHeight,
     borderRadius: radii.chip,
-    backgroundColor: colors.mainWhite,
+    // Empty / future shell fill (`colors.surface` = #F2F6FA).
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1819,7 +1863,8 @@ const styles = StyleSheet.create({
   addStudyMoreBtn: {
     height: sizes.studyBodyHeight,
     borderRadius: radii.chip,
-    backgroundColor: colors.mainWhite,
+    // Records exist — no gray shell behind the extra “+ 공부 기록 추가”.
+    backgroundColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1939,7 +1984,7 @@ const styles = StyleSheet.create({
     shadowColor: '#343D4B',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.16,
-    shadowRadius: 8,
+    shadowRadius: 32,
     elevation: 4,
     zIndex: 10,
   },

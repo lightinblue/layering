@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { HomeReviewStudy } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
@@ -8,12 +8,15 @@ export type ReviewDetailContentProps = {
   studies: HomeReviewStudy[];
   /** Optional chip fills from current subject list. */
   colorByName?: Record<string, string>;
+  /** Tap a study card → jump home week strip to that 학습일. */
+  onStudyPress?: (studiedOn: string) => void;
 };
 
 /** 「복습 내용」 sheet — that day’s study content for the selected reviews. */
 export function ReviewDetailContent({
   studies,
   colorByName,
+  onStudyPress,
 }: ReviewDetailContentProps) {
   return (
     <ScrollView
@@ -28,10 +31,9 @@ export function ReviewDetailContent({
       ) : (
         studies.map((study, index) => {
           const memo = study.memo?.trim();
-          return (
-            <View
-              key={`${study.subjectName}-${study.studiedOn}-${index}`}
-              style={styles.card}>
+          const canJump = Boolean(onStudyPress && study.studiedOn);
+          const card = (
+            <>
               <View
                 style={[
                   styles.subjectChip,
@@ -53,6 +55,31 @@ export function ReviewDetailContent({
               ) : null}
               <Text style={styles.bodyText}>{study.content}</Text>
               {memo ? <Text style={styles.memo}>{memo}</Text> : null}
+            </>
+          );
+
+          if (canJump) {
+            return (
+              <Pressable
+                key={`${study.subjectName}-${study.studiedOn}-${index}`}
+                accessibilityRole="button"
+                accessibilityLabel={`${study.subjectName} 학습일로 이동`}
+                accessibilityHint="시트를 닫고 홈 주간 날짜로 이동합니다"
+                onPress={() => onStudyPress?.(study.studiedOn)}
+                style={({ pressed }) => [
+                  styles.card,
+                  pressed && styles.cardPressed,
+                ]}>
+                {card}
+              </Pressable>
+            );
+          }
+
+          return (
+            <View
+              key={`${study.subjectName}-${study.studiedOn}-${index}`}
+              style={styles.card}>
+              {card}
             </View>
           );
         })
@@ -92,6 +119,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.chip,
     padding: 16,
     gap: 8,
+  },
+  cardPressed: {
+    opacity: 0.88,
   },
   studiedOn: {
     fontFamily: fonts.nexonMedium,

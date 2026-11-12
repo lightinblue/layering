@@ -1,7 +1,7 @@
 /** Design tokens from Figma Home (zgjHZrcERnHvzlG6cfxE0Y). */
 
 export const colors = {
-  mainWhite: '#fafafa',
+  mainWhite: '#ffffff',
   white: '#ffffff',
   black: '#000000',
   primary: '#1991ff',
@@ -44,7 +44,7 @@ export const radii = {
   reviewCard: 12,
   reviewChip: 6,
   checkbox: 8,
-  fab: 14,
+  fab: 16,
 } as const;
 
 export const sizes = {
