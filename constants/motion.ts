@@ -27,6 +27,15 @@ export const springs = {
     stiffness: 460,
     mass: 0.65,
   },
+  /**
+   * Day-number digit reel — chewy vertical flip with a soft settle
+   * (tens stay put when unchanged; ones roll).
+   */
+  digitReel: {
+    damping: 13,
+    stiffness: 200,
+    mass: 0.8,
+  },
 } as const;
 
 /** RN `Animated.spring` configs (legacy press feedback). */

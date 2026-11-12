@@ -32,6 +32,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,6 +73,7 @@ import {
   JUMP_ANIMATE_MAX_DELTA,
   PAGER_DECELERATION,
   durations,
+  springs,
 } from '@/constants/motion';
 import {
   REVIEW_INTERVAL_DAYS,
@@ -153,10 +155,98 @@ const ROW_LAYOUT = LinearTransition.duration(durations.listRow).easing(
 
 const DAY_NUMBER_TRAVEL = 86;
 const DATE_META_TRAVEL = 10;
+/** Fixed column width so tens stay visually locked while ones flip. */
+const DAY_DIGIT_WIDTH = 44;
+/** Chewy digit reel — soft overshoot settle (09→08: only ones rolls). */
+const DIGIT_REEL_SPRING = springs.digitReel;
 
 /**
- * Big day number — clipped vertical slide.
+ * One digit column — slides only when this glyph changes.
  * Forward: outgoing up / incoming from below; reverse for previous dates.
+ * Live Y values keep rapid day changes continuous.
+ */
+function AnimatedDigit({
+  digit,
+  dateKey,
+}: {
+  digit: string;
+  dateKey: string;
+}) {
+  const [incoming, setIncoming] = useState(digit);
+  const [outgoing, setOutgoing] = useState<string | null>(null);
+  const dateKeyRef = useRef(dateKey);
+  const digitRef = useRef(digit);
+  const outY = useSharedValue(0);
+  const inY = useSharedValue(0);
+
+  const clearOutgoing = useCallback(() => {
+    setOutgoing(null);
+  }, []);
+
+  useEffect(() => {
+    if (dateKey === dateKeyRef.current) {
+      digitRef.current = digit;
+      setIncoming(digit);
+      return;
+    }
+    const dir = dateKey > dateKeyRef.current ? 1 : -1;
+    dateKeyRef.current = dateKey;
+
+    // Unchanged digit stays put (tens on 09→08).
+    if (digit === digitRef.current) {
+      return;
+    }
+
+    cancelAnimation(outY);
+    cancelAnimation(inY);
+
+    // Preserve mid-flight Y so rapid taps continue as one reel.
+    outY.value = inY.value;
+    setOutgoing(digitRef.current);
+    digitRef.current = digit;
+    setIncoming(digit);
+    inY.value = dir * DAY_NUMBER_TRAVEL;
+
+    outY.value = withSpring(
+      -dir * DAY_NUMBER_TRAVEL,
+      DIGIT_REEL_SPRING,
+      (finished) => {
+        if (finished) runOnJS(clearOutgoing)();
+      },
+    );
+    inY.value = withSpring(0, DIGIT_REEL_SPRING);
+  }, [clearOutgoing, dateKey, digit, inY, outY]);
+
+  const outgoingStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: outY.value }],
+  }));
+
+  const incomingStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: inY.value }],
+  }));
+
+  return (
+    <View style={styles.dayDigitSlot}>
+      {outgoing != null ? (
+        <Animated.Text
+          pointerEvents="none"
+          style={[styles.dayNumber, styles.dayDigitOutgoing, outgoingStyle]}
+          numberOfLines={1}>
+          {outgoing}
+        </Animated.Text>
+      ) : null}
+      <Animated.Text
+        style={[styles.dayNumber, styles.dayDigit, incomingStyle]}
+        numberOfLines={1}>
+        {incoming}
+      </Animated.Text>
+    </View>
+  );
+}
+
+/**
+ * Big day number — per-digit clipped reel.
+ * Tens hold when unchanged; ones flip with a chewy spring.
  */
 function AnimatedDayNumber({
   dateKey,
@@ -165,64 +255,17 @@ function AnimatedDayNumber({
   dateKey: string;
   dayNumber: string;
 }) {
-  const [incoming, setIncoming] = useState(dayNumber);
-  const [outgoing, setOutgoing] = useState<string | null>(null);
-  const dateKeyRef = useRef(dateKey);
-  const incomingRef = useRef(dayNumber);
-  const progress = useSharedValue(1);
-  const direction = useSharedValue(1);
-
-  const clearOutgoing = useCallback(() => {
-    setOutgoing(null);
-  }, []);
-
-  useEffect(() => {
-    if (dateKey === dateKeyRef.current) {
-      incomingRef.current = dayNumber;
-      setIncoming(dayNumber);
-      return;
-    }
-    const dir = dateKey > dateKeyRef.current ? 1 : -1;
-    dateKeyRef.current = dateKey;
-    direction.value = dir;
-    setOutgoing(incomingRef.current);
-    incomingRef.current = dayNumber;
-    setIncoming(dayNumber);
-    cancelAnimation(progress);
-    progress.value = 0;
-    progress.value = withTiming(1, DATE_SHIFT, (finished) => {
-      if (finished) runOnJS(clearOutgoing)();
-    });
-  }, [clearOutgoing, dateKey, dayNumber, direction, progress]);
-
-  const outgoingStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: -direction.value * DAY_NUMBER_TRAVEL * progress.value },
-    ],
-  }));
-
-  const incomingStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY:
-          direction.value * DAY_NUMBER_TRAVEL * (1 - progress.value),
-      },
-    ],
-  }));
+  const digits = useMemo(() => {
+    const padded = dayNumber.padStart(2, '0').slice(-2);
+    return [padded[0]!, padded[1]!] as const;
+  }, [dayNumber]);
 
   return (
     <View style={styles.dayNumberSlot}>
-      {outgoing != null ? (
-        <Animated.Text
-          pointerEvents="none"
-          style={[styles.dayNumber, styles.dayNumberOutgoing, outgoingStyle]}
-          numberOfLines={1}>
-          {outgoing}
-        </Animated.Text>
-      ) : null}
-      <Animated.Text style={[styles.dayNumber, incomingStyle]} numberOfLines={1}>
-        {incoming}
-      </Animated.Text>
+      <View style={styles.dayNumberDigits}>
+        <AnimatedDigit digit={digits[0]} dateKey={dateKey} />
+        <AnimatedDigit digit={digits[1]} dateKey={dateKey} />
+      </View>
     </View>
   );
 }
@@ -1835,19 +1878,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
+  dayNumberDigits: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dayDigitSlot: {
+    width: DAY_DIGIT_WIDTH,
+    height: DAY_NUMBER_TRAVEL,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   dayNumber: {
     fontFamily: fonts.gothamBold,
     fontSize: sizes.dayNumber,
     color: colors.black,
     lineHeight: DAY_NUMBER_TRAVEL,
-    letterSpacing: -2,
+    letterSpacing: 0,
     flexShrink: 0,
     includeFontPadding: false,
   },
-  dayNumberOutgoing: {
+  dayDigit: {
+    width: '100%',
+    textAlign: 'center',
+  },
+  dayDigitOutgoing: {
     position: 'absolute',
     left: 0,
+    right: 0,
     top: 0,
+    textAlign: 'center',
   },
   dateMeta: {
     minWidth: 85,
