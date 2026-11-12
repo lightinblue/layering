@@ -109,17 +109,11 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
           {pageIndex === 1 ? (
             <TutorialProductPreview width={visualWidth} />
           ) : null}
-          <View style={styles.copyBlock}>
-            {/* Same token as page-1+ body / secondary copy */}
-            <Text style={[styles.copy, { color: colors.body }]}>
-              {item.body}
-            </Text>
-            {item.sub ? (
-              <Text style={[styles.copy, { color: colors.body }]}>
-                {item.sub}
-              </Text>
-            ) : null}
-          </View>
+          {/* Same token + lineHeight as page-1 body (\\n lines, no extra gap). */}
+          <Text style={[styles.copy, { color: colors.body }]}>{item.body}</Text>
+          {item.sub ? (
+            <Text style={[styles.copy, { color: colors.body }]}>{item.sub}</Text>
+          ) : null}
           {item.accent ? (
             <Animated.Text
               entering={FadeIn.delay(80).duration(durations.fadeIn).easing(
@@ -285,7 +279,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   page: {
-    // Extra air between title → visual → copy block.
+    // Extra air between title → visual → body.
     gap: 18,
   },
   eyebrow: {
@@ -298,10 +292,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 32,
   },
-  copyBlock: {
-    gap: 6,
-  },
-  /** Secondary body — shared by page-0 main/sub and page-1+ body. */
+  /** Secondary body — shared by page-0 and page-1 (lineHeight owns multi-line gap). */
   copy: {
     fontFamily: fonts.nexonRegular,
     fontSize: 14,
