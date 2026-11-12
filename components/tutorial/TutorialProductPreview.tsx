@@ -31,10 +31,11 @@ const SAMPLE_REVIEWS = [
   },
 ] as const;
 
-/** Natural stacked height: study 44 + gap 8 + review card 120. */
+/** Natural stacked height: study 44 + gap + review card 120. */
 const NATURAL_STACK_H =
   sizes.studyBodyHeight + spacing.studyRowGap + 8 + 120;
-const FRAME_PAD = 10;
+/** Tiny vertical inset so content doesn’t kiss the frame edges. */
+const FRAME_INSET_Y = 4;
 
 type TutorialProductPreviewProps = {
   /** Same width passed to page-0 ForgettingCurveGraph. */
@@ -43,16 +44,17 @@ type TutorialProductPreviewProps = {
 
 /**
  * Page-1 product snapshot in the exact graph W×H frame.
- * One home-sized study row + two review check cards; uniform scale + center
- * so cards aren’t individually squashed.
+ * Study row + two review cards fill the frame width; uniform scale fits height
+ * (pre-widened so scale doesn’t leave side gutters).
  */
 export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
   const theme = useThemeColors();
   const { width: layoutW, height: layoutH } = tutorialVisualSize(width);
-  const innerW = layoutW - FRAME_PAD * 2;
-  const innerH = layoutH - FRAME_PAD * 2;
-  const cardW = (innerW - spacing.reviewGap) / 2;
+  const innerH = layoutH - FRAME_INSET_Y * 2;
   const scale = Math.min(1, innerH / NATURAL_STACK_H);
+  // After scale, visual width == layoutW (full graph width).
+  const contentW = layoutW / scale;
+  const cardW = (contentW - spacing.reviewGap) / 2;
   const scaledH = NATURAL_STACK_H * scale;
 
   return (
@@ -66,90 +68,96 @@ export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
           backgroundColor: theme.surface,
         },
       ]}>
-      {/* Layout footprint matches visual size so the group centers cleanly. */}
-      <View style={{ width: innerW, height: scaledH, justifyContent: 'center' }}>
+      <View
+        style={{
+          width: layoutW,
+          height: scaledH,
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}>
         <View
           style={[
             styles.scaled,
             {
-              width: innerW,
+              width: contentW,
               height: NATURAL_STACK_H,
               transform: [{ scale }],
             },
           ]}>
-        <View style={styles.studyRow}>
-          <View
-            style={[
-              styles.studyChip,
-              { backgroundColor: subjectColor(SAMPLE_STUDY.subject) },
-            ]}>
-            <Text style={styles.studyChipText} numberOfLines={1}>
-              {SAMPLE_STUDY.subject}
-            </Text>
-          </View>
-          <View style={styles.studyBody}>
-            <Text style={styles.studyBodyText} numberOfLines={1}>
-              {SAMPLE_STUDY.content}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.reviewRow}>
-          {SAMPLE_REVIEWS.map((card) => (
+          <View style={styles.studyRow}>
             <View
-              key={card.days}
               style={[
-                styles.reviewCard,
-                {
-                  width: cardW,
-                  backgroundColor: card.completed
-                    ? theme.primarySoft
-                    : colors.white,
-                  borderColor: card.completed ? theme.primary : '#e4eaef',
-                  borderWidth: card.completed ? 2 : 1,
-                },
+                styles.studyChip,
+                { backgroundColor: subjectColor(SAMPLE_STUDY.subject) },
               ]}>
-              <View style={styles.reviewCardInner}>
-                <View style={styles.reviewTopBlock}>
-                  <View style={styles.reviewTop}>
-                    <View
-                      style={[
-                        styles.checkbox,
-                        {
-                          backgroundColor: card.completed
-                            ? theme.primary
-                            : colors.mutedLight,
-                        },
-                      ]}>
-                      {card.completed ? <CheckIcon /> : null}
-                    </View>
-                    <Text style={styles.intervalText} numberOfLines={1}>
-                      {intervalLabel(card.days)}
-                    </Text>
-                  </View>
-                  <View style={styles.reviewChips}>
-                    {card.subjects.map((name) => (
+              <Text style={styles.studyChipText} numberOfLines={1}>
+                {SAMPLE_STUDY.subject}
+              </Text>
+            </View>
+            <View style={styles.studyBody}>
+              <Text style={styles.studyBodyText} numberOfLines={1}>
+                {SAMPLE_STUDY.content}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.reviewRow}>
+            {SAMPLE_REVIEWS.map((card) => (
+              <View
+                key={card.days}
+                style={[
+                  styles.reviewCard,
+                  {
+                    width: cardW,
+                    backgroundColor: card.completed
+                      ? theme.primarySoft
+                      : colors.white,
+                    borderColor: card.completed ? theme.primary : '#e4eaef',
+                    borderWidth: card.completed ? 2 : 1,
+                  },
+                ]}>
+                <View style={styles.reviewCardInner}>
+                  <View style={styles.reviewTopBlock}>
+                    <View style={styles.reviewTop}>
                       <View
-                        key={name}
                         style={[
-                          styles.reviewChip,
-                          { backgroundColor: subjectColor(name) },
+                          styles.checkbox,
+                          {
+                            backgroundColor: card.completed
+                              ? theme.primary
+                              : colors.mutedLight,
+                          },
                         ]}>
-                        <Text style={styles.reviewChipText}>
-                          {name.charAt(0)}
-                        </Text>
+                        {card.completed ? <CheckIcon /> : null}
                       </View>
-                    ))}
+                      <Text style={styles.intervalText} numberOfLines={1}>
+                        {intervalLabel(card.days)}
+                      </Text>
+                    </View>
+                    <View style={styles.reviewChips}>
+                      {card.subjects.map((name) => (
+                        <View
+                          key={name}
+                          style={[
+                            styles.reviewChip,
+                            { backgroundColor: subjectColor(name) },
+                          ]}>
+                          <Text style={styles.reviewChipText}>
+                            {name.charAt(0)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
                   </View>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailText}>자세히</Text>
-                  <ArrowRightIcon />
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailText}>자세히</Text>
+                    <ArrowRightIcon />
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
         </View>
       </View>
     </View>
