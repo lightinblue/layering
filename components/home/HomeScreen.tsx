@@ -1641,7 +1641,7 @@ function EmptyReviewSlot({
       accessibilityLabel={`${label} 공부 기록이 없어요`}
       style={[styles.reviewCard, styles.reviewCardEmpty, { width }]}>
       <View style={styles.emptySlotCopy}>
-        <Text style={styles.intervalText}>{label}</Text>
+        <Text style={[styles.intervalText, styles.emptySlotLine]}>{label}</Text>
         <Text style={styles.emptySlotLine}>공부 기록이</Text>
         <Text style={styles.emptySlotLine}>없어요</Text>
       </View>
@@ -2096,7 +2096,8 @@ const styles = StyleSheet.create({
   emptySlotLine: {
     fontFamily: fonts.nexonMedium,
     fontSize: 11,
-    color: colors.accentText,
+    // Noticeably lighter than filled 「N일 전」 (accentText).
+    color: colors.mutedLight,
     letterSpacing: -0.44,
   },
   reviewChips: {
