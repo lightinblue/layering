@@ -28,10 +28,10 @@ export const springs = {
     mass: 0.65,
   },
   /**
-   * Day-number digit reel — chewy vertical flip with a soft settle
-   * (tens stay put when unchanged; ones roll).
+   * Date header (day number + weekday + month/day) — chewy vertical
+   * slide with a soft overshoot settle.
    */
-  digitReel: {
+  dateHeader: {
     damping: 13,
     stiffness: 200,
     mass: 0.8,

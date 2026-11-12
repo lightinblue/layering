@@ -155,27 +155,26 @@ const ROW_LAYOUT = LinearTransition.duration(durations.listRow).easing(
 
 const DAY_NUMBER_TRAVEL = 86;
 const DATE_META_TRAVEL = 10;
-/** Fixed column width so tens stay visually locked while ones flip. */
-const DAY_DIGIT_WIDTH = 44;
-/** Chewy digit reel — soft overshoot settle (09→08: only ones rolls). */
-const DIGIT_REEL_SPRING = springs.digitReel;
+const DATE_LABEL_TRAVEL = DATE_META_TRAVEL * 0.6;
+/** Chewy date-header spring — day number, weekday, month/day. */
+const DATE_HEADER_SPRING = springs.dateHeader;
 
 /**
- * One digit column — slides only when this glyph changes.
+ * Big day number — clipped vertical slide as one unit.
  * Forward: outgoing up / incoming from below; reverse for previous dates.
- * Live Y values keep rapid day changes continuous.
+ * Live Y + spring keep rapid changes continuous with a chewy settle.
  */
-function AnimatedDigit({
-  digit,
+function AnimatedDayNumber({
   dateKey,
+  dayNumber,
 }: {
-  digit: string;
   dateKey: string;
+  dayNumber: string;
 }) {
-  const [incoming, setIncoming] = useState(digit);
+  const [incoming, setIncoming] = useState(dayNumber);
   const [outgoing, setOutgoing] = useState<string | null>(null);
   const dateKeyRef = useRef(dateKey);
-  const digitRef = useRef(digit);
+  const incomingRef = useRef(dayNumber);
   const outY = useSharedValue(0);
   const inY = useSharedValue(0);
 
@@ -185,37 +184,32 @@ function AnimatedDigit({
 
   useEffect(() => {
     if (dateKey === dateKeyRef.current) {
-      digitRef.current = digit;
-      setIncoming(digit);
+      incomingRef.current = dayNumber;
+      setIncoming(dayNumber);
       return;
     }
     const dir = dateKey > dateKeyRef.current ? 1 : -1;
     dateKeyRef.current = dateKey;
 
-    // Unchanged digit stays put (tens on 09→08).
-    if (digit === digitRef.current) {
-      return;
-    }
-
     cancelAnimation(outY);
     cancelAnimation(inY);
 
-    // Preserve mid-flight Y so rapid taps continue as one reel.
+    // Preserve mid-flight Y so rapid taps continue as one slide.
     outY.value = inY.value;
-    setOutgoing(digitRef.current);
-    digitRef.current = digit;
-    setIncoming(digit);
+    setOutgoing(incomingRef.current);
+    incomingRef.current = dayNumber;
+    setIncoming(dayNumber);
     inY.value = dir * DAY_NUMBER_TRAVEL;
 
     outY.value = withSpring(
       -dir * DAY_NUMBER_TRAVEL,
-      DIGIT_REEL_SPRING,
+      DATE_HEADER_SPRING,
       (finished) => {
         if (finished) runOnJS(clearOutgoing)();
       },
     );
-    inY.value = withSpring(0, DIGIT_REEL_SPRING);
-  }, [clearOutgoing, dateKey, digit, inY, outY]);
+    inY.value = withSpring(0, DATE_HEADER_SPRING);
+  }, [clearOutgoing, dateKey, dayNumber, inY, outY]);
 
   const outgoingStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: outY.value }],
@@ -226,51 +220,23 @@ function AnimatedDigit({
   }));
 
   return (
-    <View style={styles.dayDigitSlot}>
+    <View style={styles.dayNumberSlot}>
       {outgoing != null ? (
         <Animated.Text
           pointerEvents="none"
-          style={[styles.dayNumber, styles.dayDigitOutgoing, outgoingStyle]}
+          style={[styles.dayNumber, styles.dayNumberOutgoing, outgoingStyle]}
           numberOfLines={1}>
           {outgoing}
         </Animated.Text>
       ) : null}
-      <Animated.Text
-        style={[styles.dayNumber, styles.dayDigit, incomingStyle]}
-        numberOfLines={1}>
+      <Animated.Text style={[styles.dayNumber, incomingStyle]} numberOfLines={1}>
         {incoming}
       </Animated.Text>
     </View>
   );
 }
 
-/**
- * Big day number — per-digit clipped reel.
- * Tens hold when unchanged; ones flip with a chewy spring.
- */
-function AnimatedDayNumber({
-  dateKey,
-  dayNumber,
-}: {
-  dateKey: string;
-  dayNumber: string;
-}) {
-  const digits = useMemo(() => {
-    const padded = dayNumber.padStart(2, '0').slice(-2);
-    return [padded[0]!, padded[1]!] as const;
-  }, [dayNumber]);
-
-  return (
-    <View style={styles.dayNumberSlot}>
-      <View style={styles.dayNumberDigits}>
-        <AnimatedDigit digit={digits[0]} dateKey={dateKey} />
-        <AnimatedDigit digit={digits[1]} dateKey={dateKey} />
-      </View>
-    </View>
-  );
-}
-
-/** Weekday + month/day — same direction/timing as the day number. */
+/** Weekday + month/day — same chewy spring language as the day number. */
 function AnimatedDateMeta({
   dateKey,
   weekdayLabel,
@@ -287,8 +253,14 @@ function AnimatedDateMeta({
   const dateKeyRef = useRef(dateKey);
   const weekdayRef = useRef(weekdayLabel);
   const labelRef = useRef(dateLabel);
-  const progress = useSharedValue(1);
-  const direction = useSharedValue(1);
+  const weekdayOutY = useSharedValue(0);
+  const weekdayInY = useSharedValue(0);
+  const weekdayOutOpacity = useSharedValue(1);
+  const weekdayInOpacity = useSharedValue(1);
+  const labelOutY = useSharedValue(0);
+  const labelInY = useSharedValue(0);
+  const labelOutOpacity = useSharedValue(1);
+  const labelInOpacity = useSharedValue(1);
 
   const clearOutgoing = useCallback(() => {
     setOutgoingWeekday(null);
@@ -305,60 +277,77 @@ function AnimatedDateMeta({
     }
     const dir = dateKey > dateKeyRef.current ? 1 : -1;
     dateKeyRef.current = dateKey;
-    direction.value = dir;
+
+    cancelAnimation(weekdayOutY);
+    cancelAnimation(weekdayInY);
+    cancelAnimation(weekdayOutOpacity);
+    cancelAnimation(weekdayInOpacity);
+    cancelAnimation(labelOutY);
+    cancelAnimation(labelInY);
+    cancelAnimation(labelOutOpacity);
+    cancelAnimation(labelInOpacity);
+
+    weekdayOutY.value = weekdayInY.value;
+    weekdayOutOpacity.value = weekdayInOpacity.value;
+    labelOutY.value = labelInY.value;
+    labelOutOpacity.value = labelInOpacity.value;
+
     setOutgoingWeekday(weekdayRef.current);
     setOutgoingLabel(labelRef.current);
     weekdayRef.current = weekdayLabel;
     labelRef.current = dateLabel;
     setIncomingWeekday(weekdayLabel);
     setIncomingLabel(dateLabel);
-    cancelAnimation(progress);
-    progress.value = 0;
-    progress.value = withTiming(1, DATE_SHIFT, (finished) => {
+
+    weekdayInY.value = dir * DATE_META_TRAVEL;
+    weekdayInOpacity.value = 0;
+    labelInY.value = dir * DATE_LABEL_TRAVEL;
+    labelInOpacity.value = 0;
+
+    weekdayOutY.value = withSpring(-dir * DATE_META_TRAVEL, DATE_HEADER_SPRING);
+    weekdayOutOpacity.value = withSpring(0, DATE_HEADER_SPRING);
+    weekdayInY.value = withSpring(0, DATE_HEADER_SPRING);
+    weekdayInOpacity.value = withSpring(1, DATE_HEADER_SPRING);
+
+    labelOutY.value = withSpring(-dir * DATE_LABEL_TRAVEL, DATE_HEADER_SPRING);
+    labelOutOpacity.value = withSpring(0, DATE_HEADER_SPRING);
+    labelInY.value = withSpring(0, DATE_HEADER_SPRING, (finished) => {
       if (finished) runOnJS(clearOutgoing)();
     });
+    labelInOpacity.value = withSpring(1, DATE_HEADER_SPRING);
   }, [
     clearOutgoing,
     dateKey,
     dateLabel,
-    direction,
-    progress,
+    labelInOpacity,
+    labelInY,
+    labelOutOpacity,
+    labelOutY,
+    weekdayInOpacity,
+    weekdayInY,
     weekdayLabel,
+    weekdayOutOpacity,
+    weekdayOutY,
   ]);
 
   const outgoingWeekdayStyle = useAnimatedStyle(() => ({
-    opacity: 1 - progress.value,
-    transform: [
-      { translateY: -direction.value * DATE_META_TRAVEL * progress.value },
-    ],
+    opacity: Math.min(1, Math.max(0, weekdayOutOpacity.value)),
+    transform: [{ translateY: weekdayOutY.value }],
   }));
 
   const incomingWeekdayStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [
-      {
-        translateY: direction.value * DATE_META_TRAVEL * (1 - progress.value),
-      },
-    ],
+    opacity: Math.min(1, Math.max(0, weekdayInOpacity.value)),
+    transform: [{ translateY: weekdayInY.value }],
   }));
 
   const outgoingLabelStyle = useAnimatedStyle(() => ({
-    opacity: 1 - progress.value,
-    transform: [
-      {
-        translateY: -direction.value * (DATE_META_TRAVEL * 0.6) * progress.value,
-      },
-    ],
+    opacity: Math.min(1, Math.max(0, labelOutOpacity.value)),
+    transform: [{ translateY: labelOutY.value }],
   }));
 
   const incomingLabelStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [
-      {
-        translateY:
-          direction.value * (DATE_META_TRAVEL * 0.6) * (1 - progress.value),
-      },
-    ],
+    opacity: Math.min(1, Math.max(0, labelInOpacity.value)),
+    transform: [{ translateY: labelInY.value }],
   }));
 
   return (
@@ -1878,36 +1867,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
-  dayNumberDigits: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dayDigitSlot: {
-    width: DAY_DIGIT_WIDTH,
-    height: DAY_NUMBER_TRAVEL,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   dayNumber: {
     fontFamily: fonts.gothamBold,
     fontSize: sizes.dayNumber,
     color: colors.black,
     lineHeight: DAY_NUMBER_TRAVEL,
-    letterSpacing: 0,
+    letterSpacing: -2,
     flexShrink: 0,
     includeFontPadding: false,
   },
-  dayDigit: {
-    width: '100%',
-    textAlign: 'center',
-  },
-  dayDigitOutgoing: {
+  dayNumberOutgoing: {
     position: 'absolute',
     left: 0,
-    right: 0,
     top: 0,
-    textAlign: 'center',
   },
   dateMeta: {
     minWidth: 85,
