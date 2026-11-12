@@ -12,8 +12,15 @@ WidgetKit extension (`targets/today-review`) reads the App Group snapshot writte
 | Deep link | `layering://` (today home) |
 | Chrome | Signature blue theme-dot before title; tokens match home (`primary` / `primarySoft` / `surface`) |
 | Sizes | Small / Medium summary · Large card list (chip + `N일 전` + checkbox; no title / 자세히) |
+| Tap (v1) | Whole widget opens the app (`layering://`). Checkbox is **display-only** — no in-widget toggle. |
 
 Expo Go cannot show this widget — use a **dev client** or **TestFlight** binary.
+
+## Interaction (design)
+
+**v1:** Tap anywhere → open today home. Large-row checkboxes show completed state only; they are not buttons.
+
+**Later:** In-widget check-off needs iOS 17+ interactive widgets (`Button` + `AppIntent` / `Toggle`) writing App Group + reloading timelines. Not in v1.
 
 ## Build (EAS)
 
