@@ -14,6 +14,11 @@
       "infoPlist": {
         "CFBundleDisplayName": "레이어링",
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.lightinblue.layering.poogae"
+        ]
       }
     },
     "android": {
@@ -39,7 +44,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"
         }
-      ]
+      ],
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true

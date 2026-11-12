@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ExtensionStorage } from '@bacons/apple-targets';
+import { Platform } from 'react-native';
 
 import { STORAGE_KEYS } from '@/storage/keys';
 import type { AppData } from '@/types/domain';
@@ -11,33 +13,47 @@ import {
 export type { TodayReviewWidgetSnapshot } from '@/utils/today-review-widget-snapshot';
 
 /**
- * Planned App Group id for 포개 WidgetKit (not provisioned in this Expo Go
- * / managed step — no native ios/ + entitlements yet).
+ * App Group id for 포개 WidgetKit (entitlement in app.json; create the group
+ * in Apple Developer before production / TestFlight builds that need it).
  */
 export const POOGAE_WIDGET_APP_GROUP_ID = 'group.com.lightinblue.layering.poogae';
 
-/** UserDefaults / shared-file key WidgetKit should read later. */
+/** UserDefaults suite key WidgetKit should read. */
 export const POOGAE_WIDGET_SNAPSHOT_KEY = 'todayReviewWidget.v1';
 
+const appGroupStorage = new ExtensionStorage(POOGAE_WIDGET_APP_GROUP_ID);
+
 /**
- * TODO(포개 WidgetKit / App Group):
- * Write `JSON.stringify(snapshot)` into the App Group container, e.g.
- * `UserDefaults(suiteName: POOGAE_WIDGET_APP_GROUP_ID)` or a shared file under
- * `FileManager.containerURL(forSecurityApplicationGroupIdentifier:)`, then call
- * `WidgetCenter.shared.reloadTimelines(ofKind:)`.
+ * Write snapshot JSON into the App Group UserDefaults suite.
  *
- * Managed Expo + Expo Go cannot reach App Group from JS without a custom
- * native module / expo-widgets — stub keeps the write API stable for step 3.
+ * Uses `@bacons/apple-targets` ExtensionStorage →
+ * `UserDefaults(suiteName: POOGAE_WIDGET_APP_GROUP_ID)`.
+ * No-ops on non-iOS and when the native module is missing (Expo Go).
+ *
+ * WidgetKit step still needs:
+ * - Widget extension target with the same App Group entitlement
+ * - Swift read: `UserDefaults(suiteName:)?.string(forKey: todayReviewWidget.v1)`
+ * - TimelineProvider + UI (reloadTimelines is already called here)
  */
-async function writeTodayReviewWidgetSnapshotToAppGroupStub(
-  _snapshot: TodayReviewWidgetSnapshot,
+async function writeTodayReviewWidgetSnapshotToAppGroup(
+  snapshot: TodayReviewWidgetSnapshot,
 ): Promise<void> {
-  // no-op until App Group + WidgetKit target land
+  if (Platform.OS !== 'ios') return;
+  try {
+    appGroupStorage.set(
+      POOGAE_WIDGET_SNAPSHOT_KEY,
+      JSON.stringify(snapshot),
+    );
+    ExtensionStorage.reloadWidget();
+  } catch {
+    // Expo Go / missing native module / suite not provisioned — AsyncStorage
+    // mirror remains the source of truth for the app process.
+  }
 }
 
 /**
  * Persist a today-review widget snapshot.
- * Current path: AsyncStorage mirror + App Group stub (see TODO above).
+ * AsyncStorage mirror (app) + App Group UserDefaults (widget).
  */
 export async function writeTodayReviewWidgetSnapshot(
   snapshot: TodayReviewWidgetSnapshot,
@@ -46,7 +62,7 @@ export async function writeTodayReviewWidgetSnapshot(
     STORAGE_KEYS.todayReviewWidget,
     JSON.stringify(snapshot),
   );
-  await writeTodayReviewWidgetSnapshotToAppGroupStub(snapshot);
+  await writeTodayReviewWidgetSnapshotToAppGroup(snapshot);
 }
 
 export async function readTodayReviewWidgetSnapshot(): Promise<TodayReviewWidgetSnapshot | null> {
