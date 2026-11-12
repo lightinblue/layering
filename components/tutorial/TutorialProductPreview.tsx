@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { ArrowRightIcon, CheckIcon } from '@/components/icons/HomeIcons';
+import { CheckIcon } from '@/components/icons/HomeIcons';
 import { tutorialVisualSize } from '@/components/tutorial/ForgettingCurveGraph';
 import { fonts } from '@/constants/fonts';
 import { intervalLabel } from '@/constants/home-mock';
@@ -31,9 +31,10 @@ const SAMPLE_REVIEWS = [
   },
 ] as const;
 
-/** Natural stacked height: study 44 + gap + review card 120. */
-const NATURAL_STACK_H =
-  sizes.studyBodyHeight + spacing.studyRowGap + 8 + 120;
+/** Shorter cards (no 자세히): checkbox row + chips + padding ≈ 86. */
+const REVIEW_CARD_H = 86;
+const STACK_GAP = spacing.studyRowGap + 3;
+const NATURAL_STACK_H = sizes.studyBodyHeight + STACK_GAP + REVIEW_CARD_H;
 const FRAME_PAD_X = 14;
 const FRAME_PAD_Y = 10;
 
@@ -43,8 +44,8 @@ type TutorialProductPreviewProps = {
 };
 
 /**
- * Page-1 product snapshot: one study row + two review check cards.
- * Gray frame is slightly larger than the graph so inner padding stays natural.
+ * Page-1 product snapshot: one study row + two compact review check cards.
+ * Gray frame keeps soft inset padding; no 자세히 affordance.
  */
 export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
   const theme = useThemeColors();
@@ -100,43 +101,33 @@ export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
                   borderWidth: card.completed ? 2 : 1,
                 },
               ]}>
-              <View style={styles.reviewCardInner}>
-                <View style={styles.reviewTopBlock}>
-                  <View style={styles.reviewTop}>
-                    <View
-                      style={[
-                        styles.checkbox,
-                        {
-                          backgroundColor: card.completed
-                            ? theme.primary
-                            : colors.mutedLight,
-                        },
-                      ]}>
-                      {card.completed ? <CheckIcon /> : null}
-                    </View>
-                    <Text style={styles.intervalText} numberOfLines={1}>
-                      {intervalLabel(card.days)}
-                    </Text>
-                  </View>
-                  <View style={styles.reviewChips}>
-                    {card.subjects.map((name) => (
-                      <View
-                        key={name}
-                        style={[
-                          styles.reviewChip,
-                          { backgroundColor: subjectColor(name) },
-                        ]}>
-                        <Text style={styles.reviewChipText}>
-                          {name.charAt(0)}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
+              <View style={styles.reviewTop}>
+                <View
+                  style={[
+                    styles.checkbox,
+                    {
+                      backgroundColor: card.completed
+                        ? theme.primary
+                        : colors.mutedLight,
+                    },
+                  ]}>
+                  {card.completed ? <CheckIcon /> : null}
                 </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailText}>자세히</Text>
-                  <ArrowRightIcon />
-                </View>
+                <Text style={styles.intervalText} numberOfLines={1}>
+                  {intervalLabel(card.days)}
+                </Text>
+              </View>
+              <View style={styles.reviewChips}>
+                {card.subjects.map((name) => (
+                  <View
+                    key={name}
+                    style={[
+                      styles.reviewChip,
+                      { backgroundColor: subjectColor(name) },
+                    ]}>
+                    <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
+                  </View>
+                ))}
               </View>
             </View>
           ))}
@@ -155,7 +146,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stack: {
-    gap: spacing.studyRowGap + 3,
+    gap: STACK_GAP,
   },
   studyRow: {
     flexDirection: 'row',
@@ -200,20 +191,12 @@ const styles = StyleSheet.create({
   },
   reviewCard: {
     borderRadius: radii.reviewCard,
-    paddingTop: 12,
-    paddingBottom: 11,
+    paddingTop: 10,
+    paddingBottom: 10,
     paddingLeft: 12,
-    paddingRight: 8,
-    minHeight: 120,
-  },
-  reviewCardInner: {
-    flex: 1,
-    gap: 12,
-    justifyContent: 'space-between',
-    minHeight: 95,
-  },
-  reviewTopBlock: {
-    gap: 9,
+    paddingRight: 10,
+    minHeight: REVIEW_CARD_H,
+    gap: 8,
   },
   reviewTop: {
     flexDirection: 'row',
@@ -252,20 +235,5 @@ const styles = StyleSheet.create({
     color: colors.white,
     textAlign: 'center',
     lineHeight: 16,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 1,
-    alignSelf: 'stretch',
-  },
-  detailText: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 10,
-    color: colors.muted,
-    letterSpacing: -0.4,
-    textAlign: 'right',
-    lineHeight: 12,
   },
 });
