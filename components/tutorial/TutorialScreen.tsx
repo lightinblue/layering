@@ -131,10 +131,13 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
           </Text>
           {index === 0 ? (
             <ForgettingCurveGraph
-              width={Math.min(252, contentWidth * 0.76)}
+              width={Math.min(292, contentWidth * 0.88)}
             />
           ) : null}
           <Text style={[styles.copy, { color: colors.body }]}>{page.body}</Text>
+          {page.sub ? (
+            <Text style={[styles.sub, { color: colors.muted }]}>{page.sub}</Text>
+          ) : null}
           {page.accent ? (
             <Animated.Text
               entering={FadeIn.delay(80).duration(durations.fadeIn)}
@@ -225,8 +228,13 @@ const styles = StyleSheet.create({
   },
   copy: {
     fontFamily: fonts.nexonRegular,
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  sub: {
+    fontFamily: fonts.nexonRegular,
+    fontSize: 13,
+    lineHeight: 20,
   },
   accent: {
     marginTop: 2,
