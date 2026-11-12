@@ -87,12 +87,14 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
     ({ item, index: pageIndex }: { item: TutorialPage; index: number }) => (
       <View style={[styles.pageSlide, { width }]}>
         <View style={[styles.page, { width: contentWidth }]}>
-          <Text style={[styles.eyebrow, { color: colors.primary }]}>
-            {item.eyebrow}
-          </Text>
-          <Text style={[styles.title, { color: colors.black }]}>
-            {item.title}
-          </Text>
+          <View style={styles.titleBlock}>
+            <Text style={[styles.eyebrow, { color: colors.primary }]}>
+              {item.eyebrow}
+            </Text>
+            <Text style={[styles.title, { color: colors.black }]}>
+              {item.title}
+            </Text>
+          </View>
           {pageIndex === 0 ? (
             <ForgettingCurveGraph width={visualWidth} />
           ) : null}
@@ -240,8 +242,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   page: {
-    // Extra air between title → visual → body.
+    // Air between title block → visual → body (unchanged).
     gap: 22,
+  },
+  /** Eyebrow (포개 / 이렇게 써요) sits tight above the title. */
+  titleBlock: {
+    gap: 6,
   },
   eyebrow: {
     fontFamily: fonts.nexonBold,
