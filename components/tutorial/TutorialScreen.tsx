@@ -109,11 +109,17 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
           {pageIndex === 1 ? (
             <TutorialProductPreview width={visualWidth} />
           ) : null}
-          {/* Same token as page-1+ body / secondary copy */}
-          <Text style={[styles.copy, { color: colors.body }]}>{item.body}</Text>
-          {item.sub ? (
-            <Text style={[styles.copy, { color: colors.body }]}>{item.sub}</Text>
-          ) : null}
+          <View style={styles.copyBlock}>
+            {/* Same token as page-1+ body / secondary copy */}
+            <Text style={[styles.copy, { color: colors.body }]}>
+              {item.body}
+            </Text>
+            {item.sub ? (
+              <Text style={[styles.copy, { color: colors.body }]}>
+                {item.sub}
+              </Text>
+            ) : null}
+          </View>
           {item.accent ? (
             <Animated.Text
               entering={FadeIn.delay(80).duration(durations.fadeIn).easing(
@@ -279,7 +285,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   page: {
-    gap: 12,
+    // Extra air between title → visual → copy block.
+    gap: 18,
   },
   eyebrow: {
     fontFamily: fonts.nexonBold,
@@ -291,6 +298,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 32,
   },
+  copyBlock: {
+    gap: 6,
+  },
   /** Secondary body — shared by page-0 main/sub and page-1+ body. */
   copy: {
     fontFamily: fonts.nexonRegular,
@@ -298,7 +308,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   accent: {
-    marginTop: 2,
+    marginTop: 0,
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
     lineHeight: 22,
