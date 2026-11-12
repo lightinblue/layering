@@ -1,29 +1,17 @@
-/** Launch / splash screen — native plugin and in-app overlay share these values. */
+/** Launch / splash — native plugin + in-app overlay share these values. */
 export const LAUNCH = {
-  /** White splash plane (logo mark is blue on transparent). */
+  /** White splash plane (symbol sits on transparent/white art). */
   backgroundColor: '#FFFFFF',
-  /** Logical px; keep close to expo-splash-screen image size. */
+  /**
+   * Logical px for the centered mark.
+   * Keep in sync with expo-splash-screen `imageWidth` in app.json.
+   */
   markSize: 140,
-  /** Space between the centered mark and the first copy line. */
-  textGap: 8,
-  /** Lift logo + copy above true center (px). */
-  contentLift: 28,
-  /** Logo alone before copy animates in. */
-  textRevealDelayMs: 600,
-  textRevealDurationMs: 520,
-  /** Title → line1 → line2 stagger. */
-  taglineStaggerMs: 160,
-  /** Hold after the last line finishes entering, before fade-out. */
-  holdAfterTextMs: 1500,
-  fadeOutMs: 500,
+  /** Brief hold on the centered symbol before fade-out (no copy). */
+  holdMs: 900,
+  fadeOutMs: 400,
 } as const;
 
 export function launchHoldBeforeFadeMs() {
-  return (
-    LAUNCH.textRevealDelayMs +
-    LAUNCH.textRevealDurationMs +
-    /** Two stagger steps: title → line1 → line2 */
-    LAUNCH.taglineStaggerMs * 2 +
-    LAUNCH.holdAfterTextMs
-  );
+  return LAUNCH.holdMs;
 }

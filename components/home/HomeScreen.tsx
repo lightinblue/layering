@@ -10,6 +10,7 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -42,6 +43,10 @@ import {
   type SubjectOption,
 } from '@/components/home/AddStudyForm';
 import { ReviewDetailContent } from '@/components/home/ReviewDetailContent';
+import {
+  REVIEW_COMPLETE_TOASTS,
+  ReviewCompleteToast,
+} from '@/components/home/ReviewCompleteToast';
 import { SettingsSheet } from '@/components/home/SettingsSheet';
 import {
   ArrowRightIcon,
@@ -69,6 +74,10 @@ import {
   durations,
 } from '@/constants/motion';
 import {
+  REVIEW_INTERVAL_DAYS,
+  type ReviewIntervalDay,
+} from '@/constants/review';
+import {
   colors,
   radii,
   sizes,
@@ -78,7 +87,6 @@ import {
 import {
   addSubject,
   appendStudyWithReviews,
-  DEFAULT_SUBJECTS,
   deleteStudyWithReviews,
   EMPTY_APP_DATA,
   loadAppData,
@@ -443,6 +451,8 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   /** When set, week strip is recentered on this date (calendar jump). */
   const [weekAnchorKey, setWeekAnchorKey] = useState<string | null>(null);
   const appliedDayRef = useRef<string | null>(null);
+  /** Bumps on foreground so local “today” recomputes after midnight / TZ. */
+  const [clockNonce, setClockNonce] = useState(0);
 
   const [selectedKey, setSelectedKey] = useState(deviceTodayKey);
   const [weekIndex, setWeekIndex] = useState(WEEKS_BEFORE);
@@ -457,6 +467,12 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   } | null>(null);
   /** Jump home week strip to this 학습일 after the review sheet finishes closing. */
   const pendingReviewDateRef = useRef<string | null>(null);
+  /** Round-robin index for review-complete toast copies. */
+  const toastIndexRef = useRef(0);
+  const [completeToast, setCompleteToast] = useState<{
+    token: number;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (dataProp) return;
@@ -476,6 +492,13 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     };
   }, [dataProp]);
 
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') setClockNonce((n) => n + 1);
+    });
+    return () => sub.remove();
+  }, []);
+
   const base: HomeScreenData = useMemo(() => {
     if (dataProp) return dataProp;
     return homeScreenDataFromAppData(
@@ -483,7 +506,9 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       new Date(),
       weekAnchorKey ? { weekAnchor: parseKey(weekAnchorKey) } : undefined,
     );
-  }, [dataProp, appData, weekAnchorKey]);
+    // clockNonce: recompute local todayKey on foreground
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataProp, appData, weekAnchorKey, clockNonce]);
 
   const todayKey = base.todayKey;
   const allDays = useMemo(() => flattenWeeks(base.weeks), [base.weeks]);
@@ -498,10 +523,10 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   const studies = selected?.studies ?? [];
 
-  const isFutureDay = selected != null && selected.dateKey > todayKey;
   const isToday = selected != null && selected.dateKey === todayKey;
   const atStudyCap = studies.length >= MAX_STUDIES_PER_DAY;
-  const allowAdd = !isFutureDay && !atStudyCap;
+  // Future days may add studies; reviews stay on dueOn only (not “오늘 할 복습”).
+  const allowAdd = !atStudyCap;
 
   const frameWidth = Math.min(windowWidth - 16, spacing.frameWidth);
   const contentWidth = Math.min(frameWidth, spacing.contentWidth);
@@ -530,10 +555,30 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   const selectedDateKey = selected?.dateKey ?? todayKey;
 
+  const hideCompleteToast = useCallback(() => {
+    setCompleteToast(null);
+  }, []);
+
+  const showCompleteToast = useCallback(() => {
+    const message =
+      REVIEW_COMPLETE_TOASTS[
+        toastIndexRef.current % REVIEW_COMPLETE_TOASTS.length
+      ];
+    toastIndexRef.current += 1;
+    setCompleteToast((prev) => ({
+      token: (prev?.token ?? 0) + 1,
+      message,
+    }));
+  }, []);
+
   const toggleReview = useCallback(
     (dateKey: string, card: HomeReviewCard) => {
-      if (card.completed) haptics.checkOff();
-      else haptics.checkOn();
+      if (card.completed) {
+        haptics.checkOff();
+      } else {
+        haptics.checkOn();
+        showCompleteToast();
+      }
       if (dataProp || !appData) return;
       let next = appData;
       for (const id of card.scheduleIds) {
@@ -541,15 +586,18 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       }
       void persistApp(next);
     },
-    [dataProp, appData, persistApp],
+    [dataProp, appData, persistApp, showCompleteToast],
   );
 
   const goAdd = useCallback(() => {
-    if (!allowAdd) return;
+    if (atStudyCap) {
+      haptics.reject();
+      return;
+    }
     setEditingStudy(null);
     setAddKey((k) => k + 1);
     setAddOpen(true);
-  }, [allowAdd]);
+  }, [atStudyCap]);
 
   const goEditStudy = useCallback(
     (row: HomeStudyRow) => {
@@ -563,6 +611,9 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
             subjectName: record.subjectName,
             content: record.content,
             ...(memo ? { memo } : {}),
+            ...(record.subjectColor
+              ? { subjectColor: record.subjectColor }
+              : {}),
           };
         }
       }
@@ -588,6 +639,10 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       const memo = payload.memo.trim();
       const studiedOn = selectedDateKey;
       if (dataProp || !appData) return;
+      if (!content) {
+        haptics.reject();
+        return;
+      }
 
       if (editingStudy) {
         const next = updateStudyWithReviews(appData, editingStudy.id, {
@@ -599,6 +654,11 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
         void persistApp(next);
         haptics.save();
         setAddOpen(false);
+        return;
+      }
+
+      if (appData.subjects.length === 0) {
+        haptics.reject();
         return;
       }
 
@@ -908,6 +968,15 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
         <CalendarTodayFabIcon showCalendar={isToday} />
       </SoftFab>
 
+      {completeToast ? (
+        <ReviewCompleteToast
+          token={completeToast.token}
+          message={completeToast.message}
+          bottom={fabBottom + sizes.fab + 12}
+          onHidden={hideCompleteToast}
+        />
+      ) : null}
+
       <BottomSheetModal
         visible={addOpen}
         onClose={closeAdd}
@@ -921,17 +990,13 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
                   subject: editingStudy.subjectName,
                   title: editingStudy.content,
                   ...(editingStudy.memo ? { memo: editingStudy.memo } : {}),
+                  ...(editingStudy.subjectColor
+                    ? { subjectColor: editingStudy.subjectColor }
+                    : {}),
                 }
               : undefined
           }
-          subjects={
-            subjectOptions.length > 0
-              ? subjectOptions
-              : DEFAULT_SUBJECTS.map((s) => ({
-                  name: s.name,
-                  color: s.color ?? subjectColor(s.name),
-                }))
-          }
+          subjects={subjectOptions}
           onSave={onSaveAdd}
           onDelete={editingStudy ? onDeleteStudy : undefined}
           onAddSubject={onAddSubject}
@@ -989,9 +1054,11 @@ function WeekStripPager({
 }) {
   const listRef = useRef<FlatList<HomeWeekDay[]>>(null);
   const settledIndexRef = useRef(weekIndex);
+  const draggingRef = useRef(false);
 
   useEffect(() => {
     if (width <= 0) return;
+    if (draggingRef.current) return;
     if (settledIndexRef.current === weekIndex) return;
     const delta = Math.abs(weekIndex - settledIndexRef.current);
     const animate = delta > 0 && delta <= JUMP_ANIMATE_MAX_DELTA;
@@ -1001,6 +1068,7 @@ function WeekStripPager({
 
   const onMomentumScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      draggingRef.current = false;
       if (width <= 0) return;
       const next = Math.round(e.nativeEvent.contentOffset.x / width);
       const clamped = Math.max(0, Math.min(weeks.length - 1, next));
@@ -1051,6 +1119,9 @@ function WeekStripPager({
       renderItem={renderWeek}
       getItemLayout={getItemLayout}
       initialScrollIndex={weekIndex}
+      onScrollBeginDrag={() => {
+        draggingRef.current = true;
+      }}
       onMomentumScrollEnd={onMomentumScrollEnd}
       onScrollToIndexFailed={({ index }) => {
         requestAnimationFrame(() => {
@@ -1232,9 +1303,13 @@ function DayContentPager({
 }) {
   const listRef = useRef<FlatList<HomeWeekDay>>(null);
   const settledIndexRef = useRef(dayIndex);
+  const draggingRef = useRef(false);
+  /** Cross-axis size so each page fills to the content bottom (empty review still swipes). */
+  const [pageHeight, setPageHeight] = useState(0);
 
   useEffect(() => {
     if (width <= 0) return;
+    if (draggingRef.current) return;
     if (settledIndexRef.current === dayIndex) return;
     const delta = Math.abs(dayIndex - settledIndexRef.current);
     // Near jumps (incl. FAB 「오늘」) animate — 슈루룩; far jumps snap.
@@ -1245,6 +1320,7 @@ function DayContentPager({
 
   const onMomentumScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      draggingRef.current = false;
       if (width <= 0) return;
       const next = Math.round(e.nativeEvent.contentOffset.x / width);
       const clamped = Math.max(0, Math.min(days.length - 1, next));
@@ -1268,15 +1344,19 @@ function DayContentPager({
   const renderDay = useCallback(
     ({ item: day }: { item: HomeWeekDay }) => {
       const dayIsToday = day.dateKey === todayKey;
-      const dayIsFuture = day.dateKey > todayKey;
-      const dayAllowAdd =
-        !dayIsFuture && day.studies.length < MAX_STUDIES_PER_DAY;
+      const dayAtCap = day.studies.length >= MAX_STUDIES_PER_DAY;
       return (
-        <View style={[styles.dayPage, { width }]}>
+        <View
+          style={[
+            styles.dayPage,
+            { width },
+            pageHeight > 0 ? { height: pageHeight } : null,
+          ]}>
           <View style={[styles.sections, { maxWidth: contentWidth }]}>
             <StudySection
               studies={day.studies}
-              allowAdd={dayAllowAdd}
+              allowAdd={!dayAtCap}
+              atCap={dayAtCap}
               isToday={dayIsToday}
               colorByName={colorByName}
               onAdd={onAdd}
@@ -1305,6 +1385,7 @@ function DayContentPager({
       onDetail,
       onEditStudy,
       onToggle,
+      pageHeight,
       reviewCardWidth,
       todayKey,
       width,
@@ -1325,14 +1406,21 @@ function DayContentPager({
       renderItem={renderDay}
       getItemLayout={getItemLayout}
       initialScrollIndex={dayIndex}
+      onScrollBeginDrag={() => {
+        draggingRef.current = true;
+      }}
       onMomentumScrollEnd={onMomentumScrollEnd}
+      onLayout={(e) => {
+        const next = Math.round(e.nativeEvent.layout.height);
+        if (next > 0 && next !== pageHeight) setPageHeight(next);
+      }}
       onScrollToIndexFailed={({ index }) => {
         requestAnimationFrame(() => {
           listRef.current?.scrollToIndex({ index, animated: false });
         });
       }}
       style={[styles.dayPager, { width }]}
-      extraData={days}
+      extraData={`${pageHeight}:${days.length}`}
     />
   );
 }
@@ -1340,6 +1428,7 @@ function DayContentPager({
 function StudySection({
   studies,
   allowAdd,
+  atCap,
   isToday,
   colorByName,
   onAdd,
@@ -1347,11 +1436,25 @@ function StudySection({
 }: {
   studies: HomeStudyRow[];
   allowAdd: boolean;
+  atCap: boolean;
   isToday: boolean;
   colorByName: Record<string, string>;
   onAdd: () => void;
   onEditStudy: (row: HomeStudyRow) => void;
 }) {
+  const [capHint, setCapHint] = useState<string | null>(null);
+  const capMessage = `하루 ${MAX_STUDIES_PER_DAY}개까지`;
+
+  const handleAdd = () => {
+    if (atCap) {
+      haptics.reject();
+      setCapHint(capMessage);
+      return;
+    }
+    setCapHint(null);
+    onAdd();
+  };
+
   return (
     <View style={styles.section}>
       <View style={styles.sectionLabelWrap}>
@@ -1365,15 +1468,16 @@ function StudySection({
             accessibilityRole="button"
             accessibilityLabel="공부 기록 추가"
             accessibilityState={{ disabled: !allowAdd }}
-            disabled={!allowAdd}
-            onPress={onAdd}
+            onPress={handleAdd}
             style={styles.addStudyBtn}>
             {allowAdd ? (
               <>
                 <PlusIcon size={16} />
                 <Text style={styles.addStudyText}>공부 기록 추가</Text>
               </>
-            ) : null}
+            ) : (
+              <Text style={styles.addStudyText}>{capMessage}</Text>
+            )}
           </Pressable>
         ) : (
           <>
@@ -1390,16 +1494,29 @@ function StudySection({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="공부 기록 추가"
-                  onPress={onAdd}
+                  onPress={handleAdd}
                   style={styles.addStudyMoreBtn}>
                   <PlusIcon size={16} />
                   <Text style={styles.addStudyMoreText}>공부 기록 추가</Text>
                 </Pressable>
               </Animated.View>
-            ) : null}
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={capMessage}
+                onPress={handleAdd}
+                style={styles.addStudyMoreBtn}>
+                <Text style={[styles.addStudyMoreText, { opacity: 0.7 }]}>
+                  {capMessage}
+                </Text>
+              </Pressable>
+            )}
           </>
         )}
       </Animated.View>
+      {capHint || atCap ? (
+        <Text style={styles.studyCapHint}>{capHint ?? capMessage}</Text>
+      ) : null}
     </View>
   );
 }
@@ -1421,19 +1538,27 @@ function StudyRow({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${row.subjectName} ${row.content} 수정`}
+        accessibilityHint="탭하거나 길게 누르면 수정 시트가 열려요"
         onPress={onPress}
+        // Same edit sheet as tap. delayLongPress stays above scroll cancel so
+        // week/day swipes do not open the sheet mid-gesture.
+        delayLongPress={380}
+        onLongPress={() => {
+          haptics.sheetOpen();
+          onPress();
+        }}
         style={styles.studyRow}>
         <View
           style={[
             styles.studyChip,
             { backgroundColor: subjectColor(row.subjectName, colorByName) },
           ]}>
-          <Text style={styles.studyChipText} numberOfLines={1}>
+          <Text style={styles.studyChipText} numberOfLines={1} ellipsizeMode="tail">
             {row.subjectName}
           </Text>
         </View>
         <View style={styles.studyBody}>
-          <Text style={styles.studyBodyText} numberOfLines={1}>
+          <Text style={styles.studyBodyText} numberOfLines={1} ellipsizeMode="tail">
             {row.content}
           </Text>
         </View>
@@ -1461,7 +1586,14 @@ function ReviewSection({
   onToggle: (card: HomeReviewCard) => void;
   onDetail: (card: HomeReviewCard) => void;
 }) {
-  const empty = reviews.length === 0;
+  const byInterval = useMemo(() => {
+    const map = new Map<ReviewIntervalDay, HomeReviewCard>();
+    for (const card of reviews) {
+      map.set(card.intervalDays, card);
+    }
+    return map;
+  }, [reviews]);
+
   return (
     <View style={[styles.section, styles.reviewSection]}>
       <View style={styles.sectionLabelWrap}>
@@ -1469,30 +1601,50 @@ function ReviewSection({
           {isToday ? '오늘 할 복습' : '이 날 할 복습'}
         </Text>
       </View>
-      {empty ? (
-        <View style={styles.reviewEmpty}>
-          <Text style={styles.reviewEmptyText}>아직 복습할 내용이 없어요</Text>
-        </View>
-      ) : (
-        <View
-          style={[
-            styles.reviewGrid,
-            reviews.length <= 3 && styles.reviewGridSingleRow,
-          ]}>
-          {reviews.map((card) => (
-            <ReviewCard
-              key={card.id}
-              card={card}
-              width={cardWidth}
-              accent={accent}
-              accentSoft={accentSoft}
-              colorByName={colorByName}
-              onToggle={() => onToggle(card)}
-              onDetail={() => onDetail(card)}
-            />
-          ))}
-        </View>
-      )}
+      <View style={styles.reviewGrid}>
+        {REVIEW_INTERVAL_DAYS.map((days) => {
+          const card = byInterval.get(days);
+          if (card) {
+            return (
+              <ReviewCard
+                key={card.id}
+                card={card}
+                width={cardWidth}
+                accent={accent}
+                accentSoft={accentSoft}
+                colorByName={colorByName}
+                onToggle={() => onToggle(card)}
+                onDetail={() => onDetail(card)}
+              />
+            );
+          }
+          return (
+            <EmptyReviewSlot key={`empty-${days}`} days={days} width={cardWidth} />
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/** Placeholder for a due-interval with no study scheduled that day. */
+function EmptyReviewSlot({
+  days,
+  width,
+}: {
+  days: ReviewIntervalDay;
+  width: number;
+}) {
+  const label = intervalLabel(days);
+  return (
+    <View
+      accessibilityLabel={`${label} 공부 기록이 없어요`}
+      style={[styles.reviewCard, styles.reviewCardEmpty, { width }]}>
+      <View style={styles.emptySlotCopy}>
+        <Text style={[styles.intervalText, styles.emptySlotLine]}>{label}</Text>
+        <Text style={styles.emptySlotLine}>공부 기록이</Text>
+        <Text style={styles.emptySlotLine}>없어요</Text>
+      </View>
     </View>
   );
 }
@@ -1648,6 +1800,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   frame: {
+    flex: 1,
     width: '100%',
     maxWidth: spacing.frameWidth,
     gap: spacing.blockGap,
@@ -1661,6 +1814,7 @@ const styles = StyleSheet.create({
     maxWidth: spacing.frameWidth,
     gap: spacing.headerWeekGap,
     alignItems: 'center',
+    flexShrink: 0,
   },
   headerRow: {
     width: '100%',
@@ -1752,7 +1906,8 @@ const styles = StyleSheet.create({
   },
   dayPager: {
     maxWidth: spacing.frameWidth,
-    flexGrow: 0,
+    // Fill remaining frame so empty review / bottom whitespace still pages days.
+    flex: 1,
     alignSelf: 'stretch',
   },
   dayPage: {
@@ -1781,6 +1936,7 @@ const styles = StyleSheet.create({
     width: 26,
   },
   sections: {
+    flex: 1,
     width: '100%',
     maxWidth: spacing.contentWidth,
     gap: spacing.sectionGap,
@@ -1791,6 +1947,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   reviewSection: {
+    flexGrow: 1,
     gap: 7,
   },
   sectionLabelWrap: {
@@ -1876,14 +2033,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.accentText,
   },
+  studyCapHint: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 13,
+    color: colors.muted,
+    paddingHorizontal: spacing.labelPad,
+  },
   reviewGrid: {
     width: '100%',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.reviewGap,
-  },
-  reviewGridSingleRow: {
-    minHeight: 120,
   },
   reviewCard: {
     backgroundColor: colors.surface,
@@ -1896,10 +2056,21 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     minHeight: 120,
   },
+  reviewCardEmpty: {
+    // No checkbox / detail — white shell + hairline border (not gray fill).
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    // One step lighter than mutedLight (#ced7e0).
+    borderColor: '#e4eaef',
+    justifyContent: 'flex-start',
+  },
   reviewCardInner: {
     flex: 1,
     gap: 12,
     justifyContent: 'space-between',
+  },
+  emptySlotCopy: {
+    gap: 2,
   },
   reviewTopBlock: {
     gap: 9,
@@ -1925,6 +2096,13 @@ const styles = StyleSheet.create({
     color: colors.accentText,
     letterSpacing: -0.44,
     flexShrink: 1,
+  },
+  emptySlotLine: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 11,
+    // Noticeably lighter than filled 「N일 전」 (accentText).
+    color: colors.mutedLight,
+    letterSpacing: -0.44,
   },
   reviewChips: {
     flexDirection: 'row',
@@ -1961,17 +2139,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     lineHeight: 12,
     flexShrink: 0,
-  },
-  reviewEmpty: {
-    height: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  reviewEmptyText: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 14,
-    color: colors.muted,
   },
   fab: {
     position: 'absolute',

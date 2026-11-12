@@ -52,6 +52,8 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 import {
+  MAX_STUDY_MEMO_LENGTH,
+  MAX_STUDY_TITLE_LENGTH,
   MAX_SUBJECT_NAME_LENGTH,
   MAX_SUBJECTS,
 } from '@/storage/app-data';
@@ -86,6 +88,8 @@ export type AddStudyFormInitial = {
   subject: string;
   title: string;
   memo?: string;
+  /** Optional chip fill when editing a study whose subject chip is gone. */
+  subjectColor?: string;
 };
 
 type AddStudyFormProps = {
@@ -372,6 +376,7 @@ export function AddStudyForm({
   const [subjectPick, setSubjectPick] = useState<string | null>(
     () => initial?.subject ?? null,
   );
+  // Legacy over-long text: show full on open; clamp only on save.
   const [title, setTitle] = useState(() => initial?.title ?? '');
   const [memo, setMemo] = useState(() => initial?.memo ?? '');
   const [adding, setAdding] = useState(false);
@@ -388,14 +393,11 @@ export function AddStudyForm({
   const chipSubjects = useMemo(() => {
     if (!initial?.subject) return subjects;
     if (subjects.some((s) => s.name === initial.subject)) return subjects;
-    return [
-      ...subjects,
-      {
-        name: initial.subject,
-        color: subjectColor(initial.subject),
-      },
-    ];
-  }, [subjects, initial?.subject]);
+    // Subject chip removed: still show the study’s subject name so edit works.
+    const fill =
+      initial.subjectColor?.trim() || subjectColor(initial.subject);
+    return [...subjects, { name: initial.subject, color: fill }];
+  }, [subjects, initial?.subject, initial?.subjectColor]);
 
   const propNames = useMemo(
     () => chipSubjects.map((s) => s.name),
@@ -447,7 +449,9 @@ export function AddStudyForm({
     return list;
   }, [chipSubjects, orderedNames]);
 
+  // Cap is MAX_SUBJECTS (10). Keep + visible (disabled) at capacity — do not unmount it.
   const atLimit = subjects.length >= maxSubjects;
+  const noSubjects = subjects.length === 0;
   const subjectNames = useMemo(
     () => orderedChips.map((s) => s.name),
     [orderedChips],
@@ -457,10 +461,17 @@ export function AddStudyForm({
       ? subjectPick
       : null;
 
-  const canSave = useMemo(
-    () => subject != null && title.trim().length > 0,
-    [subject, title],
-  );
+  const canSave = useMemo(() => {
+    if (title.trim().length === 0) return false;
+    if (subject == null) return false;
+    // Create requires at least one live subject chip.
+    if (!isEdit && noSubjects) return false;
+    return true;
+  }, [isEdit, noSubjects, subject, title]);
+
+  const emptySubjectHint = '과목을 먼저 추가해 주세요';
+  const titleMaxLength = Math.max(MAX_STUDY_TITLE_LENGTH, title.length);
+  const memoMaxLength = Math.max(MAX_STUDY_MEMO_LENGTH, memo.length);
 
   const rowRef = useRef<ComponentRef<typeof View>>(null);
 
@@ -698,9 +709,12 @@ export function AddStudyForm({
 
   const handleSave = useCallback(() => {
     if (!canSave || subject == null) return;
+    const nextTitle = title.trim();
+    if (!nextTitle) return;
+    // Persist clamps legacy over-long text silently; empty title already blocked.
     onSave({
       subject,
-      title: title.trim(),
+      title: nextTitle,
       memo: memo.trim(),
     });
   }, [canSave, subject, title, memo, onSave]);
@@ -888,25 +902,35 @@ export function AddStudyForm({
             </View>
           ) : null}
 
-          {onAddSubject && !adding ? (
+          {onAddSubject ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={
-                atLimit ? '과목 추가 불가, 최대 10개' : '과목 추가'
+                adding
+                  ? '과목 추가 취소'
+                  : atLimit
+                    ? '과목 추가 불가, 최대 10개'
+                    : '과목 추가'
               }
-              accessibilityState={{ disabled: atLimit }}
-              onPress={openAdd}
+              accessibilityState={{ disabled: atLimit && !adding }}
+              // Stay mounted while adding so a packed row never drops the +.
+              // Under max: opens the name row; while open: same control cancels.
+              disabled={atLimit && !adding}
+              onPress={adding ? cancelAdd : openAdd}
               style={[
                 styles.subjectChip,
                 styles.addChip,
                 {
-                  borderColor: atLimit ? colors.mutedLight : colors.muted,
+                  borderColor:
+                    atLimit && !adding ? colors.mutedLight : colors.muted,
                   backgroundColor: colors.surface,
                 },
-                atLimit && styles.addChipDisabled,
+                (atLimit || adding) && styles.addChipDisabled,
               ]}>
               <SoftPlusIcon
-                color={atLimit ? colors.mutedLight : colors.muted}
+                color={
+                  atLimit && !adding ? colors.mutedLight : colors.muted
+                }
               />
             </Pressable>
           ) : null}
@@ -975,6 +999,10 @@ export function AddStudyForm({
           <Text style={[styles.chipHint, { color: colors.muted }]}>
             {chipHint}
           </Text>
+        ) : !isEdit && noSubjects ? (
+          <Text style={[styles.chipHint, { color: colors.muted }]}>
+            {emptySubjectHint}
+          </Text>
         ) : atLimit ? (
           <Text style={[styles.chipHint, { color: colors.mutedLight }]}>
             {LIMIT_HINT}
@@ -991,6 +1019,8 @@ export function AddStudyForm({
           onChangeText={setTitle}
           placeholder="1-3단원 / p. 22-36"
           placeholderTextColor={colors.mutedLight}
+          // New typing capped at 40; legacy longer values stay visible until save clamp.
+          maxLength={titleMaxLength}
           style={[
             styles.input,
             { backgroundColor: colors.surface, color: colors.body },
@@ -1007,6 +1037,7 @@ export function AddStudyForm({
           onChangeText={setMemo}
           placeholder="추가로 기록하고 싶은 내용"
           placeholderTextColor={colors.mutedLight}
+          maxLength={memoMaxLength}
           style={[
             styles.input,
             styles.memoInput,
@@ -1085,11 +1116,14 @@ const styles = StyleSheet.create({
     position: 'relative',
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'center',
     gap: 8,
     overflow: 'visible',
   },
   chipWrap: {
     position: 'relative',
+    // RN defaults flexShrink:1 — packed rows were crushing chips/+ instead of wrapping.
+    flexShrink: 0,
     overflow: 'visible',
   },
   dragFloating: {
@@ -1105,6 +1139,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
+    flexShrink: 0,
   },
   subjectChipPlaceholderText: {
     opacity: 0.55,
@@ -1144,7 +1179,11 @@ const styles = StyleSheet.create({
   },
   addChip: {
     width: 44,
+    minWidth: 44,
+    maxWidth: 44,
     paddingHorizontal: 0,
+    flexShrink: 0,
+    flexGrow: 0,
   },
   addChipDisabled: {
     opacity: 0.55,

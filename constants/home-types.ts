@@ -6,6 +6,8 @@ export type HomeStudyRow = {
   content: string;
   /** Optional memo (edit sheet prefill). */
   memo?: string;
+  /** Optional chip fill snapshot from the study record. */
+  subjectColor?: string;
 };
 
 export type HomeReviewStudy = {
@@ -17,6 +19,7 @@ export type HomeReviewStudy = {
   memo?: string;
   /** Links to HomeStudyRow.id for dummy edit/delete. */
   studyId?: string;
+  subjectColor?: string;
 };
 
 export type HomeReviewCard = {

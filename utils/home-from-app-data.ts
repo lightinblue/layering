@@ -25,6 +25,7 @@ export type ReviewStudyDetail = {
   content: string;
   studiedOn: string;
   memo?: string;
+  subjectColor?: string;
 };
 
 /** Group schedules due on a day by interval (matches Figma multi-subject cards). */
@@ -65,6 +66,7 @@ function reviewsForDay(
         content: s.content,
         studiedOn: s.studiedOn,
         ...(s.memo?.trim() ? { memo: s.memo.trim() } : {}),
+        ...(s.subjectColor ? { subjectColor: s.subjectColor } : {}),
       })),
     });
   }
@@ -79,6 +81,7 @@ function studiesForDay(dateKey: string, data: AppData): HomeStudyRow[] {
       subjectName: r.subjectName,
       content: r.content,
       ...(r.memo?.trim() ? { memo: r.memo.trim() } : {}),
+      ...(r.subjectColor ? { subjectColor: r.subjectColor } : {}),
     }));
 }
 
@@ -139,6 +142,7 @@ export function studyDetailsForSchedules(
       content: record.content,
       studiedOn: record.studiedOn,
       ...(record.memo?.trim() ? { memo: record.memo.trim() } : {}),
+      ...(record.subjectColor ? { subjectColor: record.subjectColor } : {}),
     });
   }
   return studies;

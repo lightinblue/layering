@@ -54,10 +54,10 @@ export const durations = {
   press: 300,
   /** Bottom sheet slide open. */
   sheetOpen: EASE_OUT_MS,
-  /** Bottom sheet slide close. */
-  sheetClose: 340,
+  /** Bottom sheet slide close — same ease-out settle as open / date strip. */
+  sheetClose: EASE_OUT_MS,
   backdropOpen: EASE_OUT_MS,
-  backdropClose: 300,
+  backdropClose: EASE_OUT_MS,
   monthChange: EASE_OUT_MS,
   chipShift: EASE_OUT_MS,
   /** Study row appear / remove height. */

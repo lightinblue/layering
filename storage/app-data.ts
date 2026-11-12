@@ -24,6 +24,39 @@ export const MAX_SUBJECTS = 10;
 /** Max characters for a subject chip name (enforced on add). */
 export const MAX_SUBJECT_NAME_LENGTH = 4;
 
+/** Max characters for study 「학습 내용」(title). */
+export const MAX_STUDY_TITLE_LENGTH = 40;
+
+/** Max characters for study memo. */
+export const MAX_STUDY_MEMO_LENGTH = 120;
+
+/**
+ * Trim + clamp title/memo on persist (legacy over-long edits; seed/import).
+ * Empty title → content ''. UI blocks save when trim is empty.
+ */
+export function clampStudyFields(content: string, memo?: string): {
+  content: string;
+  memo?: string;
+} {
+  const nextContent = content.trim().slice(0, MAX_STUDY_TITLE_LENGTH);
+  const nextMemo = memo?.trim().slice(0, MAX_STUDY_MEMO_LENGTH);
+  return {
+    content: nextContent,
+    ...(nextMemo ? { memo: nextMemo } : {}),
+  };
+}
+
+function snapshotSubjectColor(
+  data: AppData,
+  subjectName: string,
+  previous?: string,
+): string | undefined {
+  const chip = data.subjects.find((s) => s.name === subjectName);
+  if (chip) return withSubjectColor(chip).color;
+  const prev = previous?.trim();
+  return prev || undefined;
+}
+
 /** Seed chip for first real-mode load (palette blue). */
 export const DEFAULT_SUBJECTS: SubjectChip[] = [
   { id: 'sub-jeongong', name: '전공', color: colors.chipBlue },
@@ -165,6 +198,7 @@ export function reorderSubjects(
 export async function loadAppData(): Promise<AppData> {
   const raw = await AsyncStorage.getItem(STORAGE_KEYS.appData);
   if (!raw) {
+    // First launch only — seed a starter chip. An explicit empty list is kept.
     return {
       subjects: [...DEFAULT_SUBJECTS],
       records: [],
@@ -173,10 +207,9 @@ export async function loadAppData(): Promise<AppData> {
   }
   try {
     const parsed = JSON.parse(raw) as AppData;
-    const subjects =
-      parsed.subjects && parsed.subjects.length > 0
-        ? parsed.subjects.map(withSubjectColor)
-        : [...DEFAULT_SUBJECTS];
+    const subjects = Array.isArray(parsed.subjects)
+      ? parsed.subjects.map(withSubjectColor)
+      : [...DEFAULT_SUBJECTS];
     return {
       subjects,
       records: parsed.records ?? [],
@@ -211,19 +244,24 @@ export function appendStudyWithReviews(
     return data;
   }
 
-  // Prefer chip list; if chip was deleted, still allow save via name snapshot
-  // without re-adding the subject (FR-A3: delete chip ≠ delete history).
-  const existing = data.subjects.find((s) => s.name === input.subjectName);
-  const subjectId = existing?.id ?? newId('sub');
-  const subjectName = input.subjectName;
+  const fields = clampStudyFields(input.content, input.memo);
+  if (!fields.content) return data;
 
-  const memo = input.memo?.trim();
+  // New studies require a live subject chip (no fake default).
+  const existing = data.subjects.find((s) => s.name === input.subjectName);
+  if (!existing) return data;
+
+  const subjectId = existing.id;
+  const subjectName = input.subjectName;
+  const subjectColorSnap = snapshotSubjectColor(data, subjectName);
+
   const record: StudyRecord = {
     id: newId('study'),
     subjectId,
     subjectName,
-    content: input.content,
-    ...(memo ? { memo } : {}),
+    ...(subjectColorSnap ? { subjectColor: subjectColorSnap } : {}),
+    content: fields.content,
+    ...(fields.memo ? { memo: fields.memo } : {}),
     studiedOn: input.studiedOn,
     createdAt: new Date().toISOString(),
   };
@@ -305,16 +343,25 @@ export function updateStudyWithReviews(
     if (othersOnTarget >= MAX_STUDIES_PER_DAY) return data;
   }
 
+  const fields = clampStudyFields(input.content, input.memo);
+  if (!fields.content) return data;
+
   const chip = data.subjects.find((s) => s.name === input.subjectName);
-  const memo = input.memo?.trim();
+  // Edit may keep a deleted subject name snapshot (FR-A3).
+  const subjectColorSnap = snapshotSubjectColor(
+    data,
+    input.subjectName,
+    existing.subjectColor,
+  );
   const nextRecord: StudyRecord = {
     id: existing.id,
     subjectId: chip?.id ?? existing.subjectId,
     subjectName: input.subjectName,
-    content: input.content,
+    ...(subjectColorSnap ? { subjectColor: subjectColorSnap } : {}),
+    content: fields.content,
     studiedOn: input.studiedOn,
     createdAt: existing.createdAt,
-    ...(memo ? { memo } : {}),
+    ...(fields.memo ? { memo: fields.memo } : {}),
   };
 
   const records = data.records.map((r) =>

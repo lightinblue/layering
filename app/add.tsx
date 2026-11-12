@@ -13,7 +13,6 @@ import {
   addSubject,
   appendStudyWithReviews,
   countStudiesOn,
-  DEFAULT_SUBJECTS,
   loadAppData,
   MAX_STUDIES_PER_DAY,
   MAX_SUBJECTS,
@@ -27,9 +26,7 @@ import { todayKey } from '@/utils/date';
 import { haptics } from '@/utils/haptics';
 
 function toOptions(data: AppData): SubjectOption[] {
-  const chips =
-    data.subjects.length > 0 ? data.subjects : [...DEFAULT_SUBJECTS];
-  return chips.map((s) => {
+  return data.subjects.map((s) => {
     const chip = withSubjectColor(s);
     return { name: chip.name, color: chip.color ?? subjectColor(chip.name) };
   });
@@ -42,12 +39,7 @@ function toOptions(data: AppData): SubjectOption[] {
 export default function AddRecordSheet() {
   const router = useRouter();
   const [appData, setAppData] = useState<AppData | null>(null);
-  const [subjects, setSubjects] = useState<SubjectOption[]>(() =>
-    DEFAULT_SUBJECTS.map((s) => ({
-      name: s.name,
-      color: s.color ?? subjectColor(s.name),
-    })),
-  );
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
 
   useEffect(() => {
     let cancelled = false;
