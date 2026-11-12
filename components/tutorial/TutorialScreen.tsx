@@ -101,20 +101,26 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
           {pageIndex === 1 ? (
             <TutorialProductPreview width={visualWidth} />
           ) : null}
-          {/* Same token + lineHeight as page-1 body (\\n lines, no extra gap). */}
-          <Text style={[styles.copy, { color: colors.body }]}>{item.body}</Text>
-          {item.sub ? (
-            <Text style={[styles.copy, { color: colors.body }]}>{item.sub}</Text>
-          ) : null}
-          {item.accent ? (
-            <Animated.Text
-              entering={FadeIn.delay(80).duration(durations.fadeIn).easing(
-                Easing.out(Easing.cubic),
-              )}
-              style={[styles.accent, { color: colors.primary }]}>
-              {item.accent}
-            </Animated.Text>
-          ) : null}
+          <View style={styles.copyStack}>
+            {/* Same token + lineHeight as page-1 body (\\n lines, no extra gap). */}
+            <Text style={[styles.copy, { color: colors.body }]}>
+              {item.body}
+            </Text>
+            {item.sub ? (
+              <Text style={[styles.copy, { color: colors.body }]}>
+                {item.sub}
+              </Text>
+            ) : null}
+            {item.accent ? (
+              <Animated.Text
+                entering={FadeIn.delay(80).duration(durations.fadeIn).easing(
+                  Easing.out(Easing.cubic),
+                )}
+                style={[styles.accent, { color: colors.primary }]}>
+                {item.accent}
+              </Animated.Text>
+            ) : null}
+          </View>
         </View>
       </View>
     ),
@@ -245,9 +251,9 @@ const styles = StyleSheet.create({
     // Air between title block → visual → body (unchanged).
     gap: 22,
   },
-  /** Eyebrow (포개 / 이렇게 써요) sits tight above the title. */
+  /** Eyebrow (포개 / 이렇게 써요) — between original 22 and over-tight 6. */
   titleBlock: {
-    gap: 6,
+    gap: 12,
   },
   eyebrow: {
     fontFamily: fonts.nexonBold,
@@ -259,6 +265,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 32,
   },
+  /** Body + interval accent; tighter than page gap 22. */
+  copyStack: {
+    gap: 10,
+  },
   /** Secondary body — shared by page-0 and page-1 (lineHeight owns multi-line gap). */
   copy: {
     fontFamily: fonts.nexonRegular,
@@ -266,7 +276,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   accent: {
-    marginTop: 0,
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
     lineHeight: 22,

@@ -34,28 +34,25 @@ const SAMPLE_REVIEWS = [
 /** Natural stacked height: study 44 + gap + review card 120. */
 const NATURAL_STACK_H =
   sizes.studyBodyHeight + spacing.studyRowGap + 8 + 120;
-/** Tiny vertical inset so content doesn’t kiss the frame edges. */
-const FRAME_INSET_Y = 4;
+const FRAME_PAD_X = 14;
+const FRAME_PAD_Y = 10;
 
 type TutorialProductPreviewProps = {
-  /** Same width passed to page-0 ForgettingCurveGraph. */
+  /** Base width from page-0 graph; frame grows with padding around content. */
   width: number;
 };
 
 /**
- * Page-1 product snapshot in the exact graph W×H frame.
- * Study row + two review cards fill the frame width; uniform scale fits height
- * (pre-widened so scale doesn’t leave side gutters).
+ * Page-1 product snapshot: one study row + two review check cards.
+ * Gray frame is slightly larger than the graph so inner padding stays natural.
  */
 export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
   const theme = useThemeColors();
-  const { width: layoutW, height: layoutH } = tutorialVisualSize(width);
-  const innerH = layoutH - FRAME_INSET_Y * 2;
-  const scale = Math.min(1, innerH / NATURAL_STACK_H);
-  // After scale, visual width == layoutW (full graph width).
-  const contentW = layoutW / scale;
+  const { width: graphW } = tutorialVisualSize(width);
+  const contentW = graphW;
   const cardW = (contentW - spacing.reviewGap) / 2;
-  const scaledH = NATURAL_STACK_H * scale;
+  const frameW = contentW + FRAME_PAD_X * 2;
+  const frameH = NATURAL_STACK_H + FRAME_PAD_Y * 2;
 
   return (
     <View
@@ -63,101 +60,86 @@ export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
       style={[
         styles.frame,
         {
-          width: layoutW,
-          height: layoutH,
+          width: frameW,
+          height: frameH,
+          paddingHorizontal: FRAME_PAD_X,
+          paddingVertical: FRAME_PAD_Y,
           backgroundColor: theme.surface,
         },
       ]}>
-      <View
-        style={{
-          width: layoutW,
-          height: scaledH,
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-        }}>
-        <View
-          style={[
-            styles.scaled,
-            {
-              width: contentW,
-              height: NATURAL_STACK_H,
-              transform: [{ scale }],
-            },
-          ]}>
-          <View style={styles.studyRow}>
-            <View
-              style={[
-                styles.studyChip,
-                { backgroundColor: subjectColor(SAMPLE_STUDY.subject) },
-              ]}>
-              <Text style={styles.studyChipText} numberOfLines={1}>
-                {SAMPLE_STUDY.subject}
-              </Text>
-            </View>
-            <View style={styles.studyBody}>
-              <Text style={styles.studyBodyText} numberOfLines={1}>
-                {SAMPLE_STUDY.content}
-              </Text>
-            </View>
+      <View style={[styles.stack, { width: contentW }]}>
+        <View style={styles.studyRow}>
+          <View
+            style={[
+              styles.studyChip,
+              { backgroundColor: subjectColor(SAMPLE_STUDY.subject) },
+            ]}>
+            <Text style={styles.studyChipText} numberOfLines={1}>
+              {SAMPLE_STUDY.subject}
+            </Text>
           </View>
+          <View style={styles.studyBody}>
+            <Text style={styles.studyBodyText} numberOfLines={1}>
+              {SAMPLE_STUDY.content}
+            </Text>
+          </View>
+        </View>
 
-          <View style={styles.reviewRow}>
-            {SAMPLE_REVIEWS.map((card) => (
-              <View
-                key={card.days}
-                style={[
-                  styles.reviewCard,
-                  {
-                    width: cardW,
-                    backgroundColor: card.completed
-                      ? theme.primarySoft
-                      : colors.white,
-                    borderColor: card.completed ? theme.primary : '#e4eaef',
-                    borderWidth: card.completed ? 2 : 1,
-                  },
-                ]}>
-                <View style={styles.reviewCardInner}>
-                  <View style={styles.reviewTopBlock}>
-                    <View style={styles.reviewTop}>
-                      <View
-                        style={[
-                          styles.checkbox,
-                          {
-                            backgroundColor: card.completed
-                              ? theme.primary
-                              : colors.mutedLight,
-                          },
-                        ]}>
-                        {card.completed ? <CheckIcon /> : null}
-                      </View>
-                      <Text style={styles.intervalText} numberOfLines={1}>
-                        {intervalLabel(card.days)}
-                      </Text>
+        <View style={styles.reviewRow}>
+          {SAMPLE_REVIEWS.map((card) => (
+            <View
+              key={card.days}
+              style={[
+                styles.reviewCard,
+                {
+                  width: cardW,
+                  backgroundColor: card.completed
+                    ? theme.primarySoft
+                    : colors.white,
+                  borderColor: card.completed ? theme.primary : '#e4eaef',
+                  borderWidth: card.completed ? 2 : 1,
+                },
+              ]}>
+              <View style={styles.reviewCardInner}>
+                <View style={styles.reviewTopBlock}>
+                  <View style={styles.reviewTop}>
+                    <View
+                      style={[
+                        styles.checkbox,
+                        {
+                          backgroundColor: card.completed
+                            ? theme.primary
+                            : colors.mutedLight,
+                        },
+                      ]}>
+                      {card.completed ? <CheckIcon /> : null}
                     </View>
-                    <View style={styles.reviewChips}>
-                      {card.subjects.map((name) => (
-                        <View
-                          key={name}
-                          style={[
-                            styles.reviewChip,
-                            { backgroundColor: subjectColor(name) },
-                          ]}>
-                          <Text style={styles.reviewChipText}>
-                            {name.charAt(0)}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
+                    <Text style={styles.intervalText} numberOfLines={1}>
+                      {intervalLabel(card.days)}
+                    </Text>
                   </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailText}>자세히</Text>
-                    <ArrowRightIcon />
+                  <View style={styles.reviewChips}>
+                    {card.subjects.map((name) => (
+                      <View
+                        key={name}
+                        style={[
+                          styles.reviewChip,
+                          { backgroundColor: subjectColor(name) },
+                        ]}>
+                        <Text style={styles.reviewChipText}>
+                          {name.charAt(0)}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
                 </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailText}>자세히</Text>
+                  <ArrowRightIcon />
+                </View>
               </View>
-            ))}
-          </View>
+            </View>
+          ))}
         </View>
       </View>
     </View>
@@ -172,7 +154,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scaled: {
+  stack: {
     gap: spacing.studyRowGap + 3,
   },
   studyRow: {
