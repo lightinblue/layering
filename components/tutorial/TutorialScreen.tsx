@@ -1,5 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
+  FlatList,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   StyleSheet,
   Text,
@@ -9,15 +12,21 @@ import {
 import Animated, {
   Easing,
   FadeIn,
-  FadeInUp,
-  FadeOut,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  ForgettingCurveGraph,
+  tutorialVisualWidth,
+} from '@/components/tutorial/ForgettingCurveGraph';
+import { TutorialProductPreview } from '@/components/tutorial/TutorialProductPreview';
 import { fonts } from '@/constants/fonts';
 import { durations } from '@/constants/motion';
 import { radii } from '@/constants/tokens';
-import { TUTORIAL_PAGES } from '@/constants/tutorial';
+import {
+  TUTORIAL_PAGES,
+  type TutorialPage,
+} from '@/constants/tutorial';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import { haptics } from '@/utils/haptics';
 
@@ -27,23 +36,28 @@ type TutorialScreenProps = {
 
 /**
  * Minimal first-launch intro: forgetting curve → how to use.
- * Skip is always available; finish lands on home.
- * Previous page is weakly available via muted 「이전」 only (no swipe).
+ * Horizontal swipe pager; dots left, skip right, next/finish CTA.
  */
 export function TutorialScreen({ onFinished }: TutorialScreenProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const listRef = useRef<FlatList<TutorialPage>>(null);
   const [index, setIndex] = useState(0);
-  const page = TUTORIAL_PAGES[index];
-  const isFirst = index <= 0;
   const isLast = index >= TUTORIAL_PAGES.length - 1;
   const contentWidth = Math.min(332, width - 48);
+  const visualWidth = tutorialVisualWidth(contentWidth);
 
   const finish = useCallback(() => {
     haptics.save();
     onFinished();
   }, [onFinished]);
+
+  const scrollTo = useCallback((next: number) => {
+    const clamped = Math.max(0, Math.min(next, TUTORIAL_PAGES.length - 1));
+    listRef.current?.scrollToIndex({ index: clamped, animated: true });
+    setIndex(clamped);
+  }, []);
 
   const goNext = useCallback(() => {
     if (isLast) {
@@ -51,19 +65,74 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
       return;
     }
     haptics.select();
-    setIndex((i) => Math.min(i + 1, TUTORIAL_PAGES.length - 1));
-  }, [finish, isLast]);
-
-  const goPrev = useCallback(() => {
-    if (isFirst) return;
-    haptics.select();
-    setIndex((i) => Math.max(i - 1, 0));
-  }, [isFirst]);
+    scrollTo(index + 1);
+  }, [finish, index, isLast, scrollTo]);
 
   const skip = useCallback(() => {
     haptics.sheetOpen();
     onFinished();
   }, [onFinished]);
+
+  const onMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const next = Math.round(e.nativeEvent.contentOffset.x / width);
+      if (next === index) return;
+      haptics.select();
+      setIndex(next);
+    },
+    [index, width],
+  );
+
+  const renderPage = useCallback(
+    ({ item, index: pageIndex }: { item: TutorialPage; index: number }) => (
+      <View style={[styles.pageSlide, { width }]}>
+        <View style={[styles.page, { width: contentWidth }]}>
+          <View style={styles.titleBlock}>
+            <Text style={[styles.eyebrow, { color: colors.primary }]}>
+              {item.eyebrow}
+            </Text>
+            <Text style={[styles.title, { color: colors.black }]}>
+              {item.title}
+            </Text>
+          </View>
+          {pageIndex === 0 ? (
+            <ForgettingCurveGraph width={visualWidth} />
+          ) : null}
+          {pageIndex === 1 ? (
+            <TutorialProductPreview width={visualWidth} />
+          ) : null}
+          <View style={styles.copyStack}>
+            {/* Same token + lineHeight as page-1 body (\\n lines, no extra gap). */}
+            <Text style={[styles.copy, { color: colors.body }]}>
+              {item.body}
+            </Text>
+            {item.sub ? (
+              <Text style={[styles.copy, { color: colors.body }]}>
+                {item.sub}
+              </Text>
+            ) : null}
+            {item.accent ? (
+              <Animated.Text
+                entering={FadeIn.delay(80).duration(durations.fadeIn).easing(
+                  Easing.out(Easing.cubic),
+                )}
+                style={[styles.accent, { color: colors.primary }]}>
+                {item.accent}
+              </Animated.Text>
+            ) : null}
+          </View>
+        </View>
+      </View>
+    ),
+    [
+      colors.black,
+      colors.body,
+      colors.primary,
+      contentWidth,
+      visualWidth,
+      width,
+    ],
+  );
 
   return (
     <View
@@ -76,34 +145,19 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
         },
       ]}>
       <View style={[styles.topBar, { width: contentWidth }]}>
-        <View style={styles.topLeft}>
-          <View style={styles.backSlot}>
-            {!isFirst ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="이전 페이지"
-                hitSlop={12}
-                onPress={goPrev}>
-                <Text style={[styles.back, { color: colors.mutedLight }]}>
-                  이전
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-          <View style={styles.dots}>
-            {TUTORIAL_PAGES.map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.dot,
-                  {
-                    backgroundColor:
-                      i === index ? colors.primary : colors.mutedLight,
-                  },
-                ]}
-              />
-            ))}
-          </View>
+        <View style={styles.dots}>
+          {TUTORIAL_PAGES.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.dot,
+                {
+                  backgroundColor:
+                    i === index ? colors.primary : colors.mutedLight,
+                },
+              ]}
+            />
+          ))}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -114,29 +168,24 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
         </Pressable>
       </View>
 
-      <View style={[styles.body, { width: contentWidth }]}>
-        <Animated.View
-          key={index}
-          entering={FadeInUp.duration(durations.fadeIn).easing(
-            Easing.out(Easing.cubic),
-          )}
-          exiting={FadeOut.duration(durations.fadeOut)}
-          style={styles.page}>
-          <Text style={[styles.eyebrow, { color: colors.primary }]}>
-            {page.eyebrow}
-          </Text>
-          <Text style={[styles.title, { color: colors.black }]}>
-            {page.title}
-          </Text>
-          <Text style={[styles.copy, { color: colors.body }]}>{page.body}</Text>
-          {page.accent ? (
-            <Animated.Text
-              entering={FadeIn.delay(80).duration(durations.fadeIn)}
-              style={[styles.accent, { color: colors.primary }]}>
-              {page.accent}
-            </Animated.Text>
-          ) : null}
-        </Animated.View>
+      <View style={styles.body}>
+        <FlatList
+          ref={listRef}
+          data={TUTORIAL_PAGES as TutorialPage[]}
+          keyExtractor={(_, i) => `tutorial-${i}`}
+          horizontal
+          pagingEnabled
+          bounces={false}
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={onMomentumScrollEnd}
+          getItemLayout={(_, i) => ({
+            length: width,
+            offset: width * i,
+            index: i,
+          })}
+          renderItem={renderPage}
+          style={styles.pager}
+        />
       </View>
 
       <View style={[styles.footer, { width: contentWidth }]}>
@@ -171,20 +220,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  topLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  backSlot: {
-    width: 32,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  back: {
-    fontFamily: fonts.nexonRegular,
-    fontSize: 13,
-  },
   dots: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -201,11 +236,24 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    justifyContent: 'center',
+    alignSelf: 'stretch',
     paddingBottom: 24,
   },
+  pager: {
+    flex: 1,
+  },
+  pageSlide: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   page: {
-    gap: 14,
+    // Air between title block → visual → body (unchanged).
+    gap: 22,
+  },
+  /** Eyebrow (포개 / 이렇게 써요) — between original 22 and over-tight 6. */
+  titleBlock: {
+    gap: 12,
   },
   eyebrow: {
     fontFamily: fonts.nexonBold,
@@ -214,19 +262,23 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: fonts.nexonBold,
-    fontSize: 28,
-    lineHeight: 38,
+    fontSize: 24,
+    lineHeight: 32,
   },
+  /** Body + interval accent; tighter than page gap 22. */
+  copyStack: {
+    gap: 10,
+  },
+  /** Secondary body — shared by page-0 and page-1 (lineHeight owns multi-line gap). */
   copy: {
     fontFamily: fonts.nexonRegular,
     fontSize: 14,
     lineHeight: 22,
   },
   accent: {
-    marginTop: 6,
     fontFamily: fonts.nexonMedium,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 22,
   },
   footer: {
     paddingTop: 8,

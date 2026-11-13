@@ -27,6 +27,15 @@ export const springs = {
     stiffness: 460,
     mass: 0.65,
   },
+  /**
+   * Date header (day number + weekday + month/day) — chewy vertical
+   * slide with a soft overshoot settle.
+   */
+  dateHeader: {
+    damping: 13,
+    stiffness: 200,
+    mass: 0.8,
+  },
 } as const;
 
 /** RN `Animated.spring` configs (legacy press feedback). */

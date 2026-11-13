@@ -4,7 +4,10 @@ import { REVIEW_INTERVAL_DAYS } from '@/constants/review';
 export type TutorialPage = {
   eyebrow: string;
   title: string;
+  /** Main product copy under the visual. */
   body: string;
+  /** Optional smaller supporting line (theory / context). */
+  sub?: string;
   /** Optional accent line under body (intervals). */
   accent?: string;
 };
@@ -14,9 +17,10 @@ const INTERVAL_LABEL =
 
 export const TUTORIAL_PAGES: readonly TutorialPage[] = [
   {
-    eyebrow: '어떻게?',
-    title: '에빙하우스의 망각곡선,\n주기를 따라 철저히 복습해요',
-    body: '공부한 것은 복습하지 않으면 쉽게 휘발되죠.\n다행히도, 이론에 맞춰 들여다보면 절대 잊지 않을 수 있어요.\n그래서 우리는 이 주기를 사용해 여섯 레이어를 만듭니다.',
+    eyebrow: '포개',
+    title: '오늘의 공부를\n여섯 겹으로 포개요',
+    // One Text block (\\n) so line spacing matches page-1 body copy.
+    body: '포개는 공부한 내용이 잊히기 직전, 다시 꺼내어 기억을 한 겹씩 쌓아가는 복습 스케줄러예요.\n망각곡선에 맞춰 여섯 번의 복습을 차곡차곡 이어가 보세요.',
     accent: INTERVAL_LABEL,
   },
   {

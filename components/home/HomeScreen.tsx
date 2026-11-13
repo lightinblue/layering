@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   useCallback,
   useEffect,
@@ -32,6 +32,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,6 +73,7 @@ import {
   JUMP_ANIMATE_MAX_DELTA,
   PAGER_DECELERATION,
   durations,
+  springs,
 } from '@/constants/motion';
 import {
   REVIEW_INTERVAL_DAYS,
@@ -104,6 +106,7 @@ import {
   buildDefaultAppData,
   buildScreenshotAppData,
 } from '@/storage/screenshot-seed';
+import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import type { AppData } from '@/types/domain';
 import { parseKey, todayKey as deviceTodayKey } from '@/utils/date';
@@ -153,10 +156,14 @@ const ROW_LAYOUT = LinearTransition.duration(durations.listRow).easing(
 
 const DAY_NUMBER_TRAVEL = 86;
 const DATE_META_TRAVEL = 10;
+const DATE_LABEL_TRAVEL = DATE_META_TRAVEL * 0.6;
+/** Chewy date-header spring — day number, weekday, month/day. */
+const DATE_HEADER_SPRING = springs.dateHeader;
 
 /**
- * Big day number — clipped vertical slide.
+ * Big day number — clipped vertical slide as one unit.
  * Forward: outgoing up / incoming from below; reverse for previous dates.
+ * Live Y + spring keep rapid changes continuous with a chewy settle.
  */
 function AnimatedDayNumber({
   dateKey,
@@ -169,8 +176,8 @@ function AnimatedDayNumber({
   const [outgoing, setOutgoing] = useState<string | null>(null);
   const dateKeyRef = useRef(dateKey);
   const incomingRef = useRef(dayNumber);
-  const progress = useSharedValue(1);
-  const direction = useSharedValue(1);
+  const outY = useSharedValue(0);
+  const inY = useSharedValue(0);
 
   const clearOutgoing = useCallback(() => {
     setOutgoing(null);
@@ -184,30 +191,33 @@ function AnimatedDayNumber({
     }
     const dir = dateKey > dateKeyRef.current ? 1 : -1;
     dateKeyRef.current = dateKey;
-    direction.value = dir;
+
+    cancelAnimation(outY);
+    cancelAnimation(inY);
+
+    // Preserve mid-flight Y so rapid taps continue as one slide.
+    outY.value = inY.value;
     setOutgoing(incomingRef.current);
     incomingRef.current = dayNumber;
     setIncoming(dayNumber);
-    cancelAnimation(progress);
-    progress.value = 0;
-    progress.value = withTiming(1, DATE_SHIFT, (finished) => {
-      if (finished) runOnJS(clearOutgoing)();
-    });
-  }, [clearOutgoing, dateKey, dayNumber, direction, progress]);
+    inY.value = dir * DAY_NUMBER_TRAVEL;
+
+    outY.value = withSpring(
+      -dir * DAY_NUMBER_TRAVEL,
+      DATE_HEADER_SPRING,
+      (finished) => {
+        if (finished) runOnJS(clearOutgoing)();
+      },
+    );
+    inY.value = withSpring(0, DATE_HEADER_SPRING);
+  }, [clearOutgoing, dateKey, dayNumber, inY, outY]);
 
   const outgoingStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: -direction.value * DAY_NUMBER_TRAVEL * progress.value },
-    ],
+    transform: [{ translateY: outY.value }],
   }));
 
   const incomingStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY:
-          direction.value * DAY_NUMBER_TRAVEL * (1 - progress.value),
-      },
-    ],
+    transform: [{ translateY: inY.value }],
   }));
 
   return (
@@ -227,7 +237,7 @@ function AnimatedDayNumber({
   );
 }
 
-/** Weekday + month/day — same direction/timing as the day number. */
+/** Weekday + month/day — same chewy spring language as the day number. */
 function AnimatedDateMeta({
   dateKey,
   weekdayLabel,
@@ -244,8 +254,14 @@ function AnimatedDateMeta({
   const dateKeyRef = useRef(dateKey);
   const weekdayRef = useRef(weekdayLabel);
   const labelRef = useRef(dateLabel);
-  const progress = useSharedValue(1);
-  const direction = useSharedValue(1);
+  const weekdayOutY = useSharedValue(0);
+  const weekdayInY = useSharedValue(0);
+  const weekdayOutOpacity = useSharedValue(1);
+  const weekdayInOpacity = useSharedValue(1);
+  const labelOutY = useSharedValue(0);
+  const labelInY = useSharedValue(0);
+  const labelOutOpacity = useSharedValue(1);
+  const labelInOpacity = useSharedValue(1);
 
   const clearOutgoing = useCallback(() => {
     setOutgoingWeekday(null);
@@ -262,60 +278,77 @@ function AnimatedDateMeta({
     }
     const dir = dateKey > dateKeyRef.current ? 1 : -1;
     dateKeyRef.current = dateKey;
-    direction.value = dir;
+
+    cancelAnimation(weekdayOutY);
+    cancelAnimation(weekdayInY);
+    cancelAnimation(weekdayOutOpacity);
+    cancelAnimation(weekdayInOpacity);
+    cancelAnimation(labelOutY);
+    cancelAnimation(labelInY);
+    cancelAnimation(labelOutOpacity);
+    cancelAnimation(labelInOpacity);
+
+    weekdayOutY.value = weekdayInY.value;
+    weekdayOutOpacity.value = weekdayInOpacity.value;
+    labelOutY.value = labelInY.value;
+    labelOutOpacity.value = labelInOpacity.value;
+
     setOutgoingWeekday(weekdayRef.current);
     setOutgoingLabel(labelRef.current);
     weekdayRef.current = weekdayLabel;
     labelRef.current = dateLabel;
     setIncomingWeekday(weekdayLabel);
     setIncomingLabel(dateLabel);
-    cancelAnimation(progress);
-    progress.value = 0;
-    progress.value = withTiming(1, DATE_SHIFT, (finished) => {
+
+    weekdayInY.value = dir * DATE_META_TRAVEL;
+    weekdayInOpacity.value = 0;
+    labelInY.value = dir * DATE_LABEL_TRAVEL;
+    labelInOpacity.value = 0;
+
+    weekdayOutY.value = withSpring(-dir * DATE_META_TRAVEL, DATE_HEADER_SPRING);
+    weekdayOutOpacity.value = withSpring(0, DATE_HEADER_SPRING);
+    weekdayInY.value = withSpring(0, DATE_HEADER_SPRING);
+    weekdayInOpacity.value = withSpring(1, DATE_HEADER_SPRING);
+
+    labelOutY.value = withSpring(-dir * DATE_LABEL_TRAVEL, DATE_HEADER_SPRING);
+    labelOutOpacity.value = withSpring(0, DATE_HEADER_SPRING);
+    labelInY.value = withSpring(0, DATE_HEADER_SPRING, (finished) => {
       if (finished) runOnJS(clearOutgoing)();
     });
+    labelInOpacity.value = withSpring(1, DATE_HEADER_SPRING);
   }, [
     clearOutgoing,
     dateKey,
     dateLabel,
-    direction,
-    progress,
+    labelInOpacity,
+    labelInY,
+    labelOutOpacity,
+    labelOutY,
+    weekdayInOpacity,
+    weekdayInY,
     weekdayLabel,
+    weekdayOutOpacity,
+    weekdayOutY,
   ]);
 
   const outgoingWeekdayStyle = useAnimatedStyle(() => ({
-    opacity: 1 - progress.value,
-    transform: [
-      { translateY: -direction.value * DATE_META_TRAVEL * progress.value },
-    ],
+    opacity: Math.min(1, Math.max(0, weekdayOutOpacity.value)),
+    transform: [{ translateY: weekdayOutY.value }],
   }));
 
   const incomingWeekdayStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [
-      {
-        translateY: direction.value * DATE_META_TRAVEL * (1 - progress.value),
-      },
-    ],
+    opacity: Math.min(1, Math.max(0, weekdayInOpacity.value)),
+    transform: [{ translateY: weekdayInY.value }],
   }));
 
   const outgoingLabelStyle = useAnimatedStyle(() => ({
-    opacity: 1 - progress.value,
-    transform: [
-      {
-        translateY: -direction.value * (DATE_META_TRAVEL * 0.6) * progress.value,
-      },
-    ],
+    opacity: Math.min(1, Math.max(0, labelOutOpacity.value)),
+    transform: [{ translateY: labelOutY.value }],
   }));
 
   const incomingLabelStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [
-      {
-        translateY:
-          direction.value * (DATE_META_TRAVEL * 0.6) * (1 - progress.value),
-      },
-    ],
+    opacity: Math.min(1, Math.max(0, labelInOpacity.value)),
+    transform: [{ translateY: labelInY.value }],
   }));
 
   return (
@@ -486,6 +519,8 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       setSelectedKey(screen.todayKey);
       setWeekIndex(screen.currentWeekIndex);
       setHydrated(true);
+      // 포개 widget: seed snapshot after first load.
+      void syncTodayReviewWidgetSnapshot(storedApp);
     })();
     return () => {
       cancelled = true;
@@ -494,10 +529,23 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
-      if (next === 'active') setClockNonce((n) => n + 1);
+      if (next !== 'active') return;
+      setClockNonce((n) => n + 1);
+      // 포개 widget: rewrite on foreground (covers todayKey rollover).
+      if (!dataProp && appData) {
+        void syncTodayReviewWidgetSnapshot(appData);
+      }
     });
     return () => sub.remove();
-  }, []);
+  }, [dataProp, appData]);
+
+  // 포개 widget: rewrite whenever home regains focus.
+  useFocusEffect(
+    useCallback(() => {
+      if (dataProp || !appData) return;
+      void syncTodayReviewWidgetSnapshot(appData);
+    }, [dataProp, appData]),
+  );
 
   const base: HomeScreenData = useMemo(() => {
     if (dataProp) return dataProp;
@@ -551,6 +599,8 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   const persistApp = useCallback(async (next: AppData) => {
     setAppData(next);
     await saveAppData(next);
+    // 포개 widget: review toggle · study add/delete/edit · subject changes.
+    await syncTodayReviewWidgetSnapshot(next);
   }, []);
 
   const selectedDateKey = selected?.dateKey ?? todayKey;

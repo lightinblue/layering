@@ -1,19 +1,25 @@
 {
   "expo": {
-    "name": "레이어링",
+    "name": "포개",
     "slug": "layering",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "layering",
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.lightinblue.layering",
-      "buildNumber": "9",
+      "appleTeamId": "R39JVZ3ZNL",
+      "buildNumber": "12",
       "supportsTablet": true,
       "infoPlist": {
-        "CFBundleDisplayName": "레이어링",
+        "CFBundleDisplayName": "포개",
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.lightinblue.layering.poogae"
+        ]
       }
     },
     "android": {
@@ -39,7 +45,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"
         }
-      ]
+      ],
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true
