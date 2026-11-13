@@ -10,7 +10,7 @@
     "ios": {
       "bundleIdentifier": "com.lightinblue.layering",
       "appleTeamId": "R39JVZ3ZNL",
-      "buildNumber": "11",
+      "buildNumber": "12",
       "supportsTablet": true,
       "infoPlist": {
         "CFBundleDisplayName": "포개",
