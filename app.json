@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "레이어링",
+    "name": "포개",
     "slug": "layering",
     "version": "1.1.0",
     "orientation": "portrait",
@@ -10,10 +10,10 @@
     "ios": {
       "bundleIdentifier": "com.lightinblue.layering",
       "appleTeamId": "R39JVZ3ZNL",
-      "buildNumber": "9",
+      "buildNumber": "11",
       "supportsTablet": true,
       "infoPlist": {
-        "CFBundleDisplayName": "레이어링",
+        "CFBundleDisplayName": "포개",
         "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
