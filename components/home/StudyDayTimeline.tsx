@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 13,
+    fontSize: 14,
   },
   body: {
     flex: 1,

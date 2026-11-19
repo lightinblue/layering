@@ -197,7 +197,9 @@ export function addSubject(
 
 /**
  * Soft-delete a subject chip by name. Records that used it stay
- * (subjectName snapshot on StudyRecord keeps display).
+ * (subjectName + subjectColor snapshots keep display colors).
+ * Backfills missing record.subjectColor from the chip before tombstoning
+ * so home/day chips do not fall through to gray.
  */
 export function removeSubject(
   data: AppData,
@@ -206,10 +208,12 @@ export function removeSubject(
 ): SubjectMutationResult {
   const name = normalizeSubjectName(rawName);
   if (!name) return { ok: false, reason: 'empty' };
-  if (!activeSubjects(data.subjects).some((s) => s.name === name)) {
+  const live = activeSubjects(data.subjects).find((s) => s.name === name);
+  if (!live) {
     return { ok: false, reason: 'missing' };
   }
   const at = nowIso(now);
+  const snapColor = withSubjectColor(live).color;
   return {
     ok: true,
     data: withSchedules({
@@ -219,6 +223,15 @@ export function removeSubject(
           ? { ...s, deleted: true, updatedAt: at }
           : s,
       ),
+      records: data.records.map((r) => {
+        if (r.deleted || r.subjectName !== name) return r;
+        if (r.subjectColor?.trim()) return r;
+        return {
+          ...r,
+          ...(snapColor ? { subjectColor: snapColor } : {}),
+          updatedAt: at,
+        };
+      }),
     }),
   };
 }

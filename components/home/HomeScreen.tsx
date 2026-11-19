@@ -494,6 +494,8 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   const [hydrated, setHydrated] = useState(dataProp != null);
   const [appData, setAppData] = useState<AppData | null>(null);
+  const appDataRef = useRef<AppData | null>(null);
+  appDataRef.current = appData;
   /** When set, week strip is recentered on this date (calendar jump). */
   const [weekAnchorKey, setWeekAnchorKey] = useState<string | null>(null);
   const appliedDayRef = useRef<string | null>(null);
@@ -559,12 +561,22 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     return () => sub.remove();
   }, [dataProp, appData]);
 
-  // 포개 widget: rewrite whenever home regains focus.
+  // Reload after /day (or calendar) edits — home stays mounted so local
+  // appData would otherwise stay stale while AsyncStorage already moved on.
   useFocusEffect(
     useCallback(() => {
-      if (dataProp || !appData) return;
-      void syncTodayReviewWidgetSnapshot(appData);
-    }, [dataProp, appData]),
+      if (dataProp) return;
+      let cancelled = false;
+      void (async () => {
+        const stored = await loadAppData();
+        if (cancelled) return;
+        setAppData(stored);
+        void syncTodayReviewWidgetSnapshot(stored);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [dataProp]),
   );
 
   const base: HomeScreenData = useMemo(() => {
@@ -609,9 +621,10 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     });
   }, [appData]);
 
+  /** Include soft-deleted chips so study rows keep their color after remove. */
   const colorByName = useMemo(
-    () => subjectColorMap(subjectOptions),
-    [subjectOptions],
+    () => (appData ? subjectColorMap(appData.subjects) : {}),
+    [appData],
   );
 
   const persistApp = useCallback(async (next: AppData) => {
@@ -693,8 +706,10 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   const onAddSubject = useCallback(
     (rawName: string, color: string): SubjectAddResult => {
-      if (dataProp || !appData) return { ok: false, reason: 'empty' };
-      const result = addSubject(appData, rawName, color);
+      if (dataProp) return { ok: false, reason: 'empty' };
+      const current = appDataRef.current;
+      if (!current) return { ok: false, reason: 'empty' };
+      const result = addSubject(current, rawName, color);
       if (!result.ok) {
         return {
           ok: false,
@@ -704,27 +719,31 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       void persistApp(result.data);
       return { ok: true };
     },
-    [dataProp, appData, persistApp],
+    [dataProp, persistApp],
   );
 
   const onRemoveSubject = useCallback(
     (name: string) => {
-      if (dataProp || !appData) return;
-      const result = removeSubject(appData, name);
+      if (dataProp) return;
+      const current = appDataRef.current;
+      if (!current) return;
+      const result = removeSubject(current, name);
       if (!result.ok) return;
       void persistApp(result.data);
     },
-    [dataProp, appData, persistApp],
+    [dataProp, persistApp],
   );
 
   const onReorderSubjects = useCallback(
     (orderedNames: string[]) => {
-      if (dataProp || !appData) return;
-      const result = reorderSubjects(appData, orderedNames);
+      if (dataProp) return;
+      const current = appDataRef.current;
+      if (!current) return;
+      const result = reorderSubjects(current, orderedNames);
       if (!result.ok) return;
       void persistApp(result.data);
     },
-    [dataProp, appData, persistApp],
+    [dataProp, persistApp],
   );
 
   const applySeededAppData = useCallback(
@@ -1592,17 +1611,25 @@ function ReviewCard({
               </Text>
             </View>
             <View style={styles.reviewChips}>
-              {card.subjectNames.map((name) => (
-                <View
-                  key={name}
-                  accessibilityLabel={name}
-                  style={[
-                    styles.reviewChip,
-                    { backgroundColor: subjectColor(name, colorByName) },
-                  ]}>
-                  <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
-                </View>
-              ))}
+              {card.subjectNames.map((name) => {
+                const study = card.studies.find((s) => s.subjectName === name);
+                return (
+                  <View
+                    key={name}
+                    accessibilityLabel={name}
+                    style={[
+                      styles.reviewChip,
+                      {
+                        backgroundColor: subjectColor(
+                          name,
+                          study?.subjectColor ?? colorByName,
+                        ),
+                      },
+                    ]}>
+                    <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
           <View style={styles.detailRow}>

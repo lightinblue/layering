@@ -44,7 +44,7 @@ export function ReviewDetailContent({
                   {
                     backgroundColor: subjectColor(
                       study.subjectName,
-                      colorByName,
+                      study.subjectColor ?? colorByName,
                     ),
                   },
                 ]}>

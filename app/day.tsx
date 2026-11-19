@@ -269,6 +269,9 @@ export default function DayTimelineScreen() {
             initial={{
               subject: editingStudy.subjectName,
               title: editingStudy.content,
+              ...(editingStudy.subjectColor
+                ? { subjectColor: editingStudy.subjectColor }
+                : {}),
             }}
             onSave={onSaveEdit}
             onDelete={onDelete}

@@ -393,6 +393,7 @@ export function AddStudyForm({
   const draftInputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [chipHint, setChipHint] = useState<string | null>(null);
   const [deleteArmed, setDeleteArmed] = useState<string | null>(null);
+  const deleteArmedRef = useRef<string | null>(null);
   const [draggingName, setDraggingName] = useState<string | null>(null);
   /** Floating chip top-left in row-local coords while dragging. */
   const [dragLocal, setDragLocal] = useState({ x: 0, y: 0 });
@@ -428,6 +429,10 @@ export function AddStudyForm({
   useEffect(() => {
     orderedNamesRef.current = orderedNames;
   }, [orderedNames]);
+
+  useEffect(() => {
+    deleteArmedRef.current = deleteArmed;
+  }, [deleteArmed]);
 
   useEffect(() => {
     if (draggingRef.current) return;
@@ -547,21 +552,6 @@ export function AddStudyForm({
     onReorderSubjects(next);
   }, [clearLongPressTimer, onReorderSubjects]);
 
-  const handleChipTap = useCallback(
-    (name: string) => {
-      setChipHint(null);
-      if (subjectPick !== name) {
-        haptics.select();
-        setSubjectPick(name);
-        setDeleteArmed(null);
-        return;
-      }
-      if (!onRemoveSubject) return;
-      setDeleteArmed((prev) => (prev === name ? null : name));
-    },
-    [subjectPick, onRemoveSubject],
-  );
-
   const requestRemove = useCallback(
     (name: string) => {
       if (!onRemoveSubject) return;
@@ -588,7 +578,27 @@ export function AddStudyForm({
         ],
       );
     },
-    [onRemoveSubject],
+    [onRemoveSubject, subjects],
+  );
+
+  const handleChipTap = useCallback(
+    (name: string) => {
+      setChipHint(null);
+      if (subjectPick !== name) {
+        haptics.select();
+        setSubjectPick(name);
+        setDeleteArmed(null);
+        return;
+      }
+      if (!onRemoveSubject) return;
+      // Armed + re-tap → confirm (× can lose the touch to the chip pan).
+      if (deleteArmed === name) {
+        requestRemove(name);
+        return;
+      }
+      setDeleteArmed(name);
+    },
+    [subjectPick, onRemoveSubject, deleteArmed, requestRemove],
   );
 
   const beginDrag = useCallback(
@@ -649,7 +659,8 @@ export function AddStudyForm({
     > = {};
     for (const { name } of orderedChips) {
       map[name] = PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
+        // When × is armed, yield start so the badge Pressable can fire.
+        onStartShouldSetPanResponder: () => deleteArmedRef.current !== name,
         onStartShouldSetPanResponderCapture: () => false,
         onMoveShouldSetPanResponder: () => dragActivatedRef.current,
         onMoveShouldSetPanResponderCapture: () => dragActivatedRef.current,
@@ -896,7 +907,7 @@ export function AddStudyForm({
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`${name} 과목 삭제`}
-                    hitSlop={8}
+                    hitSlop={12}
                     onPress={() => requestRemove(name)}
                     style={[
                       styles.deleteBadge,
