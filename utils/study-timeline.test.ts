@@ -30,15 +30,15 @@ describe('buildTimelineBands', () => {
     expect(empty.map((b) => b.addSpan)).toEqual([3, 4, 3]);
   });
 
-  it('exposes one add span + 투두 label per band', () => {
+  it('exposes one add span + 공부 label per band', () => {
     const bands = buildTimelineBands([row('a')]);
     expect(bands[0].slots.filter((s) => s.kind === 'study')).toHaveLength(1);
     expect(bands[0].showAdd).toBe(true);
     expect(bands[0].addSpan).toBe(2);
     expect(bands.map((b) => b.addLabel)).toEqual([
-      '오전 투두',
-      '오후 투두',
-      '밤 투두',
+      '오전 공부',
+      '오후 공부',
+      '밤 공부',
     ]);
     expect(bands[1].addSpan).toBe(4);
     expect(bands[2].addSpan).toBe(3);

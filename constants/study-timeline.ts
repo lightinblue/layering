@@ -18,7 +18,7 @@ export const TIMELINE_BANDS = [
     labelEnd: '12',
     emptySlots: 4,
     visualPad: 3,
-    addLabel: '오전 투두',
+    addLabel: '오전 공부',
   },
   {
     id: 'afternoon',
@@ -26,7 +26,7 @@ export const TIMELINE_BANDS = [
     labelEnd: '18',
     emptySlots: 6,
     visualPad: 4,
-    addLabel: '오후 투두',
+    addLabel: '오후 공부',
   },
   {
     id: 'evening',
@@ -34,7 +34,7 @@ export const TIMELINE_BANDS = [
     labelEnd: '24',
     emptySlots: 4,
     visualPad: 3,
-    addLabel: '밤 투두',
+    addLabel: '밤 공부',
   },
 ] as const;
 

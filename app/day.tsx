@@ -225,13 +225,12 @@ export default function DayTimelineScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="뒤로"
-            hitSlop={12}
+            hitSlop={14}
             onPress={onClose}
             style={styles.backBtn}>
             <View style={styles.backArrow}>
-              <ArrowRightIcon color={colors.muted} />
+              <ArrowRightIcon size={18} color={colors.muted} />
             </View>
-            <Text style={[styles.backText, { color: colors.muted }]}>홈</Text>
           </Pressable>
           <DayTitleDate meta={meta} isToday={isToday} />
         </View>
@@ -331,16 +330,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   backBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    justifyContent: 'center',
+    paddingVertical: 4,
+    paddingRight: 8,
   },
   backArrow: {
     transform: [{ scaleX: -1 }],
-  },
-  backText: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 14,
   },
   titleDate: {
     flexDirection: 'row',

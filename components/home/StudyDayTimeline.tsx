@@ -56,8 +56,8 @@ type StudyDayTimelineProps = {
 };
 
 /**
- * Day study bands: faint 8/12/18/24 marks + one 투두 add per band.
- * Tap 투두 → inline composer in place (chips + title); no sheet.
+ * Day study bands: faint 8/12/18/24 marks + one 공부 add per band.
+ * Tap → full-width inline input; subject from live prefix parse on save.
  */
 export function StudyDayTimeline({
   studies,
