@@ -38,7 +38,7 @@ import {
   resolveSubjectAndTitle,
 } from '@/utils/parse-subject-prefix';
 
-const SLOT_HEIGHT = 40;
+const SLOT_HEIGHT = 36;
 const ROW_LAYOUT = LinearTransition.duration(durations.listRow);
 const ENTER = FadeInDown.duration(durations.fadeIn).easing(
   Easing.out(Easing.cubic),
@@ -157,7 +157,6 @@ function TimelineMark({ label }: { label: string }) {
 
 function BandAddControl({
   label,
-  span,
   onPress,
 }: {
   label: string;
@@ -165,7 +164,6 @@ function BandAddControl({
   onPress: () => void;
 }) {
   const colors = useThemeColors();
-  const height = SLOT_HEIGHT * span + 6 * Math.max(0, span - 1);
   return (
     <Animated.View entering={ENTER} exiting={EXIT} layout={ROW_LAYOUT}>
       <Pressable
@@ -174,10 +172,7 @@ function BandAddControl({
         onPress={onPress}
         style={[
           styles.bandAdd,
-          {
-            minHeight: height,
-            backgroundColor: colors.surface,
-          },
+          { backgroundColor: colors.surface },
         ]}>
         <PlusIcon size={14} />
         <Text style={[styles.emptyText, { color: colors.accentText }]}>
@@ -393,13 +388,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   bandBlock: {
-    gap: 8,
+    gap: 6,
   },
   markRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 2,
+    paddingVertical: 1,
   },
   markLabel: {
     fontFamily: fonts.gothamMedium,
@@ -413,23 +408,23 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
   },
   slotStack: {
-    gap: 6,
+    gap: 5,
     paddingLeft: 32,
   },
   bandAdd: {
+    height: SLOT_HEIGHT,
     borderRadius: radii.chip,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 8,
   },
   emptyText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 13,
   },
   inlineWrap: {
-    gap: 8,
+    gap: 6,
   },
   chipRow: {
     flexDirection: 'row',
@@ -438,21 +433,21 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   subjectPrompt: {
-    minHeight: 44,
+    height: SLOT_HEIGHT,
     borderRadius: radii.chip,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
   },
   subjectPromptText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 14,
+    fontSize: 13,
   },
   subjectChip: {
-    minWidth: 64,
-    height: 44,
-    paddingHorizontal: 12,
+    minWidth: 56,
+    height: 32,
+    paddingHorizontal: 10,
     borderRadius: radii.chip,
     alignItems: 'center',
     justifyContent: 'center',
@@ -460,7 +455,7 @@ const styles = StyleSheet.create({
   },
   subjectChipText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 14,
+    fontSize: 13,
   },
   inlineInputRow: {
     flexDirection: 'row',

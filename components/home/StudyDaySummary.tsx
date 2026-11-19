@@ -18,14 +18,13 @@ const ENTER = FadeIn.duration(durations.fadeIn).easing(
   Easing.out(Easing.cubic),
 );
 
-/** Max subject groups shown on the home summary. */
-const SUMMARY_MAX_SUBJECTS = 3;
+/** Max subject chip rows on the home summary. */
+const SUMMARY_MAX_ROWS = 3;
 
 type SubjectGroup = {
   subjectName: string;
   subjectColor?: string;
-  firstTitle: string;
-  extraCount: number;
+  titles: string[];
 };
 
 function groupStudiesBySubject(
@@ -51,15 +50,23 @@ function groupStudiesBySubject(
     existing.titles.push(row.content);
   }
 
-  return order.slice(0, SUMMARY_MAX_SUBJECTS).map((name) => {
+  return order.slice(0, SUMMARY_MAX_ROWS).map((name) => {
     const g = map.get(name)!;
     return {
       subjectName: name,
       ...(g.subjectColor ? { subjectColor: g.subjectColor } : {}),
-      firstTitle: g.titles[0] ?? '',
-      extraCount: Math.max(0, g.titles.length - 1),
+      titles: g.titles,
     };
   });
+}
+
+/** `1단원, 2단원… 총 3개` when multiple; single title otherwise. */
+function formatTitlePreview(titles: readonly string[]): string {
+  if (titles.length === 0) return '';
+  if (titles.length === 1) return titles[0]!;
+  const a = titles[0]!;
+  const b = titles[1]!;
+  return `${a}, ${b}… 총 ${titles.length}개`;
 }
 
 type StudyDaySummaryProps = {
@@ -70,8 +77,7 @@ type StudyDaySummaryProps = {
 };
 
 /**
- * Home compact study strip — title + summary both open the day detail.
- * Groups by subject (max 3): `과목 - 첫 투두` (+ `외 n개`).
+ * Home compact study strip — chip + title rows (max 3 subjects).
  */
 export function StudyDaySummary({
   studies,
@@ -104,24 +110,31 @@ export function StudyDaySummary({
             </Text>
           ) : (
             <Animated.View entering={ENTER} style={styles.previewCol}>
-              {groups.map((group) => {
-                const tint = subjectColor(
-                  group.subjectName,
-                  group.subjectColor ?? colorByName,
-                );
-                const line =
-                  group.extraCount > 0
-                    ? `${group.subjectName} - ${group.firstTitle} 외 ${group.extraCount}개`
-                    : `${group.subjectName} - ${group.firstTitle}`;
-                return (
+              {groups.map((group) => (
+                <View key={group.subjectName} style={styles.previewRow}>
+                  <View
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: subjectColor(
+                          group.subjectName,
+                          group.subjectColor ?? colorByName,
+                        ),
+                      },
+                    ]}>
+                    <Text
+                      style={[styles.chipText, { color: colors.onAccent }]}
+                      numberOfLines={1}>
+                      {group.subjectName}
+                    </Text>
+                  </View>
                   <Text
-                    key={group.subjectName}
-                    style={[styles.previewText, { color: tint }]}
+                    style={[styles.previewText, { color: colors.body }]}
                     numberOfLines={1}>
-                    {line}
+                    {formatTitlePreview(group.titles)}
                   </Text>
-                );
-              })}
+                </View>
+              ))}
             </Animated.View>
           )}
         </View>
@@ -165,7 +178,26 @@ const styles = StyleSheet.create({
   previewCol: {
     gap: 8,
   },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  chip: {
+    minWidth: 52,
+    maxWidth: 72,
+    height: 28,
+    paddingHorizontal: 8,
+    borderRadius: radii.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipText: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 12,
+  },
   previewText: {
+    flex: 1,
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
   },
