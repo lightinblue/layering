@@ -19,10 +19,8 @@ import Animated, {
 import { fonts } from '@/constants/fonts';
 import { durations, springs } from '@/constants/motion';
 import { PRIMARY_OPTIONS, radii, type PrimaryOption } from '@/constants/tokens';
-import {
-  WEEKDAY_START_OPTIONS,
-  type WeekdayStart,
-} from '@/storage/calendar-prefs';
+import { APPEARANCE_OPTIONS } from '@/storage/appearance';
+import { WEEKDAY_START_OPTIONS } from '@/storage/calendar-prefs';
 import { useCalendarPrefs } from '@/theme/CalendarPrefsProvider';
 import { useTheme } from '@/theme/ThemeProvider';
 import { haptics } from '@/utils/haptics';
@@ -35,14 +33,14 @@ export type SettingsSheetProps = {
 };
 
 /**
- * Minimal settings body: calendar week start + accent color picker.
+ * Settings body: appearance, calendar week start, accent color.
  * Screenshot helpers render only when `__DEV__` and handlers are passed.
  */
 export function SettingsSheet({
   onScreenshotSeed,
   onScreenshotReset,
 }: SettingsSheetProps) {
-  const { colors, primary, setPrimary } = useTheme();
+  const { colors, primary, setPrimary, appearance, setAppearance } = useTheme();
   const { weekStartsOn, setWeekStartsOn } = useCalendarPrefs();
   const [busy, setBusy] = useState<'seed' | 'reset' | null>(null);
   const showScreenshotTools =
@@ -63,6 +61,21 @@ export function SettingsSheet({
   return (
     <View style={styles.content}>
       <Text style={[styles.title, { color: colors.black }]}>설정</Text>
+
+      <View style={styles.field}>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>
+          화면 모드
+        </Text>
+        <SegmentedPicker
+          options={APPEARANCE_OPTIONS}
+          value={appearance}
+          onChange={setAppearance}
+          accessibilityGroupLabel="화면 모드"
+          surface={colors.surface}
+          primary={colors.primary}
+          ink={colors.black}
+        />
+      </View>
 
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>
@@ -87,7 +100,8 @@ export function SettingsSheet({
         <Text style={[styles.label, { color: colors.sectionLabel }]}>
           시작 요일
         </Text>
-        <SegmentedStartPicker
+        <SegmentedPicker
+          options={WEEKDAY_START_OPTIONS}
           value={weekStartsOn}
           onChange={setWeekStartsOn}
           accessibilityGroupLabel="시작 요일"
@@ -170,7 +184,14 @@ const SEGMENT_SLIDE = {
   easing: Easing.out(Easing.cubic),
 } as const;
 
-function SegmentedStartPicker({
+type SegmentOption<T extends string | number> = {
+  value: T;
+  label: string;
+  accessibilityLabel: string;
+};
+
+function SegmentedPicker<T extends string | number>({
+  options,
   value,
   onChange,
   accessibilityGroupLabel,
@@ -178,21 +199,23 @@ function SegmentedStartPicker({
   primary,
   ink,
 }: {
-  value: WeekdayStart;
-  onChange: (next: WeekdayStart) => void;
+  options: readonly SegmentOption<T>[];
+  value: T;
+  onChange: (next: T) => void;
   accessibilityGroupLabel: string;
   surface: string;
   primary: string;
   ink: string;
 }) {
   const selectedIndex = useMemo(
-    () => WEEKDAY_START_OPTIONS.findIndex((o) => o.value === value),
-    [value],
+    () => options.findIndex((o) => o.value === value),
+    [options, value],
   );
+  const count = options.length;
   const [trackWidth, setTrackWidth] = useState(0);
   const pillWidth =
-    trackWidth > 0
-      ? (trackWidth - SEGMENT_PAD * 2 - SEGMENT_GAP) / 2
+    trackWidth > 0 && count > 0
+      ? (trackWidth - SEGMENT_PAD * 2 - SEGMENT_GAP * (count - 1)) / count
       : 0;
   const pillX = useSharedValue(0);
   const primed = useRef(false);
@@ -239,7 +262,7 @@ function SegmentedStartPicker({
           ]}
         />
       ) : null}
-      {WEEKDAY_START_OPTIONS.map((option) => {
+      {options.map((option) => {
         const selected = option.value === value;
         return (
           <Pressable

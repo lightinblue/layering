@@ -15,17 +15,17 @@ module.exports = (config) => ({
         'group.com.lightinblue.layering.poogae',
       ],
   },
-  // Match `constants/tokens.ts` (home chrome / review cards / signature blue).
+  // Mirrors `constants/palette.ts` — widget follows system luminosity (not in-app force).
   colors: {
-    $accent: '#1991ff',
-    $widgetBackground: '#ffffff',
-    canvas: '#ffffff',
-    primary: '#1991ff',
-    primarySoft: '#dff0ff',
-    surface: '#f2f6fa',
-    muted: '#9fb1c1',
-    mutedLight: '#ced7e0',
-    body: '#526477',
-    accentText: '#708aa2',
+    $accent: { color: '#1991ff', dark: '#1991ff' },
+    $widgetBackground: { color: '#ffffff', dark: '#0B0F14' },
+    canvas: { color: '#ffffff', dark: '#0B0F14' },
+    primary: { color: '#1991ff', dark: '#1991ff' },
+    primarySoft: { color: '#dff0ff', dark: '#16324A' },
+    surface: { color: '#f2f6fa', dark: '#1A222C' },
+    muted: { color: '#9fb1c1', dark: '#8B9AAB' },
+    mutedLight: { color: '#ced7e0', dark: '#3A4554' },
+    body: { color: '#526477', dark: '#C5CED8' },
+    accentText: { color: '#708aa2', dark: '#9AABBC' },
   },
 });

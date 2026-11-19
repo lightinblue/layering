@@ -39,7 +39,6 @@ import { EASE_OUT_MS, durations } from '@/constants/motion';
 import {
   SUBJECT_COLOR_OPTIONS,
   SUBJECT_COLORS,
-  colors as tokenColors,
   radii,
   subjectBorderColor,
   subjectColor,
@@ -884,9 +883,15 @@ export function AddStudyForm({
                     onPress={() => requestRemove(name)}
                     style={[
                       styles.deleteBadge,
-                      { backgroundColor: colors.white },
+                      {
+                        backgroundColor: colors.white,
+                        borderColor: colors.muted,
+                      },
                     ]}>
-                    <Text style={styles.deleteBadgeText}>×</Text>
+                    <Text
+                      style={[styles.deleteBadgeText, { color: colors.muted }]}>
+                      ×
+                    </Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -1188,14 +1193,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: tokenColors.muted,
     zIndex: 30,
   },
   deleteBadgeText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 16,
     lineHeight: 18,
-    color: tokenColors.muted,
     marginTop: -1,
   },
   addChip: {

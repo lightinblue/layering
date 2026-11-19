@@ -1,9 +1,9 @@
-/** App chrome palette; Home screen tokens live in `constants/tokens.ts`. */
+/** App chrome palette; Home screen tokens live in `constants/palette.ts`. */
 const tint = '#1991ff';
 
 export default {
   light: {
-    text: '#1A1A1A',
+    text: '#000000',
     background: '#ffffff',
     tint,
     tabIconDefault: '#9fb1c1',
@@ -12,12 +12,12 @@ export default {
     border: '#ced7e0',
   },
   dark: {
-    text: '#FFFFFF',
-    background: '#000000',
-    tint: '#63B3ED',
-    tabIconDefault: '#718096',
-    tabIconSelected: '#63B3ED',
-    muted: '#A0AEC0',
-    border: '#2D3748',
+    text: '#E8EEF4',
+    background: '#0B0F14',
+    tint,
+    tabIconDefault: '#8B9AAB',
+    tabIconSelected: tint,
+    muted: '#9AABBC',
+    border: '#3A4554',
   },
 };

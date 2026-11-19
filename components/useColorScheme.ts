@@ -1,6 +1,2 @@
-import { useColorScheme as useColorSchemeCore } from 'react-native';
-
-export const useColorScheme = () => {
-  const coreScheme = useColorSchemeCore();
-  return coreScheme === 'dark' ? 'dark' : 'light';
-};
+/** Re-export themed scheme (respects 설정 → 화면 모드). */
+export { useColorScheme } from '@/theme/ThemeProvider';

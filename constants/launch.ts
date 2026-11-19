@@ -1,7 +1,9 @@
 /** Launch / splash — native plugin + in-app overlay share these values. */
 export const LAUNCH = {
-  /** White splash plane (symbol sits on transparent/white art). */
+  /** Light splash plane (symbol sits on transparent/white art). */
   backgroundColor: '#FFFFFF',
+  /** Dark splash plane — matches `darkPalette.mainWhite` / app.json dark splash. */
+  backgroundColorDark: '#0B0F14',
   /**
    * Logical px for the centered mark.
    * Keep in sync with expo-splash-screen `imageWidth` in app.json.

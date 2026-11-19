@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Image, StyleSheet } from 'react-native';
 import Animated, { FadeOut } from 'react-native-reanimated';
 
+import { useColorScheme } from '@/components/useColorScheme';
 import { LAUNCH, launchHoldBeforeFadeMs } from '@/constants/launch';
 
 function sleep(ms: number) {
@@ -13,12 +14,17 @@ function sleep(ms: number) {
 
 /**
  * In-app splash: symbol only, true center — must match expo-splash-screen
- * (same asset, imageWidth ≈ markSize, white bg) so hideAsync does not flash.
+ * (same asset, imageWidth ≈ markSize, scheme bg) so hideAsync does not flash.
  * Expo Go still paints the app icon as its native splash (SDK 52+ limit);
  * we use that same icon asset here so the handoff stays one symbol.
  */
 export function LaunchScreen() {
+  const colorScheme = useColorScheme();
   const [visible, setVisible] = useState(true);
+  const backgroundColor =
+    colorScheme === 'dark'
+      ? LAUNCH.backgroundColorDark
+      : LAUNCH.backgroundColor;
 
   useEffect(() => {
     let cancelled = false;
@@ -45,7 +51,7 @@ export function LaunchScreen() {
     <Animated.View
       pointerEvents="none"
       exiting={FadeOut.duration(LAUNCH.fadeOutMs)}
-      style={styles.root}>
+      style={[styles.root, { backgroundColor }]}>
       <Image
         accessibilityIgnoresInvertColors
         style={styles.mark}
@@ -59,7 +65,6 @@ export function LaunchScreen() {
 const styles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: LAUNCH.backgroundColor,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,

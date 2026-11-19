@@ -7,47 +7,81 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useColorScheme as useSystemColorScheme } from 'react-native';
 
 import {
-  colors as baseColors,
+  type ColorSchemeName,
+  paletteFor,
+  type ChromePalette,
+} from '@/constants/palette';
+import {
   DEFAULT_PRIMARY,
   softFromPrimary,
   type PrimaryOption,
 } from '@/constants/tokens';
+import {
+  DEFAULT_APPEARANCE,
+  loadAppearancePreference,
+  saveAppearancePreference,
+  type AppearancePreference,
+} from '@/storage/appearance';
 import { loadThemePrimary, saveThemePrimary } from '@/storage/theme';
 
-export type ThemeColors = Omit<typeof baseColors, 'primary' | 'primarySoft'> & {
-  primary: string;
-  primarySoft: string;
-};
+export type ThemeColors = ChromePalette;
 
 type ThemeContextValue = {
   colors: ThemeColors;
   primary: PrimaryOption;
   setPrimary: (primary: PrimaryOption) => void;
+  /** User preference: system / light / dark. */
+  appearance: AppearancePreference;
+  setAppearance: (value: AppearancePreference) => void;
+  /** Resolved scheme after applying preference. */
+  colorScheme: ColorSchemeName;
   hydrated: boolean;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function buildColors(primary: PrimaryOption): ThemeColors {
+function buildColors(
+  scheme: ColorSchemeName,
+  primary: PrimaryOption,
+): ThemeColors {
+  const base = paletteFor(scheme);
+  const softMix = scheme === 'dark' ? 0.78 : 0.86;
   return {
-    ...baseColors,
+    ...base,
     primary,
-    primarySoft: softFromPrimary(primary),
+    primarySoft: softFromPrimary(primary, softMix, base.softMixTarget),
   };
 }
 
+function resolveScheme(
+  preference: AppearancePreference,
+  system: string | null | undefined,
+): ColorSchemeName {
+  if (preference === 'light') return 'light';
+  if (preference === 'dark') return 'dark';
+  return system === 'dark' ? 'dark' : 'light';
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  const systemScheme = useSystemColorScheme();
   const [primary, setPrimaryState] = useState<PrimaryOption>(DEFAULT_PRIMARY);
+  const [appearance, setAppearanceState] =
+    useState<AppearancePreference>(DEFAULT_APPEARANCE);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const stored = await loadThemePrimary();
+    void (async () => {
+      const [storedPrimary, storedAppearance] = await Promise.all([
+        loadThemePrimary(),
+        loadAppearancePreference(),
+      ]);
       if (cancelled) return;
-      setPrimaryState(stored);
+      setPrimaryState(storedPrimary);
+      setAppearanceState(storedAppearance);
       setHydrated(true);
     })();
     return () => {
@@ -60,14 +94,31 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     void saveThemePrimary(next);
   }, []);
 
+  const setAppearance = useCallback((next: AppearancePreference) => {
+    setAppearanceState(next);
+    void saveAppearancePreference(next);
+  }, []);
+
+  const colorScheme = resolveScheme(appearance, systemScheme);
+
   const value = useMemo<ThemeContextValue>(
     () => ({
-      colors: buildColors(primary),
+      colors: buildColors(colorScheme, primary),
       primary,
       setPrimary,
+      appearance,
+      setAppearance,
+      colorScheme,
       hydrated,
     }),
-    [primary, setPrimary, hydrated],
+    [
+      appearance,
+      colorScheme,
+      hydrated,
+      primary,
+      setAppearance,
+      setPrimary,
+    ],
   );
 
   return (
@@ -86,6 +137,12 @@ export function useTheme(): ThemeContextValue {
 /** Safe fallback when a leaf may render outside the provider (tests). */
 export function useThemeColors(): ThemeColors {
   const ctx = useContext(ThemeContext);
-  if (!ctx) return buildColors(DEFAULT_PRIMARY);
+  if (!ctx) return buildColors('light', DEFAULT_PRIMARY);
   return ctx.colors;
+}
+
+export function useColorScheme(): ColorSchemeName {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) return 'light';
+  return ctx.colorScheme;
 }

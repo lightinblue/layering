@@ -10,7 +10,8 @@ import Animated, {
 
 import { fonts } from '@/constants/fonts';
 import { EASE_OUT_MS } from '@/constants/motion';
-import { colors, radii } from '@/constants/tokens';
+import { radii } from '@/constants/tokens';
+import { useThemeColors } from '@/theme/ThemeProvider';
 
 /** Round-robin copies for review-card check complete. */
 export const REVIEW_COMPLETE_TOASTS = [
@@ -43,6 +44,7 @@ export function ReviewCompleteToast({
   bottom,
   onHidden,
 }: ReviewCompleteToastProps) {
+  const colors = useThemeColors();
   const opacity = useSharedValue(0);
 
   useEffect(() => {
@@ -73,8 +75,16 @@ export function ReviewCompleteToast({
       pointerEvents="none"
       accessibilityLiveRegion="polite"
       style={[styles.wrap, { bottom }, style]}>
-      <View style={styles.bubble}>
-        <Text style={styles.text}>{message}</Text>
+      <View
+        style={[
+          styles.bubble,
+          {
+            backgroundColor: colors.white,
+            shadowColor: colors.fabShadowColor,
+            shadowOpacity: colors.fabShadowOpacity * 0.65,
+          },
+        ]}>
+        <Text style={[styles.text, { color: colors.body }]}>{message}</Text>
       </View>
     </Animated.View>
   );
@@ -93,10 +103,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 11,
     borderRadius: radii.chip,
-    backgroundColor: colors.white,
-    // Soft lift — lighter than FAB shadow.
-    shadowColor: '#343D4B',
-    shadowOpacity: 0.1,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
@@ -105,7 +111,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
     lineHeight: 20,
-    color: colors.body,
     textAlign: 'center',
   },
 });

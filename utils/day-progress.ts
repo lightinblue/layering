@@ -71,6 +71,8 @@ const DOT_WHITE_MIX_STEPS = [0.8, 0.64, 0.48, 0.32, 0.16] as const;
 export function progressDotColor(
   primary: string,
   progress: DayProgress,
+  /** Canvas mix target — pass theme.softMixTarget in dark mode. */
+  towardHex?: string,
 ): string | null {
   if (progress.ratio == null) return null;
   const ratio = Math.min(1, Math.max(0, progress.ratio));
@@ -79,5 +81,5 @@ export function progressDotColor(
 
   const steps = DOT_WHITE_MIX_STEPS.length;
   const step = Math.min(steps - 1, Math.ceil(ratio * steps) - 1);
-  return softFromPrimary(primary, DOT_WHITE_MIX_STEPS[step]);
+  return softFromPrimary(primary, DOT_WHITE_MIX_STEPS[step], towardHex);
 }

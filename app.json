@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "layering",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.lightinblue.layering",
       "appleTeamId": "R39JVZ3ZNL",
@@ -45,7 +45,11 @@
           "image": "./assets/images/icon.png",
           "imageWidth": 140,
           "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF"
+          "backgroundColor": "#FFFFFF",
+          "dark": {
+            "image": "./assets/images/icon.png",
+            "backgroundColor": "#0B0F14"
+          }
         }
       ],
       "@bacons/apple-targets"
