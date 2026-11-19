@@ -75,19 +75,16 @@ export function SettingsSheet({
 
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>
-          주 시작
+          시작 요일
         </Text>
         <SegmentedStartPicker
           value={weekStartsOn}
           onChange={setWeekStartsOn}
-          accessibilityGroupLabel="주 시작"
+          accessibilityGroupLabel="시작 요일"
           surface={colors.surface}
           primary={colors.primary}
           ink={colors.black}
         />
-        <Text style={[styles.hint, { color: colors.muted }]}>
-          홈 주간 스트립과 월간 캘린더에 함께 적용돼요.
-        </Text>
       </View>
 
       <View style={styles.field}>
