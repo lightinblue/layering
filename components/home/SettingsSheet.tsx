@@ -1,13 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  LayoutChangeEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import Animated, {
+  cancelAnimation,
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { fonts } from '@/constants/fonts';
-import { springs } from '@/constants/motion';
+import { durations, springs } from '@/constants/motion';
 import { PRIMARY_OPTIONS, radii, type PrimaryOption } from '@/constants/tokens';
 import {
   WEEKDAY_START_OPTIONS,
@@ -153,6 +163,13 @@ export function SettingsSheet({
   );
 }
 
+const SEGMENT_PAD = 4;
+const SEGMENT_GAP = 4;
+const SEGMENT_SLIDE = {
+  duration: durations.dateShift,
+  easing: Easing.out(Easing.cubic),
+} as const;
+
 function SegmentedStartPicker({
   value,
   onChange,
@@ -168,11 +185,60 @@ function SegmentedStartPicker({
   primary: string;
   ink: string;
 }) {
+  const selectedIndex = useMemo(
+    () => WEEKDAY_START_OPTIONS.findIndex((o) => o.value === value),
+    [value],
+  );
+  const [trackWidth, setTrackWidth] = useState(0);
+  const pillWidth =
+    trackWidth > 0
+      ? (trackWidth - SEGMENT_PAD * 2 - SEGMENT_GAP) / 2
+      : 0;
+  const pillX = useSharedValue(0);
+  const primed = useRef(false);
+  const pillWidthRef = useRef(0);
+
+  useEffect(() => {
+    if (pillWidth <= 0 || selectedIndex < 0) return;
+    const targetX = SEGMENT_PAD + selectedIndex * (pillWidth + SEGMENT_GAP);
+    const widthChanged = pillWidthRef.current !== pillWidth;
+    pillWidthRef.current = pillWidth;
+
+    if (!primed.current || widthChanged) {
+      cancelAnimation(pillX);
+      pillX.value = targetX;
+      primed.current = true;
+      return;
+    }
+
+    cancelAnimation(pillX);
+    pillX.value = withTiming(targetX, SEGMENT_SLIDE);
+  }, [pillWidth, pillX, selectedIndex]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: pillX.value }],
+  }));
+
+  const onTrackLayout = (e: LayoutChangeEvent) => {
+    setTrackWidth(e.nativeEvent.layout.width);
+  };
+
   return (
     <View
       accessibilityRole="radiogroup"
       accessibilityLabel={accessibilityGroupLabel}
+      onLayout={onTrackLayout}
       style={[styles.segmentRow, { backgroundColor: surface }]}>
+      {pillWidth > 0 ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.segmentPill,
+            { backgroundColor: primary, width: pillWidth },
+            pillStyle,
+          ]}
+        />
+      ) : null}
       {WEEKDAY_START_OPTIONS.map((option) => {
         const selected = option.value === value;
         return (
@@ -186,10 +252,7 @@ function SegmentedStartPicker({
               haptics.themePick();
               onChange(option.value);
             }}
-            style={[
-              styles.segmentBtn,
-              selected && { backgroundColor: primary },
-            ]}>
+            style={styles.segmentBtn}>
             <Text
               style={[
                 styles.segmentText,
@@ -283,10 +346,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   segmentRow: {
+    position: 'relative',
     flexDirection: 'row',
     borderRadius: radii.chip,
-    padding: 4,
-    gap: 4,
+    padding: SEGMENT_PAD,
+    gap: SEGMENT_GAP,
+  },
+  segmentPill: {
+    position: 'absolute',
+    top: SEGMENT_PAD,
+    bottom: SEGMENT_PAD,
+    left: 0,
+    borderRadius: radii.chip - 2,
   },
   segmentBtn: {
     flex: 1,
@@ -294,6 +365,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.chip - 2,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
   segmentText: {
     fontFamily: fonts.nexonMedium,
