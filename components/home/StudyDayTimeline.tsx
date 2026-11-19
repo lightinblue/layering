@@ -38,7 +38,8 @@ import {
   resolveSubjectAndTitle,
 } from '@/utils/parse-subject-prefix';
 
-const SLOT_HEIGHT = 36;
+/** Match home study chip/body height (not the cramped 36). */
+const SLOT_HEIGHT = 44;
 const ROW_LAYOUT = LinearTransition.duration(durations.listRow);
 const ENTER = FadeInDown.duration(durations.fadeIn).easing(
   Easing.out(Easing.cubic),
