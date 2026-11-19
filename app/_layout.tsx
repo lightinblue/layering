@@ -15,10 +15,15 @@ import { TutorialScreen } from '@/components/tutorial/TutorialScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fonts } from '@/constants/fonts';
 import {
+  startICloudSync,
+  subscribeICloudMerged,
+} from '@/storage/icloud-sync';
+import {
   loadTutorialSeen,
   runTutorialRetestClearIfNeeded,
   saveTutorialSeen,
 } from '@/storage/tutorial';
+import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
 import {
   ThemeProvider,
   useThemeColors,
@@ -64,6 +69,18 @@ export default function RootLayout() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // Login-less iCloud KVS: silent local-only when unavailable. No sync UI.
+  useEffect(() => {
+    return startICloudSync();
+  }, []);
+
+  // Widget refresh when a remote merge lands before Home is mounted.
+  useEffect(() => {
+    return subscribeICloudMerged((merged) => {
+      void syncTodayReviewWidgetSnapshot(merged);
+    });
   }, []);
 
   const finishTutorial = useCallback(() => {

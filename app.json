@@ -19,7 +19,9 @@
       "entitlements": {
         "com.apple.security.application-groups": [
           "group.com.lightinblue.layering.poogae"
-        ]
+        ],
+        "com.apple.developer.ubiquity-kvstore-identifier":
+          "$(TeamIdentifierPrefix)com.lightinblue.layering"
       }
     },
     "android": {

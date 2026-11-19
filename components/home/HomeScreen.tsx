@@ -98,10 +98,12 @@ import {
   reorderSubjects,
   saveAppData,
   subjectColorMap,
+  toggleReviewCheck,
   toggleReviewCompleted,
   updateStudyWithReviews,
   withSubjectColor,
 } from '@/storage/app-data';
+import { subscribeICloudMerged } from '@/storage/icloud-sync';
 import {
   buildDefaultAppData,
   buildScreenshotAppData,
@@ -109,6 +111,7 @@ import {
 import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import type { AppData } from '@/types/domain';
+import { activeSubjects } from '@/utils/icloud-merge';
 import { parseKey, todayKey as deviceTodayKey } from '@/utils/date';
 import {
   homeScreenDataFromAppData,
@@ -527,6 +530,15 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     };
   }, [dataProp]);
 
+  // Apply iCloud remote merges into home state + widget (no sync status UI).
+  useEffect(() => {
+    if (dataProp) return;
+    return subscribeICloudMerged((merged) => {
+      setAppData(merged);
+      void syncTodayReviewWidgetSnapshot(merged);
+    });
+  }, [dataProp]);
+
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
       if (next !== 'active') return;
@@ -585,7 +597,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   const subjectOptions = useMemo((): SubjectOption[] => {
     if (!appData) return [];
-    return appData.subjects.map((s) => {
+    return activeSubjects(appData.subjects).map((s) => {
       const chip = withSubjectColor(s);
       return { name: chip.name, color: chip.color ?? subjectColor(chip.name) };
     });
@@ -631,8 +643,18 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       }
       if (dataProp || !appData) return;
       let next = appData;
-      for (const id of card.scheduleIds) {
-        next = toggleReviewCompleted(next, id);
+      if (card.checkTargets && card.checkTargets.length > 0) {
+        for (const target of card.checkTargets) {
+          next = toggleReviewCheck(
+            next,
+            target.studyId,
+            target.intervalDays,
+          );
+        }
+      } else {
+        for (const id of card.scheduleIds) {
+          next = toggleReviewCompleted(next, id);
+        }
       }
       void persistApp(next);
     },
