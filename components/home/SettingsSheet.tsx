@@ -25,7 +25,7 @@ export type SettingsSheetProps = {
 };
 
 /**
- * Minimal settings body: calendar start days + accent color picker.
+ * Minimal settings body: calendar week start + accent color picker.
  * Screenshot helpers render only when `__DEV__` and handlers are passed.
  */
 export function SettingsSheet({
@@ -33,12 +33,7 @@ export function SettingsSheet({
   onScreenshotReset,
 }: SettingsSheetProps) {
   const { colors, primary, setPrimary } = useTheme();
-  const {
-    weekStartsOn,
-    monthStartsOn,
-    setWeekStartsOn,
-    setMonthStartsOn,
-  } = useCalendarPrefs();
+  const { weekStartsOn, setWeekStartsOn } = useCalendarPrefs();
   const [busy, setBusy] = useState<'seed' | 'reset' | null>(null);
   const showScreenshotTools =
     __DEV__ && onScreenshotSeed != null && onScreenshotReset != null;
@@ -91,24 +86,7 @@ export function SettingsSheet({
           ink={colors.black}
         />
         <Text style={[styles.hint, { color: colors.muted }]}>
-          홈 주간 스트립의 첫 열이에요.
-        </Text>
-      </View>
-
-      <View style={styles.field}>
-        <Text style={[styles.label, { color: colors.sectionLabel }]}>
-          월 시작
-        </Text>
-        <SegmentedStartPicker
-          value={monthStartsOn}
-          onChange={setMonthStartsOn}
-          accessibilityGroupLabel="월 시작"
-          surface={colors.surface}
-          primary={colors.primary}
-          ink={colors.black}
-        />
-        <Text style={[styles.hint, { color: colors.muted }]}>
-          월간 캘린더 격자의 첫 열이에요.
+          홈 주간 스트립과 월간 캘린더에 함께 적용돼요.
         </Text>
       </View>
 

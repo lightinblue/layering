@@ -13,8 +13,8 @@ export const STORAGE_KEYS = {
   /** Accent primary hex (`#RRGGBB`). */
   themePrimary: '@bokbok/theme-primary/v1',
   /**
-   * Calendar week/month column start (`{ weekStartsOn, monthStartsOn }`).
-   * Device-local — not iCloud-synced.
+   * Calendar week start (`{ weekStartsOn }`) for home strip + month grid.
+   * Device-local — not iCloud-synced. Legacy two-field blobs are migrated on load.
    */
   calendarPrefs: '@bokbok/calendar-prefs/v1',
   /** First-launch tutorial / forgetting-curve intro seen (`'1'`). */

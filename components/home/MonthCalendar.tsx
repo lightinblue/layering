@@ -88,10 +88,10 @@ export function MonthCalendar({
   onMonthChange,
 }: MonthCalendarProps) {
   const theme = useThemeColors();
-  const { monthStartsOn } = useCalendarPrefs();
+  const { weekStartsOn } = useCalendarPrefs();
   const weekdayLabels = useMemo(
-    () => dowLabels(monthStartsOn),
-    [monthStartsOn],
+    () => dowLabels(weekStartsOn),
+    [weekStartsOn],
   );
   const { width: windowWidth } = useWindowDimensions();
   // Slightly wider than prior (margin 20 vs 32) so the grid reads larger.
@@ -171,7 +171,7 @@ export function MonthCalendar({
 
   const renderMonth = useCallback(
     ({ item }: { item: MonthPage }) => {
-      const cells = buildMonthGrid(item.year, item.monthIndex, monthStartsOn);
+      const cells = buildMonthGrid(item.year, item.monthIndex, weekStartsOn);
       return (
         <View style={[styles.monthPage, { width: frameWidth }]}>
           <View style={styles.grid}>
@@ -199,11 +199,11 @@ export function MonthCalendar({
       cellWidth,
       focusKey,
       frameWidth,
-      monthStartsOn,
       onSelectDay,
       progressForDay,
       theme.primary,
       todayKey,
+      weekStartsOn,
     ],
   );
 
@@ -236,7 +236,7 @@ export function MonthCalendar({
       <View style={styles.weekdayRow}>
         {weekdayLabels.map((label, index) => (
           <View
-            key={`${monthStartsOn}-${index}-${label}`}
+            key={`${weekStartsOn}-${index}-${label}`}
             style={[styles.weekdayCell, { width: cellWidth }]}>
             <Text style={styles.weekdayText}>{label}</Text>
           </View>
@@ -253,7 +253,7 @@ export function MonthCalendar({
         decelerationRate={PAGER_DECELERATION}
         disableIntervalMomentum
         keyExtractor={(item) => item.key}
-        extraData={monthStartsOn}
+        extraData={weekStartsOn}
         renderItem={renderMonth}
         getItemLayout={getItemLayout}
         initialScrollIndex={MONTH_RADIUS}
