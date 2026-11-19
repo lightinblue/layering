@@ -144,6 +144,13 @@ function RootLayoutNav() {
         }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen
+          name="day"
+          options={{
+            headerShown: false,
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
           name="add"
           options={{
             // SheetPanel chrome (not formSheet — blank body on Expo Go).

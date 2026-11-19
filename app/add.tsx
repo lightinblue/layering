@@ -71,7 +71,6 @@ export default function AddRecordSheet() {
   const onSave = useCallback(
     async (payload: AddStudyPayload) => {
       const content = payload.title.trim();
-      const memo = payload.memo.trim();
       const studiedOn = todayKey();
       const data = appData ?? (await loadAppData());
       if (countStudiesOn(data, studiedOn) >= MAX_STUDIES_PER_DAY) {
@@ -83,7 +82,6 @@ export default function AddRecordSheet() {
         subjectName: payload.subject,
         content,
         studiedOn,
-        ...(memo ? { memo } : {}),
       });
       await persist(next);
       haptics.save();

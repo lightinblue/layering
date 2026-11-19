@@ -29,7 +29,7 @@ export const EMPTY_APP_DATA: AppData = {
 };
 
 /** Max study records allowed for a single studiedOn date. */
-export const MAX_STUDIES_PER_DAY = 3;
+export const MAX_STUDIES_PER_DAY = 15;
 
 /** Max user-managed subject chips (FR-A3). */
 export const MAX_SUBJECTS = 10;
@@ -506,6 +506,10 @@ export function updateStudyWithReviews(
   // Ensure checks cover cycle intervals.
   const checks = { ...emptyChecks(cycle, at), ...existing.checks };
 
+  // Memo UX removed — preserve existing when callers omit memo (ignore-OK migrate).
+  const nextMemo =
+    input.memo !== undefined ? fields.memo : existing.memo?.trim();
+
   const nextRecord: StudyRecord = {
     id: existing.id,
     subjectId: chip?.id ?? existing.subjectId,
@@ -517,7 +521,7 @@ export function updateStudyWithReviews(
     checks,
     createdAt: existing.createdAt,
     updatedAt: at,
-    ...(fields.memo ? { memo: fields.memo } : {}),
+    ...(nextMemo ? { memo: nextMemo } : {}),
   };
 
   return withSchedules({

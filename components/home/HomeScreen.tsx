@@ -37,24 +37,19 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  AddStudyForm,
-  type AddStudyPayload,
-  type SubjectAddResult,
-  type SubjectOption,
-} from '@/components/home/AddStudyForm';
+import type { SubjectOption } from '@/components/home/AddStudyForm';
 import { ReviewDetailContent } from '@/components/home/ReviewDetailContent';
 import {
   REVIEW_COMPLETE_TOASTS,
   ReviewCompleteToast,
 } from '@/components/home/ReviewCompleteToast';
 import { SettingsSheet } from '@/components/home/SettingsSheet';
+import { StudyDaySummary } from '@/components/home/StudyDaySummary';
 import {
   ArrowRightIcon,
   CalendarIcon,
   CheckIcon,
   EllipseIcon,
-  PlusIcon,
   SettingsIcon,
 } from '@/components/icons/HomeIcons';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
@@ -65,7 +60,6 @@ import {
   type HomeReviewCard,
   type HomeReviewStudy,
   type HomeScreenData,
-  type HomeStudyRow,
   type HomeWeekDay,
 } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
@@ -87,20 +81,12 @@ import {
   subjectColor,
 } from '@/constants/tokens';
 import {
-  addSubject,
-  appendStudyWithReviews,
-  deleteStudyWithReviews,
   EMPTY_APP_DATA,
   loadAppData,
-  MAX_STUDIES_PER_DAY,
-  MAX_SUBJECTS,
-  removeSubject,
-  reorderSubjects,
   saveAppData,
   subjectColorMap,
   toggleReviewCheck,
   toggleReviewCompleted,
-  updateStudyWithReviews,
   withSubjectColor,
 } from '@/storage/app-data';
 import { subscribeICloudMerged } from '@/storage/icloud-sync';
@@ -510,10 +496,6 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   const [selectedKey, setSelectedKey] = useState(deviceTodayKey);
   const [weekIndex, setWeekIndex] = useState(WEEKS_BEFORE);
-  const [addOpen, setAddOpen] = useState(false);
-  const [addKey, setAddKey] = useState(0);
-  /** When set, the add sheet opens in edit mode for this study. */
-  const [editingStudy, setEditingStudy] = useState<HomeStudyRow | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState<{
     intervalDays: number;
@@ -604,12 +586,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     );
   }, [allDays, selectedKey, todayKey]);
 
-  const studies = selected?.studies ?? [];
-
   const isToday = selected != null && selected.dateKey === todayKey;
-  const atStudyCap = studies.length >= MAX_STUDIES_PER_DAY;
-  // Future days may add studies; reviews stay on dueOn only (not “오늘 할 복습”).
-  const allowAdd = !atStudyCap;
 
   const frameWidth = Math.min(windowWidth - 16, spacing.frameWidth);
   const contentWidth = Math.min(frameWidth, spacing.contentWidth);
@@ -684,139 +661,12 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     [dataProp, appData, persistApp, showCompleteToast],
   );
 
-  const goAdd = useCallback(() => {
-    if (atStudyCap) {
-      haptics.reject();
-      return;
-    }
-    setEditingStudy(null);
-    setAddKey((k) => k + 1);
-    setAddOpen(true);
-  }, [atStudyCap]);
-
-  const goEditStudy = useCallback(
-    (row: HomeStudyRow) => {
-      let next = row;
-      if (appData) {
-        const record = appData.records.find((r) => r.id === row.id);
-        if (record) {
-          const memo = record.memo?.trim();
-          next = {
-            id: record.id,
-            subjectName: record.subjectName,
-            content: record.content,
-            ...(memo ? { memo } : {}),
-            ...(record.subjectColor
-              ? { subjectColor: record.subjectColor }
-              : {}),
-          };
-        }
-      }
-      setEditingStudy(next);
-      setAddKey((k) => k + 1);
-      setAddOpen(true);
+  const goOpenTimeline = useCallback(
+    (dateKey: string) => {
+      haptics.select();
+      router.push({ pathname: '/day', params: { date: dateKey } });
     },
-    [appData],
-  );
-
-  const closeAdd = useCallback(() => {
-    // Keep editingStudy until dismiss finishes so edit UI does not flip mid-close.
-    setAddOpen(false);
-  }, []);
-
-  const onAddDismissed = useCallback(() => {
-    setEditingStudy(null);
-  }, []);
-
-  const onSaveAdd = useCallback(
-    (payload: AddStudyPayload) => {
-      const content = payload.title.trim();
-      const memo = payload.memo.trim();
-      const studiedOn = selectedDateKey;
-      if (dataProp || !appData) return;
-      if (!content) {
-        haptics.reject();
-        return;
-      }
-
-      if (editingStudy) {
-        const next = updateStudyWithReviews(appData, editingStudy.id, {
-          subjectName: payload.subject,
-          content,
-          studiedOn,
-          ...(memo ? { memo } : {}),
-        });
-        void persistApp(next);
-        haptics.save();
-        setAddOpen(false);
-        return;
-      }
-
-      if (appData.subjects.length === 0) {
-        haptics.reject();
-        return;
-      }
-
-      if (studies.length >= MAX_STUDIES_PER_DAY) {
-        haptics.reject();
-        setAddOpen(false);
-        return;
-      }
-
-      const next = appendStudyWithReviews(appData, {
-        subjectName: payload.subject,
-        content,
-        studiedOn,
-        ...(memo ? { memo } : {}),
-      });
-      void persistApp(next);
-      haptics.save();
-      setAddOpen(false);
-    },
-    [dataProp, selectedDateKey, appData, persistApp, studies.length, editingStudy],
-  );
-
-  const onDeleteStudy = useCallback(() => {
-    if (!editingStudy || dataProp || !appData) return;
-    void persistApp(deleteStudyWithReviews(appData, editingStudy.id));
-    haptics.delete();
-    setAddOpen(false);
-  }, [editingStudy, dataProp, appData, persistApp]);
-
-  const onAddSubject = useCallback(
-    (rawName: string, color: string): SubjectAddResult => {
-      if (dataProp || !appData) return { ok: false, reason: 'empty' };
-      const result = addSubject(appData, rawName, color);
-      if (!result.ok) {
-        return {
-          ok: false,
-          reason: result.reason === 'missing' ? 'empty' : result.reason,
-        };
-      }
-      void persistApp(result.data);
-      return { ok: true };
-    },
-    [dataProp, appData, persistApp],
-  );
-
-  const onRemoveSubject = useCallback(
-    (name: string) => {
-      if (dataProp || !appData) return;
-      const result = removeSubject(appData, name);
-      if (!result.ok) return;
-      void persistApp(result.data);
-    },
-    [dataProp, appData, persistApp],
-  );
-
-  const onReorderSubjects = useCallback(
-    (orderedNames: string[]) => {
-      if (dataProp || !appData) return;
-      const result = reorderSubjects(appData, orderedNames);
-      if (!result.ok) return;
-      void persistApp(result.data);
-    },
-    [dataProp, appData, persistApp],
+    [router],
   );
 
   const goCalendar = useCallback(() => {
@@ -845,8 +695,6 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       setSelectedKey(screen.todayKey);
       setWeekIndex(screen.currentWeekIndex);
       setReviewOpen(null);
-      setAddOpen(false);
-      setEditingStudy(null);
       closeSettings();
     },
     [closeSettings, persistApp, weekStartsOn],
@@ -1037,8 +885,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
             accentSoft={theme.primarySoft}
             colorByName={colorByName}
             onDayChange={onDayPagerChange}
-            onAdd={goAdd}
-            onEditStudy={goEditStudy}
+            onOpenTimeline={goOpenTimeline}
             onToggle={toggleReview}
             onDetail={onDetail}
           />
@@ -1079,35 +926,6 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
           onHidden={hideCompleteToast}
         />
       ) : null}
-
-      <BottomSheetModal
-        visible={addOpen}
-        onClose={closeAdd}
-        onDismissed={onAddDismissed}>
-        <AddStudyForm
-          key={addKey}
-          mode={editingStudy ? 'edit' : 'create'}
-          initial={
-            editingStudy
-              ? {
-                  subject: editingStudy.subjectName,
-                  title: editingStudy.content,
-                  ...(editingStudy.memo ? { memo: editingStudy.memo } : {}),
-                  ...(editingStudy.subjectColor
-                    ? { subjectColor: editingStudy.subjectColor }
-                    : {}),
-                }
-              : undefined
-          }
-          subjects={subjectOptions}
-          onSave={onSaveAdd}
-          onDelete={editingStudy ? onDeleteStudy : undefined}
-          onAddSubject={onAddSubject}
-          onRemoveSubject={onRemoveSubject}
-          onReorderSubjects={onReorderSubjects}
-          maxSubjects={MAX_SUBJECTS}
-        />
-      </BottomSheetModal>
 
       <BottomSheetModal visible={settingsOpen} onClose={closeSettings}>
         <SettingsSheet
@@ -1388,8 +1206,7 @@ function DayContentPager({
   accentSoft,
   colorByName,
   onDayChange,
-  onAdd,
-  onEditStudy,
+  onOpenTimeline,
   onToggle,
   onDetail,
 }: {
@@ -1403,8 +1220,7 @@ function DayContentPager({
   accentSoft: string;
   colorByName: Record<string, string>;
   onDayChange: (dayIndex: number) => void;
-  onAdd: () => void;
-  onEditStudy: (row: HomeStudyRow) => void;
+  onOpenTimeline: (dateKey: string) => void;
   onToggle: (dateKey: string, card: HomeReviewCard) => void;
   onDetail: (card: HomeReviewCard) => void;
 }) {
@@ -1452,7 +1268,6 @@ function DayContentPager({
   const renderDay = useCallback(
     ({ item: day }: { item: HomeWeekDay }) => {
       const dayIsToday = day.dateKey === todayKey;
-      const dayAtCap = day.studies.length >= MAX_STUDIES_PER_DAY;
       return (
         <View
           style={[
@@ -1461,14 +1276,11 @@ function DayContentPager({
             pageHeight > 0 ? { height: pageHeight } : null,
           ]}>
           <View style={[styles.sections, { maxWidth: contentWidth }]}>
-            <StudySection
+            <StudyDaySummary
               studies={day.studies}
-              allowAdd={!dayAtCap}
-              atCap={dayAtCap}
               isToday={dayIsToday}
               colorByName={colorByName}
-              onAdd={onAdd}
-              onEditStudy={onEditStudy}
+              onOpenTimeline={() => onOpenTimeline(day.dateKey)}
             />
             <ReviewSection
               reviews={day.reviews}
@@ -1489,12 +1301,12 @@ function DayContentPager({
       accentSoft,
       colorByName,
       contentWidth,
-      onAdd,
+      onOpenTimeline,
       onDetail,
-      onEditStudy,
       onToggle,
       pageHeight,
       reviewCardWidth,
+      styles,
       todayKey,
       width,
     ],
@@ -1530,150 +1342,6 @@ function DayContentPager({
       style={[styles.dayPager, { width }]}
       extraData={`${pageHeight}:${days.length}`}
     />
-  );
-}
-
-function StudySection({
-  studies,
-  allowAdd,
-  atCap,
-  isToday,
-  colorByName,
-  onAdd,
-  onEditStudy,
-}: {
-  studies: HomeStudyRow[];
-  allowAdd: boolean;
-  atCap: boolean;
-  isToday: boolean;
-  colorByName: Record<string, string>;
-  onAdd: () => void;
-  onEditStudy: (row: HomeStudyRow) => void;
-}) {
-  const styles = useHomeStyles();
-  const [capHint, setCapHint] = useState<string | null>(null);
-  const capMessage = `하루 ${MAX_STUDIES_PER_DAY}개까지`;
-
-  const handleAdd = () => {
-    if (atCap) {
-      haptics.reject();
-      setCapHint(capMessage);
-      return;
-    }
-    setCapHint(null);
-    onAdd();
-  };
-
-  return (
-    <View style={styles.section}>
-      <View style={styles.sectionLabelWrap}>
-        <Text style={styles.sectionLabel}>
-          {isToday ? '오늘 한 공부' : '이 날 한 공부'}
-        </Text>
-      </View>
-      <Animated.View style={styles.studyList} layout={ROW_LAYOUT}>
-        {studies.length === 0 ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="공부 기록 추가"
-            accessibilityState={{ disabled: !allowAdd }}
-            onPress={handleAdd}
-            style={styles.addStudyBtn}>
-            {allowAdd ? (
-              <>
-                <PlusIcon size={16} />
-                <Text style={styles.addStudyText}>공부 기록 추가</Text>
-              </>
-            ) : (
-              <Text style={styles.addStudyText}>{capMessage}</Text>
-            )}
-          </Pressable>
-        ) : (
-          <>
-            {studies.map((row) => (
-              <StudyRow
-                key={row.id}
-                row={row}
-                colorByName={colorByName}
-                onPress={() => onEditStudy(row)}
-              />
-            ))}
-            {allowAdd ? (
-              <Animated.View layout={ROW_LAYOUT}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="공부 기록 추가"
-                  onPress={handleAdd}
-                  style={styles.addStudyMoreBtn}>
-                  <PlusIcon size={16} />
-                  <Text style={styles.addStudyMoreText}>공부 기록 추가</Text>
-                </Pressable>
-              </Animated.View>
-            ) : (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={capMessage}
-                onPress={handleAdd}
-                style={styles.addStudyMoreBtn}>
-                <Text style={[styles.addStudyMoreText, { opacity: 0.7 }]}>
-                  {capMessage}
-                </Text>
-              </Pressable>
-            )}
-          </>
-        )}
-      </Animated.View>
-      {capHint || atCap ? (
-        <Text style={styles.studyCapHint}>{capHint ?? capMessage}</Text>
-      ) : null}
-    </View>
-  );
-}
-
-function StudyRow({
-  row,
-  colorByName,
-  onPress,
-}: {
-  row: HomeStudyRow;
-  colorByName: Record<string, string>;
-  onPress: () => void;
-}) {
-  const styles = useHomeStyles();
-  return (
-    <Animated.View
-      entering={ROW_ENTER}
-      exiting={ROW_EXIT}
-      layout={ROW_LAYOUT}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${row.subjectName} ${row.content} 수정`}
-        accessibilityHint="탭하거나 길게 누르면 수정 시트가 열려요"
-        onPress={onPress}
-        // Same edit sheet as tap. delayLongPress stays above scroll cancel so
-        // week/day swipes do not open the sheet mid-gesture.
-        delayLongPress={380}
-        onLongPress={() => {
-          haptics.sheetOpen();
-          onPress();
-        }}
-        style={styles.studyRow}>
-        <View
-          style={[
-            styles.studyChip,
-            { backgroundColor: subjectColor(row.subjectName, colorByName) },
-          ]}>
-          <Text style={styles.studyChipText} numberOfLines={1} ellipsizeMode="tail">
-            {row.subjectName}
-          </Text>
-        </View>
-        <View style={styles.studyBody}>
-          <Text style={styles.studyBodyText} numberOfLines={1} ellipsizeMode="tail">
-            {row.content}
-          </Text>
-        </View>
-      </Pressable>
-    </Animated.View>
   );
 }
 

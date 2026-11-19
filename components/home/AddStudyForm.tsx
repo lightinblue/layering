@@ -51,7 +51,6 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 import {
-  MAX_STUDY_MEMO_LENGTH,
   MAX_STUDY_TITLE_LENGTH,
   MAX_SUBJECT_NAME_LENGTH,
   MAX_SUBJECTS,
@@ -63,6 +62,7 @@ import { haptics } from '@/utils/haptics';
 export type AddStudyPayload = {
   subject: string;
   title: string;
+  /** Always empty — memo field removed from add/edit UX. */
   memo: string;
 };
 
@@ -86,6 +86,7 @@ export type AddStudyFormMode = 'create' | 'edit';
 export type AddStudyFormInitial = {
   subject: string;
   title: string;
+  /** Ignored — memo no longer collected in the form. */
   memo?: string;
   /** Optional chip fill when editing a study whose subject chip is gone. */
   subjectColor?: string;
@@ -355,7 +356,7 @@ function namesSignature(names: readonly string[]): string {
 }
 
 /**
- * 「공부 기록 추가 / 수정」 form body (subject · title · optional memo).
+ * 「공부 기록 추가 / 수정」 form body (subject · title). Memo UX removed.
  * Subject chips: tap select · re-tap for delete X · long-press drag reorder · soft + add.
  * Mounted inside BottomSheetModal so Expo Go always lays out content.
  */
@@ -378,7 +379,6 @@ export function AddStudyForm({
   );
   // Legacy over-long text: show full on open; clamp only on save.
   const [title, setTitle] = useState(() => initial?.title ?? '');
-  const [memo, setMemo] = useState(() => initial?.memo ?? '');
   const [adding, setAdding] = useState(false);
   const addingRef = useRef(false);
   const [draftName, setDraftName] = useState('');
@@ -487,7 +487,6 @@ export function AddStudyForm({
 
   const emptySubjectHint = '과목을 먼저 추가해 주세요';
   const titleMaxLength = Math.max(MAX_STUDY_TITLE_LENGTH, title.length);
-  const memoMaxLength = Math.max(MAX_STUDY_MEMO_LENGTH, memo.length);
 
   const rowRef = useRef<ComponentRef<typeof View>>(null);
 
@@ -735,9 +734,9 @@ export function AddStudyForm({
     onSave({
       subject,
       title: nextTitle,
-      memo: memo.trim(),
+      memo: '',
     });
-  }, [canSave, subject, title, memo, onSave]);
+  }, [canSave, subject, title, onSave]);
 
   const requestDelete = useCallback(() => {
     if (!onDelete) return;
@@ -1056,25 +1055,6 @@ export function AddStudyForm({
         />
       </View>
 
-      <View style={styles.field}>
-        <Text style={[styles.label, { color: colors.sectionLabel }]}>메모</Text>
-        <TextInput
-          value={memo}
-          onChangeText={setMemo}
-          placeholder="추가로 기록하고 싶은 내용"
-          placeholderTextColor={colors.mutedLight}
-          maxLength={memoMaxLength}
-          style={[
-            styles.input,
-            styles.memoInput,
-            { backgroundColor: colors.surface, color: colors.body },
-          ]}
-          multiline
-          textAlignVertical="top"
-          accessibilityLabel="메모"
-        />
-      </View>
-
       {isEdit && onDelete ? (
         <View style={styles.actionRow}>
           <Pressable
@@ -1272,10 +1252,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 15,
     minHeight: 49,
-  },
-  memoInput: {
-    minHeight: 96,
-    paddingTop: 14,
   },
   actionRow: {
     marginTop: 4,

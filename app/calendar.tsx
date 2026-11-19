@@ -80,17 +80,17 @@ export default function CalendarScreen() {
 
   const onSelectDay = useCallback(
     (dateKey: string) => {
-      // Pop the sheet and land on home with the chosen day selected.
+      // Open the day timeline depth (same surface as home summary).
       if (typeof router.dismissTo === 'function') {
         router.dismissTo({
-          pathname: '/',
-          params: { day: dateKey },
+          pathname: '/day',
+          params: { date: dateKey },
         });
         return;
       }
       router.navigate({
-        pathname: '/',
-        params: { day: dateKey },
+        pathname: '/day',
+        params: { date: dateKey },
       });
     },
     [router],

@@ -35,7 +35,6 @@ export function ReviewDetailContent({
         </View>
       ) : (
         studies.map((study, index) => {
-          const memo = study.memo?.trim();
           const canJump = Boolean(onStudyPress && study.studiedOn);
           const card = (
             <>
@@ -65,9 +64,6 @@ export function ReviewDetailContent({
               <Text style={[styles.bodyText, { color: colors.body }]}>
                 {study.content}
               </Text>
-              {memo ? (
-                <Text style={[styles.memo, { color: colors.muted }]}>{memo}</Text>
-              ) : null}
             </>
           );
 
@@ -142,10 +138,5 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 15,
     lineHeight: 22,
-  },
-  memo: {
-    fontFamily: fonts.nexonRegular,
-    fontSize: 13,
-    lineHeight: 19,
   },
 });
