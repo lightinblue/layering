@@ -1,2 +1,2 @@
-/** Re-export themed scheme (respects 설정 → 화면 모드). */
+/** Re-export resolved scheme (always follows device system appearance). */
 export { useColorScheme } from '@/theme/ThemeProvider';

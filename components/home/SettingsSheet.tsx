@@ -19,7 +19,6 @@ import Animated, {
 import { fonts } from '@/constants/fonts';
 import { durations, springs } from '@/constants/motion';
 import { PRIMARY_OPTIONS, radii, type PrimaryOption } from '@/constants/tokens';
-import { APPEARANCE_OPTIONS } from '@/storage/appearance';
 import { WEEKDAY_START_OPTIONS } from '@/storage/calendar-prefs';
 import { useCalendarPrefs } from '@/theme/CalendarPrefsProvider';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -33,14 +32,15 @@ export type SettingsSheetProps = {
 };
 
 /**
- * Settings body: appearance, calendar week start, accent color.
+ * Settings body: calendar week start + accent color.
+ * Appearance always follows the device system setting (no in-app toggle).
  * Screenshot helpers render only when `__DEV__` and handlers are passed.
  */
 export function SettingsSheet({
   onScreenshotSeed,
   onScreenshotReset,
 }: SettingsSheetProps) {
-  const { colors, primary, setPrimary, appearance, setAppearance } = useTheme();
+  const { colors, primary, setPrimary } = useTheme();
   const { weekStartsOn, setWeekStartsOn } = useCalendarPrefs();
   const [busy, setBusy] = useState<'seed' | 'reset' | null>(null);
   const showScreenshotTools =
@@ -61,21 +61,6 @@ export function SettingsSheet({
   return (
     <View style={styles.content}>
       <Text style={[styles.title, { color: colors.black }]}>설정</Text>
-
-      <View style={styles.field}>
-        <Text style={[styles.label, { color: colors.sectionLabel }]}>
-          화면 모드
-        </Text>
-        <SegmentedPicker
-          options={APPEARANCE_OPTIONS}
-          value={appearance}
-          onChange={setAppearance}
-          accessibilityGroupLabel="화면 모드"
-          surface={colors.surface}
-          primary={colors.primary}
-          ink={colors.black}
-        />
-      </View>
 
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>
