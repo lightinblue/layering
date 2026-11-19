@@ -109,6 +109,7 @@ import {
   buildScreenshotAppData,
 } from '@/storage/screenshot-seed';
 import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
+import { useCalendarPrefs } from '@/theme/CalendarPrefsProvider';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import type { AppData } from '@/types/domain';
 import { activeSubjects } from '@/utils/icloud-merge';
@@ -481,6 +482,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const theme = useThemeColors();
+  const { weekStartsOn } = useCalendarPrefs();
 
   const [hydrated, setHydrated] = useState(dataProp != null);
   const [appData, setAppData] = useState<AppData | null>(null);
@@ -518,7 +520,9 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       if (cancelled) return;
       setAppData(storedApp);
       setWeekAnchorKey(null);
-      const screen = homeScreenDataFromAppData(storedApp);
+      const screen = homeScreenDataFromAppData(storedApp, new Date(), {
+        weekStartsOn,
+      });
       setSelectedKey(screen.todayKey);
       setWeekIndex(screen.currentWeekIndex);
       setHydrated(true);
@@ -528,7 +532,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     return () => {
       cancelled = true;
     };
-  }, [dataProp]);
+  }, [dataProp, weekStartsOn]);
 
   // Apply iCloud remote merges into home state + widget (no sync status UI).
   useEffect(() => {
@@ -564,11 +568,14 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     return homeScreenDataFromAppData(
       appData ?? EMPTY_APP_DATA,
       new Date(),
-      weekAnchorKey ? { weekAnchor: parseKey(weekAnchorKey) } : undefined,
+      {
+        weekStartsOn,
+        ...(weekAnchorKey ? { weekAnchor: parseKey(weekAnchorKey) } : {}),
+      },
     );
     // clockNonce: recompute local todayKey on foreground
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataProp, appData, weekAnchorKey, clockNonce]);
+  }, [dataProp, appData, weekAnchorKey, weekStartsOn, clockNonce]);
 
   const todayKey = base.todayKey;
   const allDays = useMemo(() => flattenWeeks(base.weeks), [base.weeks]);
@@ -816,7 +823,9 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     async (next: AppData) => {
       await persistApp(next);
       setWeekAnchorKey(null);
-      const screen = homeScreenDataFromAppData(next);
+      const screen = homeScreenDataFromAppData(next, new Date(), {
+        weekStartsOn,
+      });
       setSelectedKey(screen.todayKey);
       setWeekIndex(screen.currentWeekIndex);
       setReviewOpen(null);
@@ -824,8 +833,14 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       setEditingStudy(null);
       closeSettings();
     },
-    [closeSettings, persistApp],
+    [closeSettings, persistApp, weekStartsOn],
   );
+
+  // Keep the selected day in view when week-start preference changes.
+  useEffect(() => {
+    if (dataProp) return;
+    setWeekIndex(weekIndexForDate(base, selectedKey));
+  }, [weekStartsOn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleScreenshotSeed = useCallback(async () => {
     if (!__DEV__ || dataProp) return;

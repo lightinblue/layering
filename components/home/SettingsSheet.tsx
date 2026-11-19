@@ -1,14 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  LayoutChangeEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import Animated, {
+  cancelAnimation,
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { fonts } from '@/constants/fonts';
-import { springs } from '@/constants/motion';
+import { durations, springs } from '@/constants/motion';
 import { PRIMARY_OPTIONS, radii, type PrimaryOption } from '@/constants/tokens';
+import {
+  WEEKDAY_START_OPTIONS,
+  type WeekdayStart,
+} from '@/storage/calendar-prefs';
+import { useCalendarPrefs } from '@/theme/CalendarPrefsProvider';
 import { useTheme } from '@/theme/ThemeProvider';
 import { haptics } from '@/utils/haptics';
 
@@ -20,7 +35,7 @@ export type SettingsSheetProps = {
 };
 
 /**
- * Minimal settings body: review-interval stub + accent color picker.
+ * Minimal settings body: calendar week start + accent color picker.
  * Screenshot helpers render only when `__DEV__` and handlers are passed.
  */
 export function SettingsSheet({
@@ -28,6 +43,7 @@ export function SettingsSheet({
   onScreenshotReset,
 }: SettingsSheetProps) {
   const { colors, primary, setPrimary } = useTheme();
+  const { weekStartsOn, setWeekStartsOn } = useCalendarPrefs();
   const [busy, setBusy] = useState<'seed' | 'reset' | null>(null);
   const showScreenshotTools =
     __DEV__ && onScreenshotSeed != null && onScreenshotReset != null;
@@ -65,6 +81,20 @@ export function SettingsSheet({
             업데이트 예정이에요
           </Text>
         </Pressable>
+      </View>
+
+      <View style={styles.field}>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>
+          시작 요일
+        </Text>
+        <SegmentedStartPicker
+          value={weekStartsOn}
+          onChange={setWeekStartsOn}
+          accessibilityGroupLabel="시작 요일"
+          surface={colors.surface}
+          primary={colors.primary}
+          ink={colors.black}
+        />
       </View>
 
       <View style={styles.field}>
@@ -129,6 +159,110 @@ export function SettingsSheet({
           </Text>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+const SEGMENT_PAD = 4;
+const SEGMENT_GAP = 4;
+const SEGMENT_SLIDE = {
+  duration: durations.dateShift,
+  easing: Easing.out(Easing.cubic),
+} as const;
+
+function SegmentedStartPicker({
+  value,
+  onChange,
+  accessibilityGroupLabel,
+  surface,
+  primary,
+  ink,
+}: {
+  value: WeekdayStart;
+  onChange: (next: WeekdayStart) => void;
+  accessibilityGroupLabel: string;
+  surface: string;
+  primary: string;
+  ink: string;
+}) {
+  const selectedIndex = useMemo(
+    () => WEEKDAY_START_OPTIONS.findIndex((o) => o.value === value),
+    [value],
+  );
+  const [trackWidth, setTrackWidth] = useState(0);
+  const pillWidth =
+    trackWidth > 0
+      ? (trackWidth - SEGMENT_PAD * 2 - SEGMENT_GAP) / 2
+      : 0;
+  const pillX = useSharedValue(0);
+  const primed = useRef(false);
+  const pillWidthRef = useRef(0);
+
+  useEffect(() => {
+    if (pillWidth <= 0 || selectedIndex < 0) return;
+    const targetX = SEGMENT_PAD + selectedIndex * (pillWidth + SEGMENT_GAP);
+    const widthChanged = pillWidthRef.current !== pillWidth;
+    pillWidthRef.current = pillWidth;
+
+    if (!primed.current || widthChanged) {
+      cancelAnimation(pillX);
+      pillX.value = targetX;
+      primed.current = true;
+      return;
+    }
+
+    cancelAnimation(pillX);
+    pillX.value = withTiming(targetX, SEGMENT_SLIDE);
+  }, [pillWidth, pillX, selectedIndex]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: pillX.value }],
+  }));
+
+  const onTrackLayout = (e: LayoutChangeEvent) => {
+    setTrackWidth(e.nativeEvent.layout.width);
+  };
+
+  return (
+    <View
+      accessibilityRole="radiogroup"
+      accessibilityLabel={accessibilityGroupLabel}
+      onLayout={onTrackLayout}
+      style={[styles.segmentRow, { backgroundColor: surface }]}>
+      {pillWidth > 0 ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.segmentPill,
+            { backgroundColor: primary, width: pillWidth },
+            pillStyle,
+          ]}
+        />
+      ) : null}
+      {WEEKDAY_START_OPTIONS.map((option) => {
+        const selected = option.value === value;
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            accessibilityLabel={`${accessibilityGroupLabel}, ${option.accessibilityLabel}`}
+            onPress={() => {
+              if (selected) return;
+              haptics.themePick();
+              onChange(option.value);
+            }}
+            style={styles.segmentBtn}>
+            <Text
+              style={[
+                styles.segmentText,
+                { color: selected ? '#FFFFFF' : ink },
+              ]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -208,6 +342,32 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   stubText: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 14,
+  },
+  segmentRow: {
+    position: 'relative',
+    flexDirection: 'row',
+    borderRadius: radii.chip,
+    padding: SEGMENT_PAD,
+    gap: SEGMENT_GAP,
+  },
+  segmentPill: {
+    position: 'absolute',
+    top: SEGMENT_PAD,
+    bottom: SEGMENT_PAD,
+    left: 0,
+    borderRadius: radii.chip - 2,
+  },
+  segmentBtn: {
+    flex: 1,
+    height: 40,
+    borderRadius: radii.chip - 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  segmentText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
   },

@@ -24,6 +24,7 @@ import {
   saveTutorialSeen,
 } from '@/storage/tutorial';
 import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
+import { CalendarPrefsProvider } from '@/theme/CalendarPrefsProvider';
 import {
   ThemeProvider,
   useThemeColors,
@@ -94,14 +95,16 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <View style={styles.root}>
-        {tutorialSeen ? (
-          <RootLayoutNav />
-        ) : (
-          <TutorialScreen onFinished={finishTutorial} />
-        )}
-        <LaunchScreen />
-      </View>
+      <CalendarPrefsProvider>
+        <View style={styles.root}>
+          {tutorialSeen ? (
+            <RootLayoutNav />
+          ) : (
+            <TutorialScreen onFinished={finishTutorial} />
+          )}
+          <LaunchScreen />
+        </View>
+      </CalendarPrefsProvider>
     </ThemeProvider>
   );
 }
