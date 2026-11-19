@@ -8,7 +8,13 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Animated, Easing, useColorScheme as useSystemColorScheme } from 'react-native';
+import {
+  Animated,
+  Easing,
+  StyleSheet,
+  View,
+  useColorScheme as useSystemColorScheme,
+} from 'react-native';
 
 import {
   type ColorSchemeName,
@@ -22,7 +28,6 @@ import {
   type PrimaryOption,
 } from '@/constants/tokens';
 import { loadThemePrimary, saveThemePrimary } from '@/storage/theme';
-import { mixThemeColors } from '@/theme/mix-theme-colors';
 
 export type ThemeColors = ChromePalette;
 
@@ -30,13 +35,14 @@ type ThemeContextValue = {
   colors: ThemeColors;
   primary: PrimaryOption;
   setPrimary: (primary: PrimaryOption) => void;
-  /** Always follows the device system appearance. */
+  /** Resolved scheme (updates after canvas veil settles). */
   colorScheme: ColorSchemeName;
   hydrated: boolean;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+/** Soft ease-out — readable canvas 샤락, not a blink. */
 const THEME_EASE = Easing.out(Easing.cubic);
 
 function buildColors(
@@ -58,20 +64,35 @@ function resolveSystemScheme(
   return system === 'dark' ? 'dark' : 'light';
 }
 
+type CanvasVeil = {
+  key: number;
+  color: string;
+};
+
+/**
+ * System appearance → themed chrome.
+ * On light↔dark: snap palette underneath, fade a full-screen canvas veil
+ * with native-driver opacity so the root 샤락s (~560ms) instead of snapping.
+ * `colorScheme` (StatusBar / nav) flips when the veil finishes so icons
+ * stay readable against the fading previous canvas.
+ */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme = useSystemColorScheme();
-  const colorScheme = resolveSystemScheme(systemScheme);
+  const systemResolved = resolveSystemScheme(systemScheme);
   const [primary, setPrimaryState] = useState<PrimaryOption>(DEFAULT_PRIMARY);
   const [hydrated, setHydrated] = useState(false);
+  const [colorScheme, setColorScheme] =
+    useState<ColorSchemeName>(systemResolved);
   const [colors, setColors] = useState<ThemeColors>(() =>
-    buildColors(colorScheme, DEFAULT_PRIMARY),
+    buildColors(systemResolved, DEFAULT_PRIMARY),
   );
+  const [veil, setVeil] = useState<CanvasVeil | null>(null);
 
   const colorsRef = useRef(colors);
   colorsRef.current = colors;
-  const progress = useRef(new Animated.Value(0)).current;
+  const veilOpacity = useRef(new Animated.Value(1)).current;
   const primedRef = useRef(false);
-  const listenerIdRef = useRef<string | null>(null);
+  const veilKeyRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,58 +115,48 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated) return;
 
-    const target = buildColors(colorScheme, primary);
+    const target = buildColors(systemResolved, primary);
 
     if (!primedRef.current) {
       primedRef.current = true;
       setColors(target);
+      setColorScheme(systemResolved);
       return;
     }
 
     const from = colorsRef.current;
-    if (
-      from.mainWhite === target.mainWhite &&
-      from.primary === target.primary &&
-      from.primarySoft === target.primarySoft &&
-      from.surface === target.surface &&
-      from.black === target.black
-    ) {
+    const canvasChanged = from.mainWhite !== target.mainWhite;
+
+    if (!canvasChanged) {
       setColors(target);
+      setColorScheme(systemResolved);
       return;
     }
 
-    if (listenerIdRef.current != null) {
-      progress.removeListener(listenerIdRef.current);
-      listenerIdRef.current = null;
-    }
-    progress.stopAnimation();
-    progress.setValue(0);
+    veilOpacity.stopAnimation();
+    veilOpacity.setValue(1);
+    veilKeyRef.current += 1;
+    const key = veilKeyRef.current;
+    // Previous canvas on top; new tokens underneath. Scheme (StatusBar) waits.
+    setVeil({ key, color: from.mainWhite });
+    setColors(target);
 
-    listenerIdRef.current = progress.addListener(({ value }) => {
-      setColors(mixThemeColors(from, target, value));
-    });
-
-    Animated.timing(progress, {
-      toValue: 1,
+    let cancelled = false;
+    Animated.timing(veilOpacity, {
+      toValue: 0,
       duration: durations.themeShift,
       easing: THEME_EASE,
-      useNativeDriver: false,
+      useNativeDriver: true,
     }).start(({ finished }) => {
-      if (listenerIdRef.current != null) {
-        progress.removeListener(listenerIdRef.current);
-        listenerIdRef.current = null;
-      }
-      if (finished) setColors(target);
+      if (cancelled || !finished) return;
+      setColorScheme(systemResolved);
+      setVeil((current) => (current?.key === key ? null : current));
     });
 
     return () => {
-      if (listenerIdRef.current != null) {
-        progress.removeListener(listenerIdRef.current);
-        listenerIdRef.current = null;
-      }
-      progress.stopAnimation();
+      cancelled = true;
     };
-  }, [colorScheme, hydrated, primary, progress]);
+  }, [systemResolved, hydrated, primary, veilOpacity]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({
@@ -159,9 +170,37 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+    <ThemeContext.Provider value={value}>
+      <View style={[styles.shell, { backgroundColor: colors.mainWhite }]}>
+        {children}
+        {veil ? (
+          <Animated.View
+            pointerEvents="none"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={[
+              styles.veil,
+              {
+                backgroundColor: veil.color,
+                opacity: veilOpacity,
+              },
+            ]}
+          />
+        ) : null}
+      </View>
+    </ThemeContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  shell: {
+    flex: 1,
+  },
+  veil: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 10000,
+  },
+});
 
 export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeContext);

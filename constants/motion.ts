@@ -71,8 +71,11 @@ export const durations = {
   chipShift: EASE_OUT_MS,
   /** Study row appear / remove height. */
   listRow: 340,
-  /** System light↔dark chrome color crossfade. */
-  themeShift: EASE_OUT_MS,
+  /**
+   * System light↔dark canvas veil (opacity fade over snapped theme).
+   * Longer than EASE_OUT_MS so the 샤락 reads clearly on device.
+   */
+  themeShift: 560,
 } as const;
 
 /** Max day-pager index delta that still scrolls animated (슈루룩). */
