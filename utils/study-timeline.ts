@@ -13,12 +13,16 @@ export type TimelineBandView = {
   labelStart: string;
   labelEnd: string;
   slots: TimelineSlot[];
+  /** One add control for this band (not per empty slot). */
+  showAdd: boolean;
+  /** Visual slot-heights the single add control should span. */
+  addSpan: number;
 };
 
 /**
  * Partition ordered studies into morning / afternoon / evening bands
  * (first 3 / next 4 / next 3 by order), then overflow into evening.
- * Each band pads with empty add-slots up to its visual capacity when under.
+ * Pads with inert empty slots for visual capacity; UI shows one add per band.
  */
 export function buildTimelineBands(
   studies: readonly HomeStudyRow[],
@@ -47,15 +51,15 @@ export function buildTimelineBands(
       kind: 'study',
       row,
     }));
-    const emptyCount = Math.max(0, band.emptySlots - filled.length);
-    for (let e = 0; e < emptyCount; e += 1) {
-      slots.push({ kind: 'empty', key: `${band.id}-empty-${e}` });
-    }
+    // Remaining visual capacity → one add control sized to fit the band (not per-slot adds).
+    const spare = Math.max(0, band.emptySlots - filled.length);
     return {
       id: band.id,
       labelStart: band.labelStart,
       labelEnd: band.labelEnd,
       slots,
+      showAdd: spare > 0 || band.id === 'evening',
+      addSpan: Math.max(1, spare),
     };
   });
 }

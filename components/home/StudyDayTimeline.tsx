@@ -10,15 +10,15 @@ import type { HomeStudyRow } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
 import { durations } from '@/constants/motion';
 import { TIMELINE_MAX_STUDIES_PER_DAY } from '@/constants/study-timeline';
-import { radii } from '@/constants/tokens';
+import { radii, subjectColor } from '@/constants/tokens';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import {
   buildTimelineBands,
   type TimelineSlot,
 } from '@/utils/study-timeline';
-import { subjectColor } from '@/constants/tokens';
 import { haptics } from '@/utils/haptics';
 
+const SLOT_HEIGHT = 40;
 const ROW_LAYOUT = LinearTransition.duration(durations.listRow);
 const ENTER = FadeInDown.duration(durations.fadeIn).easing(
   Easing.out(Easing.cubic),
@@ -33,8 +33,8 @@ type StudyDayTimelineProps = {
 };
 
 /**
- * Full-day study timeline: faint 9/12/18/24 marks + light dividers,
- * band empty slots, filled rows. No 오전/오후/저녁 headers.
+ * Full-day study timeline: faint 8/12/18/24 marks + light dividers,
+ * one add control per band (fits remaining capacity). No 오전/오후/저녁 headers.
  */
 export function StudyDayTimeline({
   studies,
@@ -46,9 +46,10 @@ export function StudyDayTimeline({
   const colors = useThemeColors();
   const bands = buildTimelineBands(studies);
   const atCap = studies.length >= TIMELINE_MAX_STUDIES_PER_DAY;
+  const canAdd = allowAdd && !atCap;
 
   const handleAdd = () => {
-    if (atCap || !allowAdd) {
+    if (!canAdd) {
       haptics.reject();
       return;
     }
@@ -67,11 +68,12 @@ export function StudyDayTimeline({
                 key={slot.kind === 'study' ? slot.row.id : slot.key}
                 slot={slot}
                 colorByName={colorByName}
-                allowAdd={allowAdd && !atCap}
-                onAdd={handleAdd}
                 onEditStudy={onEditStudy}
               />
             ))}
+            {canAdd && band.showAdd ? (
+              <BandAddControl span={band.addSpan} onPress={handleAdd} />
+            ) : null}
           </Animated.View>
           {bandIndex === bands.length - 1 ? (
             <TimelineMark label={band.labelEnd} />
@@ -99,44 +101,51 @@ function TimelineMark({ label }: { label: string }) {
   );
 }
 
+/** Single add control for a band — height spans remaining empty capacity. */
+function BandAddControl({
+  span,
+  onPress,
+}: {
+  span: number;
+  onPress: () => void;
+}) {
+  const colors = useThemeColors();
+  const height = SLOT_HEIGHT * span + 6 * Math.max(0, span - 1);
+  return (
+    <Animated.View entering={ENTER} layout={ROW_LAYOUT}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="공부 기록 추가"
+        onPress={onPress}
+        style={[
+          styles.bandAdd,
+          {
+            minHeight: height,
+            backgroundColor: colors.surface,
+          },
+        ]}>
+        <PlusIcon size={14} />
+        <Text style={[styles.emptyText, { color: colors.accentText }]}>
+          추가
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 function TimelineSlotRow({
   slot,
   colorByName,
-  allowAdd,
-  onAdd,
   onEditStudy,
 }: {
   slot: TimelineSlot;
   colorByName?: Record<string, string>;
-  allowAdd: boolean;
-  onAdd: () => void;
   onEditStudy: (row: HomeStudyRow) => void;
 }) {
   const colors = useThemeColors();
 
   if (slot.kind === 'empty') {
-    return (
-      <Animated.View entering={ENTER} layout={ROW_LAYOUT}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="공부 기록 추가"
-          accessibilityState={{ disabled: !allowAdd }}
-          disabled={!allowAdd}
-          onPress={onAdd}
-          style={[
-            styles.emptySlot,
-            {
-              backgroundColor: colors.surface,
-              opacity: allowAdd ? 1 : 0.55,
-            },
-          ]}>
-          <PlusIcon size={14} />
-          <Text style={[styles.emptyText, { color: colors.accentText }]}>
-            추가
-          </Text>
-        </Pressable>
-      </Animated.View>
-    );
+    return null;
   }
 
   const { row } = slot;
@@ -207,13 +216,13 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingLeft: 32,
   },
-  emptySlot: {
-    height: 40,
+  bandAdd: {
     borderRadius: radii.chip,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    paddingVertical: 8,
   },
   emptyText: {
     fontFamily: fonts.nexonMedium,
@@ -227,7 +236,7 @@ const styles = StyleSheet.create({
   chip: {
     minWidth: 64,
     maxWidth: 88,
-    height: 40,
+    height: SLOT_HEIGHT,
     paddingHorizontal: 8,
     borderRadius: radii.chip,
     alignItems: 'center',
@@ -240,7 +249,7 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     minWidth: 0,
-    height: 40,
+    height: SLOT_HEIGHT,
     borderRadius: radii.chip,
     justifyContent: 'center',
     paddingHorizontal: 12,

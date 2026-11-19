@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { HomeStudyRow } from '@/constants/home-types';
+import { TIMELINE_MARKS } from '@/constants/study-timeline';
 import { buildTimelineBands } from '@/utils/study-timeline';
 
 function row(id: string): HomeStudyRow {
@@ -8,21 +9,36 @@ function row(id: string): HomeStudyRow {
 }
 
 describe('buildTimelineBands', () => {
-  it('pads empty slots to band capacities when few studies', () => {
+  it('uses 8/12/18/24 clock marks', () => {
+    expect(TIMELINE_MARKS).toEqual(['8', '12', '18', '24']);
+    const bands = buildTimelineBands([]);
+    expect(bands.map((b) => b.labelStart)).toEqual(['8', '12', '18']);
+    expect(bands[2].labelEnd).toBe('24');
+  });
+
+  it('exposes one add span per band instead of per-slot adds', () => {
     const bands = buildTimelineBands([row('a')]);
+    // morning: 1 study → add spans remaining 2
     expect(bands[0].slots.filter((s) => s.kind === 'study')).toHaveLength(1);
-    expect(bands[0].slots.filter((s) => s.kind === 'empty')).toHaveLength(2);
-    expect(bands[1].slots.every((s) => s.kind === 'empty')).toBe(true);
-    expect(bands[1].slots).toHaveLength(4);
-    expect(bands[2].slots).toHaveLength(3);
+    expect(bands[0].slots.some((s) => s.kind === 'empty')).toBe(false);
+    expect(bands[0].showAdd).toBe(true);
+    expect(bands[0].addSpan).toBe(2);
+    // afternoon / evening empty → full-capacity add
+    expect(bands[1].slots).toHaveLength(0);
+    expect(bands[1].addSpan).toBe(4);
+    expect(bands[2].slots).toHaveLength(0);
+    expect(bands[2].addSpan).toBe(3);
   });
 
   it('places overflow studies into the evening band', () => {
     const many = Array.from({ length: 12 }, (_, i) => row(String(i)));
     const bands = buildTimelineBands(many);
     expect(bands[0].slots.filter((s) => s.kind === 'study')).toHaveLength(3);
+    expect(bands[0].showAdd).toBe(false);
     expect(bands[1].slots.filter((s) => s.kind === 'study')).toHaveLength(4);
+    expect(bands[1].showAdd).toBe(false);
     expect(bands[2].slots.filter((s) => s.kind === 'study')).toHaveLength(5);
-    expect(bands[2].slots.some((s) => s.kind === 'empty')).toBe(false);
+    expect(bands[2].showAdd).toBe(true);
+    expect(bands[2].addSpan).toBe(1);
   });
 });
