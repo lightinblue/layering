@@ -1,15 +1,30 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import Animated, {
   Easing,
+  FadeIn,
   FadeInDown,
+  FadeOut,
   LinearTransition,
 } from 'react-native-reanimated';
 
+import type { SubjectOption } from '@/components/home/AddStudyForm';
 import { PlusIcon } from '@/components/icons/HomeIcons';
 import type { HomeStudyRow } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
 import { durations } from '@/constants/motion';
-import { TIMELINE_MAX_STUDIES_PER_DAY } from '@/constants/study-timeline';
+import {
+  TIMELINE_MAX_STUDIES_PER_DAY,
+  type TimelineBandId,
+} from '@/constants/study-timeline';
+import { MAX_STUDY_TITLE_LENGTH } from '@/storage/app-data';
 import { radii, subjectColor } from '@/constants/tokens';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import {
@@ -23,67 +38,98 @@ const ROW_LAYOUT = LinearTransition.duration(durations.listRow);
 const ENTER = FadeInDown.duration(durations.fadeIn).easing(
   Easing.out(Easing.cubic),
 );
+const EXIT = FadeOut.duration(durations.fadeOut);
 
 type StudyDayTimelineProps = {
   studies: HomeStudyRow[];
+  subjects: SubjectOption[];
   colorByName?: Record<string, string>;
   allowAdd: boolean;
-  onAdd: () => void;
+  onAddStudy: (input: {
+    bandId: TimelineBandId;
+    subject: string;
+    title: string;
+  }) => void;
   onEditStudy: (row: HomeStudyRow) => void;
 };
 
 /**
- * Day study bands: faint 8/12/18/24 marks + one add control per band
- * (오전/오후/밤 투두). No section headers.
+ * Day study bands: faint 8/12/18/24 marks + one 투두 add per band.
+ * Tap 투두 → inline composer in place (chips + title); no sheet.
  */
 export function StudyDayTimeline({
   studies,
+  subjects,
   colorByName,
   allowAdd,
-  onAdd,
+  onAddStudy,
   onEditStudy,
 }: StudyDayTimelineProps) {
   const colors = useThemeColors();
   const bands = buildTimelineBands(studies);
   const atCap = studies.length >= TIMELINE_MAX_STUDIES_PER_DAY;
   const canAdd = allowAdd && !atCap;
+  const [draftBandId, setDraftBandId] = useState<TimelineBandId | null>(null);
 
-  const handleAdd = () => {
+  const openDraft = (bandId: TimelineBandId) => {
     if (!canAdd) {
       haptics.reject();
       return;
     }
+    if (subjects.length === 0) {
+      haptics.reject();
+      return;
+    }
     haptics.select();
-    onAdd();
+    setDraftBandId(bandId);
+  };
+
+  const closeDraft = () => setDraftBandId(null);
+
+  const commitDraft = (subject: string, title: string) => {
+    if (!draftBandId) return;
+    onAddStudy({ bandId: draftBandId, subject, title });
+    setDraftBandId(null);
   };
 
   return (
     <View style={styles.root}>
-      {bands.map((band, bandIndex) => (
-        <View key={band.id} style={styles.bandBlock}>
-          <TimelineMark label={band.labelStart} />
-          <Animated.View style={styles.slotStack} layout={ROW_LAYOUT}>
-            {band.slots.map((slot) => (
-              <TimelineSlotRow
-                key={slot.kind === 'study' ? slot.row.id : slot.key}
-                slot={slot}
-                colorByName={colorByName}
-                onEditStudy={onEditStudy}
-              />
-            ))}
-            {canAdd && band.showAdd ? (
-              <BandAddControl
-                label={band.addLabel}
-                span={band.addSpan}
-                onPress={handleAdd}
-              />
+      {bands.map((band, bandIndex) => {
+        const drafting = draftBandId === band.id;
+        return (
+          <View key={band.id} style={styles.bandBlock}>
+            <TimelineMark label={band.labelStart} />
+            <Animated.View style={styles.slotStack} layout={ROW_LAYOUT}>
+              {band.slots.map((slot) => (
+                <TimelineSlotRow
+                  key={slot.kind === 'study' ? slot.row.id : slot.key}
+                  slot={slot}
+                  colorByName={colorByName}
+                  onEditStudy={onEditStudy}
+                />
+              ))}
+              {drafting ? (
+                <InlineBandAddRow
+                  subjects={subjects}
+                  colorByName={colorByName}
+                  placeholder={band.addLabel}
+                  onCancel={closeDraft}
+                  onCommit={commitDraft}
+                />
+              ) : canAdd && band.showAdd ? (
+                <BandAddControl
+                  label={band.addLabel}
+                  span={band.addSpan}
+                  onPress={() => openDraft(band.id)}
+                />
+              ) : null}
+            </Animated.View>
+            {bandIndex === bands.length - 1 ? (
+              <TimelineMark label={band.labelEnd} />
             ) : null}
-          </Animated.View>
-          {bandIndex === bands.length - 1 ? (
-            <TimelineMark label={band.labelEnd} />
-          ) : null}
-        </View>
-      ))}
+          </View>
+        );
+      })}
       {atCap ? (
         <Text style={[styles.capHint, { color: colors.muted }]}>
           하루 {TIMELINE_MAX_STUDIES_PER_DAY}개까지
@@ -105,7 +151,6 @@ function TimelineMark({ label }: { label: string }) {
   );
 }
 
-/** Single add control for a band — height spans remaining empty capacity. */
 function BandAddControl({
   label,
   span,
@@ -118,7 +163,7 @@ function BandAddControl({
   const colors = useThemeColors();
   const height = SLOT_HEIGHT * span + 6 * Math.max(0, span - 1);
   return (
-    <Animated.View entering={ENTER} layout={ROW_LAYOUT}>
+    <Animated.View entering={ENTER} exiting={EXIT} layout={ROW_LAYOUT}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -135,6 +180,117 @@ function BandAddControl({
           {label}
         </Text>
       </Pressable>
+    </Animated.View>
+  );
+}
+
+function InlineBandAddRow({
+  subjects,
+  colorByName,
+  placeholder,
+  onCancel,
+  onCommit,
+}: {
+  subjects: SubjectOption[];
+  colorByName?: Record<string, string>;
+  placeholder: string;
+  onCancel: () => void;
+  onCommit: (subject: string, title: string) => void;
+}) {
+  const colors = useThemeColors();
+  const [subject, setSubject] = useState(() => subjects[0]?.name ?? '');
+  const [title, setTitle] = useState('');
+
+  const submit = () => {
+    const nextTitle = title.trim();
+    if (!subject || !nextTitle) {
+      haptics.reject();
+      return;
+    }
+    haptics.save();
+    onCommit(subject, nextTitle);
+  };
+
+  return (
+    <Animated.View
+      entering={FadeIn.duration(durations.fadeIn).easing(Easing.out(Easing.cubic))}
+      exiting={EXIT}
+      layout={ROW_LAYOUT}
+      style={styles.inlineWrap}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.chipRow}>
+        {subjects.map((s) => {
+          const selected = s.name === subject;
+          const fill = s.color || subjectColor(s.name, colorByName);
+          return (
+            <Pressable
+              key={s.name}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              accessibilityLabel={`${s.name} 과목`}
+              onPress={() => {
+                haptics.select();
+                setSubject(s.name);
+              }}
+              style={[
+                styles.subjectChip,
+                {
+                  backgroundColor: fill,
+                  opacity: selected ? 1 : 0.45,
+                  borderColor: selected ? colors.black : 'transparent',
+                },
+              ]}>
+              <Text
+                style={[styles.subjectChipText, { color: colors.onAccent }]}
+                numberOfLines={1}>
+                {s.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <View style={styles.inlineInputRow}>
+        <TextInput
+          value={title}
+          onChangeText={setTitle}
+          placeholder={placeholder}
+          placeholderTextColor={colors.mutedLight}
+          maxLength={MAX_STUDY_TITLE_LENGTH}
+          returnKeyType="done"
+          onSubmitEditing={submit}
+          blurOnSubmit
+          autoFocus
+          style={[
+            styles.inlineInput,
+            { backgroundColor: colors.surface, color: colors.body },
+          ]}
+          accessibilityLabel={`${placeholder} 내용`}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="저장"
+          onPress={submit}
+          style={[styles.savePill, { backgroundColor: colors.primary }]}>
+          <Text style={[styles.savePillText, { color: colors.onAccent }]}>
+            저장
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="취소"
+          hitSlop={8}
+          onPress={() => {
+            haptics.select();
+            onCancel();
+          }}
+          style={styles.cancelBtn}>
+          <Text style={[styles.cancelText, { color: colors.muted }]}>취소</Text>
+        </Pressable>
+      </View>
     </Animated.View>
   );
 }
@@ -231,6 +387,61 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   emptyText: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 13,
+  },
+  inlineWrap: {
+    gap: 8,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  subjectChip: {
+    minWidth: 56,
+    height: 32,
+    paddingHorizontal: 10,
+    borderRadius: radii.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
+  subjectChipText: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 13,
+  },
+  inlineInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  inlineInput: {
+    flex: 1,
+    minWidth: 0,
+    height: SLOT_HEIGHT,
+    borderRadius: radii.chip,
+    paddingHorizontal: 12,
+    fontFamily: fonts.nexonMedium,
+    fontSize: 14,
+  },
+  savePill: {
+    height: SLOT_HEIGHT,
+    paddingHorizontal: 14,
+    borderRadius: radii.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  savePillText: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 14,
+  },
+  cancelBtn: {
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+  },
+  cancelText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 13,
   },

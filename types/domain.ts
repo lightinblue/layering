@@ -35,6 +35,11 @@ export type StudyRecord = {
    * for existing code paths.
    */
   studiedOn: string;
+  /**
+   * Optional day-band for study-day UI (morning / afternoon / evening).
+   * Legacy records omit this and fall back to createdAt order.
+   */
+  dayBand?: 'morning' | 'afternoon' | 'evening';
   /** Review intervals in days (always present; default fixed curve). */
   cycle: ReviewIntervalDay[];
   /** Check state keyed by interval days (string keys in JSON). */

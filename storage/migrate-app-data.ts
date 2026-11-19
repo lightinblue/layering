@@ -136,6 +136,11 @@ export function normalizeAppData(raw: unknown, now = new Date()): AppData {
       content: r.content ?? '',
       ...(r.memo ? { memo: r.memo } : {}),
       studiedOn: r.studiedOn ?? createdAt.slice(0, 10),
+      ...(r.dayBand === 'morning' ||
+      r.dayBand === 'afternoon' ||
+      r.dayBand === 'evening'
+        ? { dayBand: r.dayBand }
+        : {}),
       cycle,
       checks,
       createdAt,

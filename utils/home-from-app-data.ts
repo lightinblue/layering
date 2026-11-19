@@ -113,6 +113,7 @@ function studiesForDay(dateKey: string, data: AppData): HomeStudyRow[] {
       content: r.content,
       ...(r.memo?.trim() ? { memo: r.memo.trim() } : {}),
       ...(r.subjectColor ? { subjectColor: r.subjectColor } : {}),
+      ...(r.dayBand ? { dayBand: r.dayBand } : {}),
     }));
 }
 

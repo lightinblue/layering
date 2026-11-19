@@ -20,30 +20,47 @@ export type TimelineBandView = {
   addLabel: string;
 };
 
+function isBandId(value: string | undefined): value is TimelineBandId {
+  return (
+    value === 'morning' || value === 'afternoon' || value === 'evening'
+  );
+}
+
 /**
- * Partition ordered studies into morning / afternoon / evening bands
- * (first 3 / next 4 / next 3 by order), then overflow into evening.
- * Pads with inert empty slots for visual capacity; UI shows one add per band.
+ * Partition studies into morning / afternoon / evening bands.
+ * Prefer explicit `dayBand` (from which 투두 was tapped); legacy rows
+ * without a band fill remaining capacity in createdAt order.
  */
 export function buildTimelineBands(
   studies: readonly HomeStudyRow[],
 ): TimelineBandView[] {
   const ordered = [...studies];
-  const capacities = TIMELINE_BANDS.map((b) => b.emptySlots);
-  const buckets: HomeStudyRow[][] = TIMELINE_BANDS.map(() => []);
+  const assigned: Record<TimelineBandId, HomeStudyRow[]> = {
+    morning: [],
+    afternoon: [],
+    evening: [],
+  };
+  const unassigned: HomeStudyRow[] = [];
 
-  let cursor = 0;
-  for (let i = 0; i < capacities.length; i += 1) {
-    const take = capacities[i];
-    buckets[i] = ordered.slice(cursor, cursor + take);
-    cursor += take;
+  for (const row of ordered) {
+    if (isBandId(row.dayBand)) {
+      assigned[row.dayBand].push(row);
+    } else {
+      unassigned.push(row);
+    }
   }
-  // Overflow beyond 3+4+3 → evening band (still capped globally at 15).
-  if (cursor < ordered.length) {
-    buckets[buckets.length - 1] = [
-      ...buckets[buckets.length - 1],
-      ...ordered.slice(cursor),
-    ];
+
+  const queue = [...unassigned];
+  const buckets: HomeStudyRow[][] = TIMELINE_BANDS.map((band) => {
+    const filled = [...assigned[band.id]];
+    while (filled.length < band.emptySlots && queue.length > 0) {
+      filled.push(queue.shift()!);
+    }
+    return filled;
+  });
+  // Leftover unassigned → evening.
+  if (queue.length > 0) {
+    buckets[buckets.length - 1] = [...buckets[buckets.length - 1], ...queue];
   }
 
   return TIMELINE_BANDS.map((band, index) => {
@@ -52,7 +69,6 @@ export function buildTimelineBands(
       kind: 'study',
       row,
     }));
-    // Remaining visual capacity → one add control sized to fit the band (not per-slot adds).
     const spare = Math.max(0, band.emptySlots - filled.length);
     return {
       id: band.id,

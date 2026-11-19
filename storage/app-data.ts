@@ -345,6 +345,8 @@ export type CreateStudyInput = {
   content: string;
   studiedOn: string;
   memo?: string;
+  /** Optional study-day band (morning / afternoon / evening). */
+  dayBand?: 'morning' | 'afternoon' | 'evening';
 };
 
 /** Append one study + checks for cycle intervals. No-op at daily max. */
@@ -377,6 +379,7 @@ export function appendStudyWithReviews(
     content: fields.content,
     ...(fields.memo ? { memo: fields.memo } : {}),
     studiedOn: input.studiedOn,
+    ...(input.dayBand ? { dayBand: input.dayBand } : {}),
     cycle,
     checks: emptyChecks(cycle, at),
     createdAt: at,

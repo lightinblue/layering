@@ -3,6 +3,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -28,7 +30,10 @@ import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import type { HomeStudyRow } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
 import { durations } from '@/constants/motion';
-import { TIMELINE_MAX_STUDIES_PER_DAY } from '@/constants/study-timeline';
+import {
+  TIMELINE_MAX_STUDIES_PER_DAY,
+  type TimelineBandId,
+} from '@/constants/study-timeline';
 import {
   addSubject,
   appendStudyWithReviews,
@@ -72,12 +77,13 @@ function studiesForDay(data: AppData, dateKey: string): HomeStudyRow[] {
       subjectName: r.subjectName,
       content: r.content,
       ...(r.subjectColor ? { subjectColor: r.subjectColor } : {}),
+      ...(r.dayBand ? { dayBand: r.dayBand } : {}),
     }));
 }
 
 /**
  * Day study detail — opened from home summary or calendar day tap.
- * Isolated route so the trial UI is easy to revert.
+ * Band adds are inline; edit still uses the sheet.
  */
 export default function DayTimelineScreen() {
   const router = useRouter();
@@ -92,8 +98,8 @@ export default function DayTimelineScreen() {
 
   const [appData, setAppData] = useState<AppData | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
-  const [addKey, setAddKey] = useState(0);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editKey, setEditKey] = useState(0);
   const [editingStudy, setEditingStudy] = useState<HomeStudyRow | null>(null);
 
   const meta = useMemo(() => dayMeta(parseLoose(dateKey)), [dateKey]);
@@ -138,63 +144,60 @@ export default function DayTimelineScreen() {
     else router.replace('/');
   }, [router]);
 
-  const openAdd = useCallback(() => {
-    if (atCap) {
-      haptics.reject();
-      return;
-    }
-    setEditingStudy(null);
-    setAddKey((k) => k + 1);
-    setAddOpen(true);
-  }, [atCap]);
-
   const openEdit = useCallback((row: HomeStudyRow) => {
     setEditingStudy(row);
-    setAddKey((k) => k + 1);
-    setAddOpen(true);
+    setEditKey((k) => k + 1);
+    setEditOpen(true);
   }, []);
 
-  const onSave = useCallback(
-    (payload: AddStudyPayload) => {
+  const onAddStudy = useCallback(
+    (input: { bandId: TimelineBandId; subject: string; title: string }) => {
       if (!appData) return;
+      const content = input.title.trim();
+      if (!content || !input.subject) {
+        haptics.reject();
+        return;
+      }
+      if (studies.length >= TIMELINE_MAX_STUDIES_PER_DAY) {
+        haptics.reject();
+        return;
+      }
+      const next = appendStudyWithReviews(appData, {
+        subjectName: input.subject,
+        content,
+        studiedOn: dateKey,
+        dayBand: input.bandId,
+      });
+      void persist(next);
+    },
+    [appData, dateKey, persist, studies.length],
+  );
+
+  const onSaveEdit = useCallback(
+    (payload: AddStudyPayload) => {
+      if (!appData || !editingStudy) return;
       const content = payload.title.trim();
       if (!content) {
         haptics.reject();
         return;
       }
-      if (editingStudy) {
-        const next = updateStudyWithReviews(appData, editingStudy.id, {
-          subjectName: payload.subject,
-          content,
-          studiedOn: dateKey,
-        });
-        void persist(next);
-        haptics.save();
-        setAddOpen(false);
-        return;
-      }
-      if (studies.length >= TIMELINE_MAX_STUDIES_PER_DAY) {
-        haptics.reject();
-        setAddOpen(false);
-        return;
-      }
-      const next = appendStudyWithReviews(appData, {
+      const next = updateStudyWithReviews(appData, editingStudy.id, {
         subjectName: payload.subject,
         content,
         studiedOn: dateKey,
       });
       void persist(next);
       haptics.save();
-      setAddOpen(false);
+      setEditOpen(false);
     },
-    [appData, dateKey, editingStudy, persist, studies.length],
+    [appData, dateKey, editingStudy, persist],
   );
 
   const onDelete = useCallback(() => {
     if (!editingStudy || !appData) return;
     void persist(deleteStudyWithReviews(appData, editingStudy.id));
     haptics.delete();
-    setAddOpen(false);
+    setEditOpen(false);
   }, [editingStudy, appData, persist]);
 
   const onAddSubject = useCallback(
@@ -242,7 +245,7 @@ export default function DayTimelineScreen() {
   }
 
   return (
-    <View
+    <KeyboardAvoidingView
       style={[
         styles.root,
         {
@@ -250,7 +253,8 @@ export default function DayTimelineScreen() {
           paddingTop: insets.top,
           paddingBottom: Math.max(insets.bottom, 12),
         },
-      ]}>
+      ]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
 
       <Animated.View
@@ -282,7 +286,8 @@ export default function DayTimelineScreen() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled">
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
         <Animated.View
           entering={FadeIn.delay(40)
             .duration(durations.fadeIn)
@@ -290,39 +295,38 @@ export default function DayTimelineScreen() {
           exiting={FadeOut.duration(durations.fadeOut)}>
           <StudyDayTimeline
             studies={studies}
+            subjects={subjects}
             colorByName={colorByName}
             allowAdd={allowAdd}
-            onAdd={openAdd}
+            onAddStudy={onAddStudy}
             onEditStudy={openEdit}
           />
         </Animated.View>
       </ScrollView>
 
       <BottomSheetModal
-        visible={addOpen}
-        onClose={() => setAddOpen(false)}
+        visible={editOpen}
+        onClose={() => setEditOpen(false)}
         onDismissed={() => setEditingStudy(null)}>
-        <AddStudyForm
-          key={addKey}
-          mode={editingStudy ? 'edit' : 'create'}
-          subjects={subjects}
-          initial={
-            editingStudy
-              ? {
-                  subject: editingStudy.subjectName,
-                  title: editingStudy.content,
-                }
-              : undefined
-          }
-          onSave={onSave}
-          onDelete={editingStudy ? onDelete : undefined}
-          onAddSubject={onAddSubject}
-          onRemoveSubject={onRemoveSubject}
-          onReorderSubjects={onReorderSubjects}
-          maxSubjects={MAX_SUBJECTS}
-        />
+        {editingStudy ? (
+          <AddStudyForm
+            key={editKey}
+            mode="edit"
+            subjects={subjects}
+            initial={{
+              subject: editingStudy.subjectName,
+              title: editingStudy.content,
+            }}
+            onSave={onSaveEdit}
+            onDelete={onDelete}
+            onAddSubject={onAddSubject}
+            onRemoveSubject={onRemoveSubject}
+            onReorderSubjects={onReorderSubjects}
+            maxSubjects={MAX_SUBJECTS}
+          />
+        ) : null}
       </BottomSheetModal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
