@@ -38,9 +38,10 @@ describe('resolveSubjectAndTitle', () => {
     });
   });
 
-  it('falls back to the first subject with full text', () => {
-    expect(resolveSubjectAndTitle('복습하기', SUBJECTS)).toEqual({
-      subject: '전공',
+  it('requires an explicit pick when there is no prefix match', () => {
+    expect(resolveSubjectAndTitle('복습하기', SUBJECTS)).toBeNull();
+    expect(resolveSubjectAndTitle('복습하기', SUBJECTS, '정검')).toEqual({
+      subject: '정검',
       title: '복습하기',
     });
   });

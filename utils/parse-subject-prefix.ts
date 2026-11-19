@@ -1,6 +1,6 @@
 /**
  * Live-parse a leading subject name from free text.
- * Longest matching subject wins. No match → subject null (caller uses first).
+ * Longest matching subject wins. No match → subject null (caller must pick).
  */
 
 export type SubjectPrefixMatch = {
@@ -33,15 +33,29 @@ export function matchSubjectPrefix(
   return { subject: null, title: text };
 }
 
-/** Resolve subject + title for save (no match → first subject, full text). */
+/**
+ * Resolve subject + title for save.
+ * Prefers live prefix match; else requires an explicit selected subject.
+ * Never defaults to the first subject.
+ */
 export function resolveSubjectAndTitle(
   raw: string,
   subjectNames: readonly string[],
+  selectedSubject?: string | null,
 ): { subject: string; title: string } | null {
   if (subjectNames.length === 0) return null;
   const match = matchSubjectPrefix(raw, subjectNames);
-  const subject = match.subject ?? subjectNames[0]!;
-  const title = (match.subject ? match.title : match.title).trim();
+  const title = match.title.trim();
   if (!title) return null;
-  return { subject, title };
+
+  if (match.subject) {
+    return { subject: match.subject, title };
+  }
+
+  const picked =
+    selectedSubject && subjectNames.includes(selectedSubject)
+      ? selectedSubject
+      : null;
+  if (!picked) return null;
+  return { subject: picked, title };
 }

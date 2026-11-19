@@ -21,11 +21,12 @@ import type { HomeStudyRow } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
 import { durations } from '@/constants/motion';
 import {
+  INLINE_STUDY_PLACEHOLDER,
   TIMELINE_MAX_STUDIES_PER_DAY,
   type TimelineBandId,
 } from '@/constants/study-timeline';
 import { MAX_STUDY_TITLE_LENGTH } from '@/storage/app-data';
-import { radii, subjectColor } from '@/constants/tokens';
+import { radii, subjectBorderColor, subjectColor } from '@/constants/tokens';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import {
   buildTimelineBands,
@@ -116,7 +117,6 @@ export function StudyDayTimeline({
                 <InlineBandAddRow
                   subjects={subjects}
                   colorByName={colorByName}
-                  placeholder={band.addLabel}
                   onCancel={closeDraft}
                   onCommit={commitDraft}
                 />
@@ -191,26 +191,28 @@ function BandAddControl({
 function InlineBandAddRow({
   subjects,
   colorByName,
-  placeholder,
   onCancel,
   onCommit,
 }: {
   subjects: SubjectOption[];
   colorByName?: Record<string, string>;
-  placeholder: string;
   onCancel: () => void;
   onCommit: (subject: string, title: string) => void;
 }) {
   const colors = useThemeColors();
   const [raw, setRaw] = useState('');
+  const [picked, setPicked] = useState<string | null>(null);
+  const [promptPulse, setPromptPulse] = useState(0);
   const names = subjects.map((s) => s.name);
   const match = matchSubjectPrefix(raw, names);
-  const highlighted = match.subject ?? names[0] ?? null;
+  const highlighted = match.subject ?? picked;
+  const needsSubjectPick = highlighted == null;
 
   const submit = () => {
-    const resolved = resolveSubjectAndTitle(raw, names);
+    const resolved = resolveSubjectAndTitle(raw, names, picked);
     if (!resolved) {
       haptics.reject();
+      if (needsSubjectPick) setPromptPulse((n) => n + 1);
       return;
     }
     haptics.save();
@@ -223,6 +225,28 @@ function InlineBandAddRow({
       exiting={EXIT}
       layout={ROW_LAYOUT}
       style={styles.inlineWrap}>
+      {needsSubjectPick ? (
+        <Pressable
+          key={`prompt-${promptPulse}`}
+          accessibilityRole="button"
+          accessibilityLabel="과목을 선택해 주세요"
+          onPress={() => {
+            haptics.select();
+            setPromptPulse((n) => n + 1);
+          }}
+          style={[
+            styles.subjectPrompt,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.mutedLight,
+            },
+          ]}>
+          <Text style={[styles.subjectPromptText, { color: colors.muted }]}>
+            과목을 선택해 주세요
+          </Text>
+        </Pressable>
+      ) : null}
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -231,18 +255,23 @@ function InlineBandAddRow({
         {subjects.map((s) => {
           const selected = s.name === highlighted;
           const fill = s.color || subjectColor(s.name, colorByName);
+          const border = subjectBorderColor(s.name, fill);
           return (
-            <View
+            <Pressable
               key={s.name}
-              accessibilityRole="text"
+              accessibilityRole="button"
               accessibilityState={{ selected }}
-              accessibilityLabel={`과목 ${s.name}${selected ? ', 선택됨' : ''}`}
+              accessibilityLabel={`과목 ${s.name}`}
+              onPress={() => {
+                haptics.select();
+                setPicked(s.name);
+              }}
               style={[
                 styles.subjectChip,
                 {
                   backgroundColor: fill,
-                  opacity: selected ? 1 : 0.45,
-                  borderColor: selected ? colors.black : 'transparent',
+                  opacity: selected || needsSubjectPick ? 1 : 0.45,
+                  borderColor: border,
                 },
               ]}>
               <Text
@@ -250,7 +279,7 @@ function InlineBandAddRow({
                 numberOfLines={1}>
                 {s.name}
               </Text>
-            </View>
+            </Pressable>
           );
         })}
       </ScrollView>
@@ -259,7 +288,7 @@ function InlineBandAddRow({
         <TextInput
           value={raw}
           onChangeText={setRaw}
-          placeholder={placeholder}
+          placeholder={INLINE_STUDY_PLACEHOLDER}
           placeholderTextColor={colors.mutedLight}
           maxLength={MAX_STUDY_TITLE_LENGTH}
           returnKeyType="done"
@@ -270,7 +299,7 @@ function InlineBandAddRow({
             styles.inlineInput,
             { backgroundColor: colors.surface, color: colors.body },
           ]}
-          accessibilityLabel={`${placeholder} 내용`}
+          accessibilityLabel="학습 내용"
         />
         <Pressable
           accessibilityRole="button"
@@ -401,10 +430,22 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 2,
   },
+  subjectPrompt: {
+    minHeight: 44,
+    borderRadius: radii.chip,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  subjectPromptText: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 14,
+  },
   subjectChip: {
-    minWidth: 56,
-    height: 32,
-    paddingHorizontal: 10,
+    minWidth: 64,
+    height: 44,
+    paddingHorizontal: 12,
     borderRadius: radii.chip,
     alignItems: 'center',
     justifyContent: 'center',
@@ -412,7 +453,7 @@ const styles = StyleSheet.create({
   },
   subjectChipText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 13,
+    fontSize: 14,
   },
   inlineInputRow: {
     flexDirection: 'row',

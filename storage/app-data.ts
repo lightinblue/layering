@@ -29,7 +29,7 @@ export const EMPTY_APP_DATA: AppData = {
 };
 
 /** Max study records allowed for a single studiedOn date. */
-export const MAX_STUDIES_PER_DAY = 15;
+export const MAX_STUDIES_PER_DAY = 14;
 
 /** Max user-managed subject chips (FR-A3). */
 export const MAX_SUBJECTS = 10;
