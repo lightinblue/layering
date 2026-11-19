@@ -16,15 +16,26 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import {
+  AddStudyForm,
+  type SubjectAddResult,
+  type SubjectOption,
+} from '@/components/home/AddStudyForm';
 import { fonts } from '@/constants/fonts';
 import { durations, springs } from '@/constants/motion';
 import { PRIMARY_OPTIONS, radii, type PrimaryOption } from '@/constants/tokens';
+import { MAX_SUBJECTS } from '@/storage/app-data';
 import { WEEKDAY_START_OPTIONS } from '@/storage/calendar-prefs';
 import { useCalendarPrefs } from '@/theme/CalendarPrefsProvider';
 import { useTheme } from '@/theme/ThemeProvider';
 import { haptics } from '@/utils/haptics';
 
 export type SettingsSheetProps = {
+  /** Subject chips for add/delete/reorder (Settings only). */
+  subjects?: SubjectOption[];
+  onAddSubject?: (name: string, color: string) => SubjectAddResult | boolean;
+  onRemoveSubject?: (name: string) => void;
+  onReorderSubjects?: (orderedNames: string[]) => void;
   /** __DEV__ only: write rich screenshot AppData and refresh home. */
   onScreenshotSeed?: () => void | Promise<void>;
   /** __DEV__ only: restore empty `전공` seed. */
@@ -32,11 +43,15 @@ export type SettingsSheetProps = {
 };
 
 /**
- * Settings body: calendar week start + accent color.
+ * Settings body: subjects, calendar week start + accent color.
  * Appearance always follows the device system setting (no in-app toggle).
  * Screenshot helpers render only when `__DEV__` and handlers are passed.
  */
 export function SettingsSheet({
+  subjects,
+  onAddSubject,
+  onRemoveSubject,
+  onReorderSubjects,
   onScreenshotSeed,
   onScreenshotReset,
 }: SettingsSheetProps) {
@@ -45,6 +60,11 @@ export function SettingsSheet({
   const [busy, setBusy] = useState<'seed' | 'reset' | null>(null);
   const showScreenshotTools =
     __DEV__ && onScreenshotSeed != null && onScreenshotReset != null;
+  const showSubjects =
+    subjects != null &&
+    onAddSubject != null &&
+    onRemoveSubject != null &&
+    onReorderSubjects != null;
 
   const run = async (kind: 'seed' | 'reset') => {
     if (busy) return;
@@ -61,6 +81,20 @@ export function SettingsSheet({
   return (
     <View style={styles.content}>
       <Text style={[styles.title, { color: colors.black }]}>설정</Text>
+
+      {showSubjects ? (
+        <View style={styles.subjectsBlock}>
+          <AddStudyForm
+            subjectsOnly
+            subjects={subjects}
+            onSave={() => {}}
+            onAddSubject={onAddSubject}
+            onRemoveSubject={onRemoveSubject}
+            onReorderSubjects={onReorderSubjects}
+            maxSubjects={MAX_SUBJECTS}
+          />
+        </View>
+      ) : null}
 
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>
@@ -334,6 +368,9 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.nexonMedium,
     fontSize: 18,
+  },
+  subjectsBlock: {
+    marginHorizontal: -24,
   },
   field: {
     gap: 10,

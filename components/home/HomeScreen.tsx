@@ -37,7 +37,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { SubjectOption } from '@/components/home/AddStudyForm';
+import type {
+  SubjectAddResult,
+  SubjectOption,
+} from '@/components/home/AddStudyForm';
 import { ReviewDetailContent } from '@/components/home/ReviewDetailContent';
 import {
   REVIEW_COMPLETE_TOASTS,
@@ -81,8 +84,11 @@ import {
   subjectColor,
 } from '@/constants/tokens';
 import {
+  addSubject,
   EMPTY_APP_DATA,
   loadAppData,
+  removeSubject,
+  reorderSubjects,
   saveAppData,
   subjectColorMap,
   toggleReviewCheck,
@@ -685,6 +691,42 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     setSettingsOpen(false);
   }, []);
 
+  const onAddSubject = useCallback(
+    (rawName: string, color: string): SubjectAddResult => {
+      if (dataProp || !appData) return { ok: false, reason: 'empty' };
+      const result = addSubject(appData, rawName, color);
+      if (!result.ok) {
+        return {
+          ok: false,
+          reason: result.reason === 'missing' ? 'empty' : result.reason,
+        };
+      }
+      void persistApp(result.data);
+      return { ok: true };
+    },
+    [dataProp, appData, persistApp],
+  );
+
+  const onRemoveSubject = useCallback(
+    (name: string) => {
+      if (dataProp || !appData) return;
+      const result = removeSubject(appData, name);
+      if (!result.ok) return;
+      void persistApp(result.data);
+    },
+    [dataProp, appData, persistApp],
+  );
+
+  const onReorderSubjects = useCallback(
+    (orderedNames: string[]) => {
+      if (dataProp || !appData) return;
+      const result = reorderSubjects(appData, orderedNames);
+      if (!result.ok) return;
+      void persistApp(result.data);
+    },
+    [dataProp, appData, persistApp],
+  );
+
   const applySeededAppData = useCallback(
     async (next: AppData) => {
       await persistApp(next);
@@ -929,6 +971,10 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
       <BottomSheetModal visible={settingsOpen} onClose={closeSettings}>
         <SettingsSheet
+          subjects={dataProp ? undefined : subjectOptions}
+          onAddSubject={dataProp ? undefined : onAddSubject}
+          onRemoveSubject={dataProp ? undefined : onRemoveSubject}
+          onReorderSubjects={dataProp ? undefined : onReorderSubjects}
           onScreenshotSeed={
             __DEV__ && !dataProp ? handleScreenshotSeed : undefined
           }

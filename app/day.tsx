@@ -21,7 +21,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AddStudyForm,
   type AddStudyPayload,
-  type SubjectAddResult,
   type SubjectOption,
 } from '@/components/home/AddStudyForm';
 import { StudyDayTimeline } from '@/components/home/StudyDayTimeline';
@@ -35,13 +34,9 @@ import {
   type TimelineBandId,
 } from '@/constants/study-timeline';
 import {
-  addSubject,
   appendStudyWithReviews,
   deleteStudyWithReviews,
   loadAppData,
-  MAX_SUBJECTS,
-  removeSubject,
-  reorderSubjects,
   saveAppData,
   subjectColorMap,
   updateStudyWithReviews,
@@ -200,42 +195,6 @@ export default function DayTimelineScreen() {
     setEditOpen(false);
   }, [editingStudy, appData, persist]);
 
-  const onAddSubject = useCallback(
-    (rawName: string, color: string): SubjectAddResult => {
-      if (!appData) return { ok: false, reason: 'empty' };
-      const result = addSubject(appData, rawName, color);
-      if (!result.ok) {
-        return {
-          ok: false,
-          reason: result.reason === 'missing' ? 'empty' : result.reason,
-        };
-      }
-      void persist(result.data);
-      return { ok: true };
-    },
-    [appData, persist],
-  );
-
-  const onRemoveSubject = useCallback(
-    (name: string) => {
-      if (!appData) return;
-      const result = removeSubject(appData, name);
-      if (!result.ok) return;
-      void persist(result.data);
-    },
-    [appData, persist],
-  );
-
-  const onReorderSubjects = useCallback(
-    (orderedNames: string[]) => {
-      if (!appData) return;
-      const result = reorderSubjects(appData, orderedNames);
-      if (!result.ok) return;
-      void persist(result.data);
-    },
-    [appData, persist],
-  );
-
   if (!hydrated) {
     return (
       <View style={[styles.root, styles.center, { backgroundColor: colors.mainWhite }]}>
@@ -319,10 +278,6 @@ export default function DayTimelineScreen() {
             }}
             onSave={onSaveEdit}
             onDelete={onDelete}
-            onAddSubject={onAddSubject}
-            onRemoveSubject={onRemoveSubject}
-            onReorderSubjects={onReorderSubjects}
-            maxSubjects={MAX_SUBJECTS}
           />
         ) : null}
       </BottomSheetModal>

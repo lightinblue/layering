@@ -110,6 +110,11 @@ type AddStudyFormProps = {
   initial?: AddStudyFormInitial;
   /** Shown in edit mode; caller confirms before calling. */
   onDelete?: () => void;
+  /**
+   * Settings-only: subject add/delete/reorder UI without study title/save.
+   * Study add/edit flows should omit manage callbacks (select-only chips).
+   */
+  subjectsOnly?: boolean;
 };
 
 type ChipLayout = { x: number; y: number; width: number; height: number };
@@ -357,7 +362,8 @@ function namesSignature(names: readonly string[]): string {
 
 /**
  * 「공부 기록 추가 / 수정」 form body (subject · title). Memo UX removed.
- * Subject chips: tap select · re-tap for delete X · long-press drag reorder · soft + add.
+ * Subject chips: tap select. Add/delete/reorder only when manage callbacks
+ * are passed (Settings `subjectsOnly`). Study flows stay select-only.
  * Mounted inside BottomSheetModal so Expo Go always lays out content.
  */
 export function AddStudyForm({
@@ -370,6 +376,7 @@ export function AddStudyForm({
   mode = 'create',
   initial,
   onDelete,
+  subjectsOnly = false,
 }: AddStudyFormProps) {
   const colors = useThemeColors();
   const isEdit = mode === 'edit';
@@ -485,8 +492,13 @@ export function AddStudyForm({
     return true;
   }, [isEdit, noSubjects, subject, title]);
 
-  const emptySubjectHint = '과목을 먼저 추가해 주세요';
+  const emptySubjectHint = subjectsOnly
+    ? '과목을 추가해 주세요'
+    : '설정에서 과목을 추가해 주세요';
   const titleMaxLength = Math.max(MAX_STUDY_TITLE_LENGTH, title.length);
+  const canManageSubjects = Boolean(
+    onAddSubject || onRemoveSubject || onReorderSubjects,
+  );
 
   const rowRef = useRef<ComponentRef<typeof View>>(null);
 
@@ -826,12 +838,16 @@ export function AddStudyForm({
       scrollEnabled={draggingName == null}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { backgroundColor: colors.white }]}>
-      <Text style={[styles.title, { color: colors.black }]}>
-        {isEdit ? '공부 기록 수정' : '공부 기록 추가'}
-      </Text>
+      {subjectsOnly ? null : (
+        <Text style={[styles.title, { color: colors.black }]}>
+          {isEdit ? '공부 기록 수정' : '공부 기록 추가'}
+        </Text>
+      )}
 
       <View style={styles.field}>
-        <Text style={[styles.label, { color: colors.sectionLabel }]}>과목</Text>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>
+          {subjectsOnly ? '과목' : '과목'}
+        </Text>
         <View
           ref={rowRef}
           style={styles.chipRow}
@@ -856,7 +872,9 @@ export function AddStudyForm({
                   accessibilityHint={
                     onRemoveSubject
                       ? '선택한 뒤 다시 누르면 삭제 버튼이 나타나요.'
-                      : undefined
+                      : canManageSubjects
+                        ? undefined
+                        : '선택만 할 수 있어요. 과목 추가는 설정에서 해요.'
                   }
                   style={[
                     styles.subjectChip,
@@ -1024,17 +1042,18 @@ export function AddStudyForm({
           <Text style={[styles.chipHint, { color: colors.muted }]}>
             {chipHint}
           </Text>
-        ) : !isEdit && noSubjects ? (
+        ) : noSubjects ? (
           <Text style={[styles.chipHint, { color: colors.muted }]}>
             {emptySubjectHint}
           </Text>
-        ) : atLimit ? (
+        ) : canManageSubjects && atLimit ? (
           <Text style={[styles.chipHint, { color: colors.mutedLight }]}>
             {LIMIT_HINT}
           </Text>
         ) : null}
       </View>
 
+      {subjectsOnly ? null : (
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>
           학습 내용
@@ -1054,8 +1073,9 @@ export function AddStudyForm({
           accessibilityLabel="학습 내용"
         />
       </View>
+      )}
 
-      {isEdit && onDelete ? (
+      {subjectsOnly ? null : isEdit && onDelete ? (
         <View style={styles.actionRow}>
           <Pressable
             accessibilityRole="button"

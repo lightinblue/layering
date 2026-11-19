@@ -32,6 +32,10 @@ import {
   type TimelineSlot,
 } from '@/utils/study-timeline';
 import { haptics } from '@/utils/haptics';
+import {
+  matchSubjectPrefix,
+  resolveSubjectAndTitle,
+} from '@/utils/parse-subject-prefix';
 
 const SLOT_HEIGHT = 40;
 const ROW_LAYOUT = LinearTransition.duration(durations.listRow);
@@ -198,17 +202,19 @@ function InlineBandAddRow({
   onCommit: (subject: string, title: string) => void;
 }) {
   const colors = useThemeColors();
-  const [subject, setSubject] = useState(() => subjects[0]?.name ?? '');
-  const [title, setTitle] = useState('');
+  const [raw, setRaw] = useState('');
+  const names = subjects.map((s) => s.name);
+  const match = matchSubjectPrefix(raw, names);
+  const highlighted = match.subject ?? names[0] ?? null;
 
   const submit = () => {
-    const nextTitle = title.trim();
-    if (!subject || !nextTitle) {
+    const resolved = resolveSubjectAndTitle(raw, names);
+    if (!resolved) {
       haptics.reject();
       return;
     }
     haptics.save();
-    onCommit(subject, nextTitle);
+    onCommit(resolved.subject, resolved.title);
   };
 
   return (
@@ -223,18 +229,14 @@ function InlineBandAddRow({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.chipRow}>
         {subjects.map((s) => {
-          const selected = s.name === subject;
+          const selected = s.name === highlighted;
           const fill = s.color || subjectColor(s.name, colorByName);
           return (
-            <Pressable
+            <View
               key={s.name}
-              accessibilityRole="button"
+              accessibilityRole="text"
               accessibilityState={{ selected }}
-              accessibilityLabel={`${s.name} 과목`}
-              onPress={() => {
-                haptics.select();
-                setSubject(s.name);
-              }}
+              accessibilityLabel={`과목 ${s.name}${selected ? ', 선택됨' : ''}`}
               style={[
                 styles.subjectChip,
                 {
@@ -248,15 +250,15 @@ function InlineBandAddRow({
                 numberOfLines={1}>
                 {s.name}
               </Text>
-            </Pressable>
+            </View>
           );
         })}
       </ScrollView>
 
       <View style={styles.inlineInputRow}>
         <TextInput
-          value={title}
-          onChangeText={setTitle}
+          value={raw}
+          onChangeText={setRaw}
           placeholder={placeholder}
           placeholderTextColor={colors.mutedLight}
           maxLength={MAX_STUDY_TITLE_LENGTH}
