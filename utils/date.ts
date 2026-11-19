@@ -12,6 +12,9 @@ const WEEKDAY_LABELS = [
   '토요일',
 ] as const;
 
+/** 0 = Sunday, 1 = Monday (matches `Date#getDay`). */
+export type WeekStartsOn = 0 | 1;
+
 export function todayKey(now = new Date()): string {
   return toKey(now);
 }
@@ -34,9 +37,20 @@ export function addDaysToDate(date: Date, days: number): Date {
   return next;
 }
 
-/** Sunday of the week that contains `date`. */
-export function startOfWeek(date: Date): Date {
-  return addDaysToDate(date, -date.getDay());
+/**
+ * Start of the week containing `date`.
+ * @param weekStartsOn 0 = Sunday (default), 1 = Monday
+ */
+export function startOfWeek(date: Date, weekStartsOn: WeekStartsOn = 0): Date {
+  const day = date.getDay();
+  const offset = (day - weekStartsOn + 7) % 7;
+  return addDaysToDate(date, -offset);
+}
+
+/** Rotate Sun→Sat labels so index 0 is `weekStartsOn`. */
+export function dowLabels(weekStartsOn: WeekStartsOn = 0): readonly string[] {
+  if (weekStartsOn === 0) return DOW;
+  return [...DOW.slice(weekStartsOn), ...DOW.slice(0, weekStartsOn)];
 }
 
 export function dayMeta(date: Date): {

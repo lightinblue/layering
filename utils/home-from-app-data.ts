@@ -16,6 +16,7 @@ import {
   startOfWeek,
   todayKey,
   toKey,
+  type WeekStartsOn,
 } from '@/utils/date';
 import { addDays } from '@/utils/review-schedule';
 
@@ -133,6 +134,8 @@ export type HomeScreenDataOptions = {
    * Defaults to `now` (device / dummy “today”).
    */
   weekAnchor?: Date;
+  /** First column weekday for the week strip (0 = Sun, 1 = Mon). */
+  weekStartsOn?: WeekStartsOn;
 };
 
 /** Build Home weeks around real (or provided) today from persisted AppData. */
@@ -142,7 +145,11 @@ export function homeScreenDataFromAppData(
   options?: HomeScreenDataOptions,
 ): HomeScreenData {
   const today = todayKey(now);
-  const currentStart = startOfWeek(options?.weekAnchor ?? now);
+  const weekStartsOn = options?.weekStartsOn ?? 0;
+  const currentStart = startOfWeek(
+    options?.weekAnchor ?? now,
+    weekStartsOn,
+  );
   const weeks: HomeWeekDay[][] = [];
   for (let offset = -WEEKS_BEFORE; offset <= WEEKS_AFTER; offset += 1) {
     weeks.push(buildWeek(addDaysToDate(currentStart, offset * 7), data));

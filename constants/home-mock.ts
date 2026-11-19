@@ -541,6 +541,7 @@ export function weekIndexForDate(
   return idx >= 0 ? idx : data.currentWeekIndex;
 }
 
-export function sundayOf(dateKey: string): string {
-  return toKey(startOfWeek(parseKey(dateKey)));
+/** Start-of-week key (defaults to Sunday-first for dummy helpers). */
+export function sundayOf(dateKey: string, weekStartsOn: 0 | 1 = 0): string {
+  return toKey(startOfWeek(parseKey(dateKey), weekStartsOn));
 }

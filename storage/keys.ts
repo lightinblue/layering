@@ -12,6 +12,11 @@ export const STORAGE_KEYS = {
   dataMode: '@bokbok/data-mode/v1',
   /** Accent primary hex (`#RRGGBB`). */
   themePrimary: '@bokbok/theme-primary/v1',
+  /**
+   * Calendar week/month column start (`{ weekStartsOn, monthStartsOn }`).
+   * Device-local — not iCloud-synced.
+   */
+  calendarPrefs: '@bokbok/calendar-prefs/v1',
   /** First-launch tutorial / forgetting-curve intro seen (`'1'`). */
   tutorialSeen: '@bokbok/tutorial-seen/v1',
   /**

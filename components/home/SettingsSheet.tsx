@@ -9,6 +9,11 @@ import Animated, {
 import { fonts } from '@/constants/fonts';
 import { springs } from '@/constants/motion';
 import { PRIMARY_OPTIONS, radii, type PrimaryOption } from '@/constants/tokens';
+import {
+  WEEKDAY_START_OPTIONS,
+  type WeekdayStart,
+} from '@/storage/calendar-prefs';
+import { useCalendarPrefs } from '@/theme/CalendarPrefsProvider';
 import { useTheme } from '@/theme/ThemeProvider';
 import { haptics } from '@/utils/haptics';
 
@@ -20,7 +25,7 @@ export type SettingsSheetProps = {
 };
 
 /**
- * Minimal settings body: review-interval stub + accent color picker.
+ * Minimal settings body: calendar start days + accent color picker.
  * Screenshot helpers render only when `__DEV__` and handlers are passed.
  */
 export function SettingsSheet({
@@ -28,6 +33,12 @@ export function SettingsSheet({
   onScreenshotReset,
 }: SettingsSheetProps) {
   const { colors, primary, setPrimary } = useTheme();
+  const {
+    weekStartsOn,
+    monthStartsOn,
+    setWeekStartsOn,
+    setMonthStartsOn,
+  } = useCalendarPrefs();
   const [busy, setBusy] = useState<'seed' | 'reset' | null>(null);
   const showScreenshotTools =
     __DEV__ && onScreenshotSeed != null && onScreenshotReset != null;
@@ -65,6 +76,40 @@ export function SettingsSheet({
             업데이트 예정이에요
           </Text>
         </Pressable>
+      </View>
+
+      <View style={styles.field}>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>
+          주 시작
+        </Text>
+        <SegmentedStartPicker
+          value={weekStartsOn}
+          onChange={setWeekStartsOn}
+          accessibilityGroupLabel="주 시작"
+          surface={colors.surface}
+          primary={colors.primary}
+          ink={colors.black}
+        />
+        <Text style={[styles.hint, { color: colors.muted }]}>
+          홈 주간 스트립의 첫 열이에요.
+        </Text>
+      </View>
+
+      <View style={styles.field}>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>
+          월 시작
+        </Text>
+        <SegmentedStartPicker
+          value={monthStartsOn}
+          onChange={setMonthStartsOn}
+          accessibilityGroupLabel="월 시작"
+          surface={colors.surface}
+          primary={colors.primary}
+          ink={colors.black}
+        />
+        <Text style={[styles.hint, { color: colors.muted }]}>
+          월간 캘린더 격자의 첫 열이에요.
+        </Text>
       </View>
 
       <View style={styles.field}>
@@ -129,6 +174,57 @@ export function SettingsSheet({
           </Text>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function SegmentedStartPicker({
+  value,
+  onChange,
+  accessibilityGroupLabel,
+  surface,
+  primary,
+  ink,
+}: {
+  value: WeekdayStart;
+  onChange: (next: WeekdayStart) => void;
+  accessibilityGroupLabel: string;
+  surface: string;
+  primary: string;
+  ink: string;
+}) {
+  return (
+    <View
+      accessibilityRole="radiogroup"
+      accessibilityLabel={accessibilityGroupLabel}
+      style={[styles.segmentRow, { backgroundColor: surface }]}>
+      {WEEKDAY_START_OPTIONS.map((option) => {
+        const selected = option.value === value;
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            accessibilityLabel={`${accessibilityGroupLabel}, ${option.accessibilityLabel}`}
+            onPress={() => {
+              if (selected) return;
+              haptics.themePick();
+              onChange(option.value);
+            }}
+            style={[
+              styles.segmentBtn,
+              selected && { backgroundColor: primary },
+            ]}>
+            <Text
+              style={[
+                styles.segmentText,
+                { color: selected ? '#FFFFFF' : ink },
+              ]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -208,6 +304,23 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   stubText: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 14,
+  },
+  segmentRow: {
+    flexDirection: 'row',
+    borderRadius: radii.chip,
+    padding: 4,
+    gap: 4,
+  },
+  segmentBtn: {
+    flex: 1,
+    height: 40,
+    borderRadius: radii.chip - 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
   },
