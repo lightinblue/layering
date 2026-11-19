@@ -4,22 +4,25 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
-import { useColorScheme as useSystemColorScheme } from 'react-native';
+import { Animated, Easing, useColorScheme as useSystemColorScheme } from 'react-native';
 
 import {
   type ColorSchemeName,
   paletteFor,
   type ChromePalette,
 } from '@/constants/palette';
+import { durations } from '@/constants/motion';
 import {
   DEFAULT_PRIMARY,
   softFromPrimary,
   type PrimaryOption,
 } from '@/constants/tokens';
 import { loadThemePrimary, saveThemePrimary } from '@/storage/theme';
+import { mixThemeColors } from '@/theme/mix-theme-colors';
 
 export type ThemeColors = ChromePalette;
 
@@ -33,6 +36,8 @@ type ThemeContextValue = {
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
+
+const THEME_EASE = Easing.out(Easing.cubic);
 
 function buildColors(
   scheme: ColorSchemeName,
@@ -55,8 +60,18 @@ function resolveSystemScheme(
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme = useSystemColorScheme();
+  const colorScheme = resolveSystemScheme(systemScheme);
   const [primary, setPrimaryState] = useState<PrimaryOption>(DEFAULT_PRIMARY);
   const [hydrated, setHydrated] = useState(false);
+  const [colors, setColors] = useState<ThemeColors>(() =>
+    buildColors(colorScheme, DEFAULT_PRIMARY),
+  );
+
+  const colorsRef = useRef(colors);
+  colorsRef.current = colors;
+  const progress = useRef(new Animated.Value(0)).current;
+  const primedRef = useRef(false);
+  const listenerIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,17 +91,71 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     void saveThemePrimary(next);
   }, []);
 
-  const colorScheme = resolveSystemScheme(systemScheme);
+  useEffect(() => {
+    if (!hydrated) return;
+
+    const target = buildColors(colorScheme, primary);
+
+    if (!primedRef.current) {
+      primedRef.current = true;
+      setColors(target);
+      return;
+    }
+
+    const from = colorsRef.current;
+    if (
+      from.mainWhite === target.mainWhite &&
+      from.primary === target.primary &&
+      from.primarySoft === target.primarySoft &&
+      from.surface === target.surface &&
+      from.black === target.black
+    ) {
+      setColors(target);
+      return;
+    }
+
+    if (listenerIdRef.current != null) {
+      progress.removeListener(listenerIdRef.current);
+      listenerIdRef.current = null;
+    }
+    progress.stopAnimation();
+    progress.setValue(0);
+
+    listenerIdRef.current = progress.addListener(({ value }) => {
+      setColors(mixThemeColors(from, target, value));
+    });
+
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: durations.themeShift,
+      easing: THEME_EASE,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (listenerIdRef.current != null) {
+        progress.removeListener(listenerIdRef.current);
+        listenerIdRef.current = null;
+      }
+      if (finished) setColors(target);
+    });
+
+    return () => {
+      if (listenerIdRef.current != null) {
+        progress.removeListener(listenerIdRef.current);
+        listenerIdRef.current = null;
+      }
+      progress.stopAnimation();
+    };
+  }, [colorScheme, hydrated, primary, progress]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({
-      colors: buildColors(colorScheme, primary),
+      colors,
       primary,
       setPrimary,
       colorScheme,
       hydrated,
     }),
-    [colorScheme, hydrated, primary, setPrimary],
+    [colors, colorScheme, hydrated, primary, setPrimary],
   );
 
   return (

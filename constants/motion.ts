@@ -71,6 +71,8 @@ export const durations = {
   chipShift: EASE_OUT_MS,
   /** Study row appear / remove height. */
   listRow: 340,
+  /** System light↔dark chrome color crossfade. */
+  themeShift: EASE_OUT_MS,
 } as const;
 
 /** Max day-pager index delta that still scrolls animated (슈루룩). */
