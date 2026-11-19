@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -202,17 +202,27 @@ function InlineBandAddRow({
   const colors = useThemeColors();
   const [raw, setRaw] = useState('');
   const [picked, setPicked] = useState<string | null>(null);
-  const [promptPulse, setPromptPulse] = useState(0);
+  /** Shown only after save without a subject (match or pick). */
+  const [showSubjectPrompt, setShowSubjectPrompt] = useState(false);
   const names = subjects.map((s) => s.name);
   const match = matchSubjectPrefix(raw, names);
   const highlighted = match.subject ?? picked;
-  const needsSubjectPick = highlighted == null;
+
+  useEffect(() => {
+    if (highlighted != null) setShowSubjectPrompt(false);
+  }, [highlighted]);
+
+  const pickSubject = (name: string) => {
+    haptics.select();
+    setPicked(name);
+    setShowSubjectPrompt(false);
+  };
 
   const submit = () => {
     const resolved = resolveSubjectAndTitle(raw, names, picked);
     if (!resolved) {
       haptics.reject();
-      if (needsSubjectPick) setPromptPulse((n) => n + 1);
+      if (highlighted == null) setShowSubjectPrompt(true);
       return;
     }
     haptics.save();
@@ -225,14 +235,14 @@ function InlineBandAddRow({
       exiting={EXIT}
       layout={ROW_LAYOUT}
       style={styles.inlineWrap}>
-      {needsSubjectPick ? (
+      {showSubjectPrompt && highlighted == null ? (
         <Pressable
-          key={`prompt-${promptPulse}`}
           accessibilityRole="button"
           accessibilityLabel="과목을 선택해 주세요"
+          accessibilityHint="아래 과목 칩을 눌러 선택해요"
           onPress={() => {
             haptics.select();
-            setPromptPulse((n) => n + 1);
+            // Keep prompt; tapping a chip completes the pick.
           }}
           style={[
             styles.subjectPrompt,
@@ -262,15 +272,12 @@ function InlineBandAddRow({
               accessibilityRole="button"
               accessibilityState={{ selected }}
               accessibilityLabel={`과목 ${s.name}`}
-              onPress={() => {
-                haptics.select();
-                setPicked(s.name);
-              }}
+              onPress={() => pickSubject(s.name)}
               style={[
                 styles.subjectChip,
                 {
                   backgroundColor: fill,
-                  opacity: selected || needsSubjectPick ? 1 : 0.45,
+                  opacity: selected || highlighted == null ? 1 : 0.45,
                   borderColor: border,
                 },
               ]}>

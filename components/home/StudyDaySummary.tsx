@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
@@ -17,6 +18,50 @@ const ENTER = FadeIn.duration(durations.fadeIn).easing(
   Easing.out(Easing.cubic),
 );
 
+/** Max subject groups shown on the home summary. */
+const SUMMARY_MAX_SUBJECTS = 3;
+
+type SubjectGroup = {
+  subjectName: string;
+  subjectColor?: string;
+  firstTitle: string;
+  extraCount: number;
+};
+
+function groupStudiesBySubject(
+  studies: readonly HomeStudyRow[],
+): SubjectGroup[] {
+  const order: string[] = [];
+  const map = new Map<
+    string,
+    { subjectColor?: string; titles: string[] }
+  >();
+
+  for (const row of studies) {
+    const key = row.subjectName;
+    const existing = map.get(key);
+    if (!existing) {
+      order.push(key);
+      map.set(key, {
+        ...(row.subjectColor ? { subjectColor: row.subjectColor } : {}),
+        titles: [row.content],
+      });
+      continue;
+    }
+    existing.titles.push(row.content);
+  }
+
+  return order.slice(0, SUMMARY_MAX_SUBJECTS).map((name) => {
+    const g = map.get(name)!;
+    return {
+      subjectName: name,
+      ...(g.subjectColor ? { subjectColor: g.subjectColor } : {}),
+      firstTitle: g.titles[0] ?? '',
+      extraCount: Math.max(0, g.titles.length - 1),
+    };
+  });
+}
+
 type StudyDaySummaryProps = {
   studies: HomeStudyRow[];
   isToday: boolean;
@@ -26,6 +71,7 @@ type StudyDaySummaryProps = {
 
 /**
  * Home compact study strip — title + summary both open the day detail.
+ * Groups by subject (max 3): `과목 - 첫 투두` (+ `외 n개`).
  */
 export function StudyDaySummary({
   studies,
@@ -34,8 +80,7 @@ export function StudyDaySummary({
   onOpenDay,
 }: StudyDaySummaryProps) {
   const colors = useThemeColors();
-  const preview = studies.slice(0, 2);
-  const extra = Math.max(0, studies.length - preview.length);
+  const groups = useMemo(() => groupStudiesBySubject(studies), [studies]);
   const title = isToday ? '오늘 한 공부' : '이 날 한 공부';
 
   return (
@@ -59,31 +104,24 @@ export function StudyDaySummary({
             </Text>
           ) : (
             <Animated.View entering={ENTER} style={styles.previewCol}>
-              {preview.map((row) => (
-                <View key={row.id} style={styles.previewRow}>
-                  <View
-                    style={[
-                      styles.dot,
-                      {
-                        backgroundColor: subjectColor(
-                          row.subjectName,
-                          row.subjectColor ?? colorByName,
-                        ),
-                      },
-                    ]}
-                  />
+              {groups.map((group) => {
+                const tint = subjectColor(
+                  group.subjectName,
+                  group.subjectColor ?? colorByName,
+                );
+                const line =
+                  group.extraCount > 0
+                    ? `${group.subjectName} - ${group.firstTitle} 외 ${group.extraCount}개`
+                    : `${group.subjectName} - ${group.firstTitle}`;
+                return (
                   <Text
-                    style={[styles.previewText, { color: colors.body }]}
+                    key={group.subjectName}
+                    style={[styles.previewText, { color: tint }]}
                     numberOfLines={1}>
-                    {row.subjectName} · {row.content}
+                    {line}
                   </Text>
-                </View>
-              ))}
-              {extra > 0 ? (
-                <Text style={[styles.more, { color: colors.muted }]}>
-                  +{extra}개 더
-                </Text>
-              ) : null}
+                );
+              })}
             </Animated.View>
           )}
         </View>
@@ -127,24 +165,8 @@ const styles = StyleSheet.create({
   previewCol: {
     gap: 8,
   },
-  previewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
   previewText: {
-    flex: 1,
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
-  },
-  more: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 12,
-    paddingLeft: 16,
   },
 });

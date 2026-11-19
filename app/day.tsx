@@ -24,7 +24,10 @@ import {
   type SubjectOption,
 } from '@/components/home/AddStudyForm';
 import { StudyDayTimeline } from '@/components/home/StudyDayTimeline';
-import { ArrowRightIcon } from '@/components/icons/HomeIcons';
+import {
+  ArrowRightIcon,
+  EllipseIcon,
+} from '@/components/icons/HomeIcons';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import type { HomeStudyRow } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
@@ -232,14 +235,7 @@ export default function DayTimelineScreen() {
           </View>
           <Text style={[styles.backText, { color: colors.muted }]}>홈</Text>
         </Pressable>
-        <View style={styles.titleBlock}>
-          <Text style={[styles.eyebrow, { color: colors.primary }]}>
-            {isToday ? '오늘' : '이 날'}
-          </Text>
-          <Text style={[styles.title, { color: colors.black }]}>
-            {meta.dateLabel} {meta.weekdayLabel}
-          </Text>
-        </View>
+        <DayTitleDate meta={meta} isToday={isToday} />
       </Animated.View>
 
       <ScrollView
@@ -290,6 +286,38 @@ function parseLoose(dateKey: string): Date {
   return new Date(y, (m || 1) - 1, d || 1);
 }
 
+/** `11/19 (목)` — Gotham digits (home date face) + Nexon weekday; today → small ellipse. */
+function DayTitleDate({
+  meta,
+  isToday,
+}: {
+  meta: ReturnType<typeof dayMeta>;
+  isToday: boolean;
+}) {
+  const colors = useThemeColors();
+  const month = meta.dateKey.slice(5, 7).replace(/^0/, '');
+  const day = String(meta.day);
+  return (
+    <View
+      style={styles.titleRow}
+      accessibilityRole="header"
+      accessibilityLabel={`${month}월 ${day}일 ${meta.weekdayLabel}${isToday ? ', 오늘' : ''}`}>
+      <Text style={[styles.titleNums, { color: colors.black }]}>
+        {month}/{day}
+      </Text>
+      <Text style={[styles.titleDow, { color: colors.black }]}>
+        {' '}
+        ({meta.dow})
+      </Text>
+      {isToday ? (
+        <View style={styles.todayDot}>
+          <EllipseIcon size={10} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -317,16 +345,23 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
   },
-  titleBlock: {
-    gap: 4,
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  eyebrow: {
-    fontFamily: fonts.nexonBold,
-    fontSize: 12,
+  titleNums: {
+    fontFamily: fonts.gothamBold,
+    fontSize: 28,
+    letterSpacing: -0.5,
+    includeFontPadding: false,
   },
-  title: {
-    fontFamily: fonts.nexonBold,
-    fontSize: 22,
+  titleDow: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 20,
+  },
+  todayDot: {
+    marginLeft: 8,
+    justifyContent: 'center',
   },
   scroll: {
     paddingHorizontal: 20,
