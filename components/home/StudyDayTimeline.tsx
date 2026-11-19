@@ -33,8 +33,8 @@ type StudyDayTimelineProps = {
 };
 
 /**
- * Full-day study timeline: faint 8/12/18/24 marks + light dividers,
- * one add control per band (fits remaining capacity). No 오전/오후/저녁 headers.
+ * Day study bands: faint 8/12/18/24 marks + one add control per band
+ * (오전/오후/밤 투두). No section headers.
  */
 export function StudyDayTimeline({
   studies,
@@ -72,7 +72,11 @@ export function StudyDayTimeline({
               />
             ))}
             {canAdd && band.showAdd ? (
-              <BandAddControl span={band.addSpan} onPress={handleAdd} />
+              <BandAddControl
+                label={band.addLabel}
+                span={band.addSpan}
+                onPress={handleAdd}
+              />
             ) : null}
           </Animated.View>
           {bandIndex === bands.length - 1 ? (
@@ -103,9 +107,11 @@ function TimelineMark({ label }: { label: string }) {
 
 /** Single add control for a band — height spans remaining empty capacity. */
 function BandAddControl({
+  label,
   span,
   onPress,
 }: {
+  label: string;
   span: number;
   onPress: () => void;
 }) {
@@ -115,7 +121,7 @@ function BandAddControl({
     <Animated.View entering={ENTER} layout={ROW_LAYOUT}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="공부 기록 추가"
+        accessibilityLabel={label}
         onPress={onPress}
         style={[
           styles.bandAdd,
@@ -126,7 +132,7 @@ function BandAddControl({
         ]}>
         <PlusIcon size={14} />
         <Text style={[styles.emptyText, { color: colors.accentText }]}>
-          추가
+          {label}
         </Text>
       </Pressable>
     </Animated.View>

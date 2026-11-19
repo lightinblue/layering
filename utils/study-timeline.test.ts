@@ -16,13 +16,18 @@ describe('buildTimelineBands', () => {
     expect(bands[2].labelEnd).toBe('24');
   });
 
-  it('exposes one add span per band instead of per-slot adds', () => {
+  it('exposes one add span + 투두 label per band', () => {
     const bands = buildTimelineBands([row('a')]);
     // morning: 1 study → add spans remaining 2
     expect(bands[0].slots.filter((s) => s.kind === 'study')).toHaveLength(1);
     expect(bands[0].slots.some((s) => s.kind === 'empty')).toBe(false);
     expect(bands[0].showAdd).toBe(true);
     expect(bands[0].addSpan).toBe(2);
+    expect(bands.map((b) => b.addLabel)).toEqual([
+      '오전 투두',
+      '오후 투두',
+      '밤 투두',
+    ]);
     // afternoon / evening empty → full-capacity add
     expect(bands[1].slots).toHaveLength(0);
     expect(bands[1].addSpan).toBe(4);

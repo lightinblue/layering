@@ -76,7 +76,7 @@ function studiesForDay(data: AppData, dateKey: string): HomeStudyRow[] {
 }
 
 /**
- * Day timeline depth — opened from home summary or calendar day tap.
+ * Day study detail — opened from home summary or calendar day tap.
  * Isolated route so the trial UI is easy to revert.
  */
 export default function DayTimelineScreen() {
@@ -271,7 +271,7 @@ export default function DayTimelineScreen() {
         </Pressable>
         <View style={styles.titleBlock}>
           <Text style={[styles.eyebrow, { color: colors.primary }]}>
-            {isToday ? '오늘' : '타임라인'}
+            {isToday ? '오늘' : '이 날'}
           </Text>
           <Text style={[styles.title, { color: colors.black }]}>
             {meta.dateLabel} {meta.weekdayLabel}

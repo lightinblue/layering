@@ -17,6 +17,7 @@ export type TimelineBandView = {
   showAdd: boolean;
   /** Visual slot-heights the single add control should span. */
   addSpan: number;
+  addLabel: string;
 };
 
 /**
@@ -60,6 +61,7 @@ export function buildTimelineBands(
       slots,
       showAdd: spare > 0 || band.id === 'evening',
       addSpan: Math.max(1, spare),
+      addLabel: band.addLabel,
     };
   });
 }

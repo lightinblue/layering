@@ -5,13 +5,12 @@ import Animated, {
   LinearTransition,
 } from 'react-native-reanimated';
 
+import { ArrowRightIcon } from '@/components/icons/HomeIcons';
 import type { HomeStudyRow } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
 import { durations } from '@/constants/motion';
-import { TIMELINE_MAX_STUDIES_PER_DAY } from '@/constants/study-timeline';
 import { radii, subjectColor } from '@/constants/tokens';
 import { useThemeColors } from '@/theme/ThemeProvider';
-import { ArrowRightIcon } from '@/components/icons/HomeIcons';
 
 const LAYOUT = LinearTransition.duration(durations.listRow);
 const ENTER = FadeIn.duration(durations.fadeIn).easing(
@@ -22,17 +21,17 @@ type StudyDaySummaryProps = {
   studies: HomeStudyRow[];
   isToday: boolean;
   colorByName?: Record<string, string>;
-  onOpenTimeline: () => void;
+  onOpenDay: () => void;
 };
 
 /**
- * Home compact study strip — opens the day timeline depth.
+ * Home compact study strip — title + summary both open the day detail.
  */
 export function StudyDaySummary({
   studies,
   isToday,
   colorByName,
-  onOpenTimeline,
+  onOpenDay,
 }: StudyDaySummaryProps) {
   const colors = useThemeColors();
   const preview = studies.slice(0, 2);
@@ -40,23 +39,23 @@ export function StudyDaySummary({
   const title = isToday ? '오늘 한 공부' : '이 날 한 공부';
 
   return (
-    <View style={styles.root}>
-      <View style={styles.labelWrap}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title} 자세히 보기`}
+      onPress={onOpenDay}
+      style={styles.root}>
+      <View style={styles.titleRow}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>
           {title}
         </Text>
+        <ArrowRightIcon size={12} color={colors.muted} />
       </View>
 
       <Animated.View layout={LAYOUT} style={styles.card}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${title}, 타임라인 열기`}
-          accessibilityHint="하루 공부 타임라인을 열어요"
-          onPress={onOpenTimeline}
-          style={[styles.press, { backgroundColor: colors.surface }]}>
+        <View style={[styles.press, { backgroundColor: colors.surface }]}>
           {studies.length === 0 ? (
             <Text style={[styles.empty, { color: colors.muted }]}>
-              기록이 없어요 · 타임라인에서 추가
+              기록이 없어요
             </Text>
           ) : (
             <Animated.View entering={ENTER} style={styles.previewCol}>
@@ -87,19 +86,9 @@ export function StudyDaySummary({
               ) : null}
             </Animated.View>
           )}
-
-          <View style={styles.ctaRow}>
-            <Text style={[styles.cta, { color: colors.primary }]}>
-              타임라인
-              {studies.length > 0
-                ? ` · ${studies.length}/${TIMELINE_MAX_STUDIES_PER_DAY}`
-                : ''}
-            </Text>
-            <ArrowRightIcon color={colors.primary} />
-          </View>
-        </Pressable>
+        </View>
       </Animated.View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -108,9 +97,12 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 8,
   },
-  labelWrap: {
-    padding: 8,
-    alignSelf: 'flex-start',
+  titleRow: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   label: {
     fontFamily: fonts.nexonMedium,
@@ -123,11 +115,14 @@ const styles = StyleSheet.create({
     borderRadius: radii.chip,
     paddingHorizontal: 14,
     paddingVertical: 14,
-    gap: 12,
+    minHeight: 72,
+    justifyContent: 'center',
   },
   empty: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
+    textAlign: 'center',
+    width: '100%',
   },
   previewCol: {
     gap: 8,
@@ -151,15 +146,5 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 12,
     paddingLeft: 16,
-  },
-  ctaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 2,
-  },
-  cta: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 13,
   },
 });

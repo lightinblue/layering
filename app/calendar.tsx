@@ -80,7 +80,7 @@ export default function CalendarScreen() {
 
   const onSelectDay = useCallback(
     (dateKey: string) => {
-      // Open the day timeline depth (same surface as home summary).
+      // Open the day study detail (same surface as home summary).
       if (typeof router.dismissTo === 'function') {
         router.dismissTo({
           pathname: '/day',

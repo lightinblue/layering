@@ -661,7 +661,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     [dataProp, appData, persistApp, showCompleteToast],
   );
 
-  const goOpenTimeline = useCallback(
+  const goOpenDay = useCallback(
     (dateKey: string) => {
       haptics.select();
       router.push({ pathname: '/day', params: { date: dateKey } });
@@ -885,7 +885,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
             accentSoft={theme.primarySoft}
             colorByName={colorByName}
             onDayChange={onDayPagerChange}
-            onOpenTimeline={goOpenTimeline}
+            onOpenDay={goOpenDay}
             onToggle={toggleReview}
             onDetail={onDetail}
           />
@@ -1206,7 +1206,7 @@ function DayContentPager({
   accentSoft,
   colorByName,
   onDayChange,
-  onOpenTimeline,
+  onOpenDay,
   onToggle,
   onDetail,
 }: {
@@ -1220,7 +1220,7 @@ function DayContentPager({
   accentSoft: string;
   colorByName: Record<string, string>;
   onDayChange: (dayIndex: number) => void;
-  onOpenTimeline: (dateKey: string) => void;
+  onOpenDay: (dateKey: string) => void;
   onToggle: (dateKey: string, card: HomeReviewCard) => void;
   onDetail: (card: HomeReviewCard) => void;
 }) {
@@ -1280,7 +1280,7 @@ function DayContentPager({
               studies={day.studies}
               isToday={dayIsToday}
               colorByName={colorByName}
-              onOpenTimeline={() => onOpenTimeline(day.dateKey)}
+              onOpenDay={() => onOpenDay(day.dateKey)}
             />
             <ReviewSection
               reviews={day.reviews}
@@ -1301,7 +1301,7 @@ function DayContentPager({
       accentSoft,
       colorByName,
       contentWidth,
-      onOpenTimeline,
+      onOpenDay,
       onDetail,
       onToggle,
       pageHeight,

@@ -11,9 +11,27 @@ export const TIMELINE_MAX_STUDIES_PER_DAY = 15;
  * Filled items may exceed a band’s empty count; empties pad up to these.
  */
 export const TIMELINE_BANDS = [
-  { id: 'morning', labelStart: '8', labelEnd: '12', emptySlots: 3 },
-  { id: 'afternoon', labelStart: '12', labelEnd: '18', emptySlots: 4 },
-  { id: 'evening', labelStart: '18', labelEnd: '24', emptySlots: 3 },
+  {
+    id: 'morning',
+    labelStart: '8',
+    labelEnd: '12',
+    emptySlots: 3,
+    addLabel: '오전 투두',
+  },
+  {
+    id: 'afternoon',
+    labelStart: '12',
+    labelEnd: '18',
+    emptySlots: 4,
+    addLabel: '오후 투두',
+  },
+  {
+    id: 'evening',
+    labelStart: '18',
+    labelEnd: '24',
+    emptySlots: 3,
+    addLabel: '밤 투두',
+  },
 ] as const;
 
 export type TimelineBandId = (typeof TIMELINE_BANDS)[number]['id'];
