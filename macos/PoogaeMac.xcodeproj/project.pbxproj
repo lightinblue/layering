@@ -191,6 +191,13 @@
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					26DA4D8DE74C42A5BB53D20B = {
+						CreatedOnToolsVersion = 16.0;
+						DevelopmentTeam = R39JVZ3ZNL;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 5433500B68B6481CA6B7176A /* Build configuration list for PBXProject "PoogaeMac" */;
 			compatibilityVersion = "Xcode 14.0";

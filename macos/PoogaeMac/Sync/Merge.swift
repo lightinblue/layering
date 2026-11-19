@@ -30,8 +30,8 @@ enum ICloudMerge {
     _ local: [String: ReviewCheck]?,
     _ remote: [String: ReviewCheck]?
   ) -> [String: ReviewCheck] {
-    var keys = Set(local?.keys ?? [])
-    keys.formUnion(remote?.keys ?? [])
+    var keys = Set((local ?? [:]).keys)
+    keys.formUnion((remote ?? [:]).keys)
     var out: [String: ReviewCheck] = [:]
     for key in keys {
       let a = local?[key]

@@ -23,7 +23,13 @@ open macos/PoogaeMac.xcodeproj
 xcodebuild -project macos/PoogaeMac.xcodeproj -scheme PoogaeMac -configuration Debug build
 ```
 
-Sign with team `R39JVZ3ZNL` (same as iOS) and enable iCloud Key-Value Storage for the Mac target.
+**Signing (first run on a new Mac):** Xcode has no Apple ID until you add one — that is why Issue navigator shows “No Accounts” / missing Mac App Development profiles. App Sandbox + iCloud KVS entitlements **cannot** use “Sign to Run Locally”; a development certificate is required.
+
+1. **Xcode → Settings… → Accounts → + → Apple ID** → sign in with the Apple ID that owns team `R39JVZ3ZNL` (same as iOS).
+2. Select target **PoogaeMac** → **Signing & Capabilities** → check **Automatically manage signing** → **Team** = `R39JVZ3ZNL` (not empty).
+3. Press **Run** (My Mac). Xcode will create the Mac development cert/profile if needed.
+
+A free **Personal Team** can also clear the two signing errors for My Mac-only debug, but its Team ID ≠ `R39JVZ3ZNL`, so iCloud KVS will **not** share data with the iOS app. Prefer the paid team above for real sync testing.
 
 ## Milestone 1 contents
 
