@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -26,17 +25,14 @@ import {
   type TimelineBandId,
 } from '@/constants/study-timeline';
 import { MAX_STUDY_TITLE_LENGTH } from '@/storage/app-data';
-import { radii, subjectBorderColor, subjectColor } from '@/constants/tokens';
+import { radii, subjectColor } from '@/constants/tokens';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import {
   buildTimelineBands,
   type TimelineSlot,
 } from '@/utils/study-timeline';
 import { haptics } from '@/utils/haptics';
-import {
-  matchSubjectPrefix,
-  resolveSubjectAndTitle,
-} from '@/utils/parse-subject-prefix';
+import { resolveSubjectAndTitle } from '@/utils/parse-subject-prefix';
 
 /** Match home study chip/body height (not the cramped 36). */
 const SLOT_HEIGHT = 44;
@@ -191,7 +187,6 @@ function BandAddControl({
 
 function InlineBandAddRow({
   subjects,
-  colorByName,
   onCancel,
   onCommit,
 }: {
@@ -202,28 +197,15 @@ function InlineBandAddRow({
 }) {
   const colors = useThemeColors();
   const [raw, setRaw] = useState('');
-  const [picked, setPicked] = useState<string | null>(null);
-  /** Shown only after save without a subject (match or pick). */
+  /** Shown only after save without a live-matched subject prefix. */
   const [showSubjectPrompt, setShowSubjectPrompt] = useState(false);
   const names = subjects.map((s) => s.name);
-  const match = matchSubjectPrefix(raw, names);
-  const highlighted = match.subject ?? picked;
-
-  useEffect(() => {
-    if (highlighted != null) setShowSubjectPrompt(false);
-  }, [highlighted]);
-
-  const pickSubject = (name: string) => {
-    haptics.select();
-    setPicked(name);
-    setShowSubjectPrompt(false);
-  };
 
   const submit = () => {
-    const resolved = resolveSubjectAndTitle(raw, names, picked);
+    const resolved = resolveSubjectAndTitle(raw, names);
     if (!resolved) {
       haptics.reject();
-      if (highlighted == null) setShowSubjectPrompt(true);
+      setShowSubjectPrompt(true);
       return;
     }
     haptics.save();
@@ -236,15 +218,12 @@ function InlineBandAddRow({
       exiting={EXIT}
       layout={ROW_LAYOUT}
       style={styles.inlineWrap}>
-      {showSubjectPrompt && highlighted == null ? (
+      {showSubjectPrompt ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="과목을 선택해 주세요"
-          accessibilityHint="아래 과목 칩을 눌러 선택해요"
-          onPress={() => {
-            haptics.select();
-            // Keep prompt; tapping a chip completes the pick.
-          }}
+          accessibilityHint="과목 이름을 앞에 적으면 자동으로 배정돼요"
+          onPress={() => haptics.select()}
           style={[
             styles.subjectPrompt,
             {
@@ -258,44 +237,14 @@ function InlineBandAddRow({
         </Pressable>
       ) : null}
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.chipRow}>
-        {subjects.map((s) => {
-          const selected = s.name === highlighted;
-          const fill = s.color || subjectColor(s.name, colorByName);
-          const border = subjectBorderColor(s.name, fill);
-          return (
-            <Pressable
-              key={s.name}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              accessibilityLabel={`과목 ${s.name}`}
-              onPress={() => pickSubject(s.name)}
-              style={[
-                styles.subjectChip,
-                {
-                  backgroundColor: fill,
-                  opacity: selected || highlighted == null ? 1 : 0.45,
-                  borderColor: border,
-                },
-              ]}>
-              <Text
-                style={[styles.subjectChipText, { color: colors.onAccent }]}
-                numberOfLines={1}>
-                {s.name}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
+      {/* Full-width gray content — no subject chip UI; live-parse on save. */}
       <View style={styles.inlineInputRow}>
         <TextInput
           value={raw}
-          onChangeText={setRaw}
+          onChangeText={(text) => {
+            setRaw(text);
+            if (showSubjectPrompt) setShowSubjectPrompt(false);
+          }}
           placeholder={INLINE_STUDY_PLACEHOLDER}
           placeholderTextColor={colors.mutedLight}
           maxLength={MAX_STUDY_TITLE_LENGTH}
@@ -432,12 +381,6 @@ const styles = StyleSheet.create({
   inlineWrap: {
     gap: 6,
   },
-  chipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 2,
-  },
   subjectPrompt: {
     height: SLOT_HEIGHT,
     borderRadius: radii.chip,
@@ -447,19 +390,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   subjectPromptText: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 13,
-  },
-  subjectChip: {
-    minWidth: 56,
-    height: 32,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-  },
-  subjectChipText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 13,
   },

@@ -34,28 +34,16 @@ export function matchSubjectPrefix(
 }
 
 /**
- * Resolve subject + title for save.
- * Prefers live prefix match; else requires an explicit selected subject.
- * Never defaults to the first subject.
+ * Resolve subject + title for save via live prefix match only.
+ * No match → null (caller prompts; never defaults to first subject).
  */
 export function resolveSubjectAndTitle(
   raw: string,
   subjectNames: readonly string[],
-  selectedSubject?: string | null,
 ): { subject: string; title: string } | null {
   if (subjectNames.length === 0) return null;
   const match = matchSubjectPrefix(raw, subjectNames);
   const title = match.title.trim();
-  if (!title) return null;
-
-  if (match.subject) {
-    return { subject: match.subject, title };
-  }
-
-  const picked =
-    selectedSubject && subjectNames.includes(selectedSubject)
-      ? selectedSubject
-      : null;
-  if (!picked) return null;
-  return { subject: picked, title };
+  if (!title || !match.subject) return null;
+  return { subject: match.subject, title };
 }

@@ -38,12 +38,8 @@ describe('resolveSubjectAndTitle', () => {
     });
   });
 
-  it('requires an explicit pick when there is no prefix match', () => {
+  it('rejects when there is no prefix match', () => {
     expect(resolveSubjectAndTitle('복습하기', SUBJECTS)).toBeNull();
-    expect(resolveSubjectAndTitle('복습하기', SUBJECTS, '정검')).toEqual({
-      subject: '정검',
-      title: '복습하기',
-    });
   });
 
   it('rejects empty title after strip', () => {
