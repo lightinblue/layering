@@ -5,8 +5,21 @@ import {
   colors,
   subjectColor,
 } from '@/constants/tokens';
-import type { AppData, ReviewSchedule, StudyRecord, SubjectChip } from '@/types/domain';
+import type { ReviewIntervalDay } from '@/constants/review';
+import type {
+  AppData,
+  ReviewCheck,
+  StudyRecord,
+  SubjectChip,
+} from '@/types/domain';
 import { STORAGE_KEYS } from '@/storage/keys';
+import {
+  DEFAULT_CYCLE,
+  migrateAppDataIfNeeded,
+  normalizeAppData,
+  rebuildSchedulesFromRecords,
+} from '@/storage/migrate-app-data';
+import { activeRecords, activeSubjects } from '@/utils/icloud-merge';
 import { buildReviewDueDates } from '@/utils/review-schedule';
 
 export const EMPTY_APP_DATA: AppData = {
@@ -51,15 +64,44 @@ function snapshotSubjectColor(
   subjectName: string,
   previous?: string,
 ): string | undefined {
-  const chip = data.subjects.find((s) => s.name === subjectName);
+  const chip = activeSubjects(data.subjects).find((s) => s.name === subjectName);
   if (chip) return withSubjectColor(chip).color;
   const prev = previous?.trim();
   return prev || undefined;
 }
 
+function nowIso(now = new Date()): string {
+  return now.toISOString();
+}
+
+function emptyChecks(
+  cycle: readonly ReviewIntervalDay[],
+  at: string,
+): Record<string, ReviewCheck> {
+  const checks: Record<string, ReviewCheck> = {};
+  for (const interval of cycle) {
+    checks[String(interval)] = { done: false, updatedAt: at };
+  }
+  return checks;
+}
+
+function withSchedules(data: Omit<AppData, 'schedules'> | AppData): AppData {
+  return {
+    subjects: data.subjects,
+    records: data.records,
+    schedules: rebuildSchedulesFromRecords(data.records),
+  };
+}
+
 /** Seed chip for first real-mode load (palette blue). */
 export const DEFAULT_SUBJECTS: SubjectChip[] = [
-  { id: 'sub-jeongong', name: '전공', color: colors.chipBlue },
+  {
+    id: 'sub-jeongong',
+    name: '전공',
+    color: colors.chipBlue,
+    order: 0,
+    updatedAt: '1970-01-01T00:00:00.000Z',
+  },
 ];
 
 /** Normalize / fill missing chip colors from the name map. */
@@ -90,7 +132,8 @@ function normalizeSubjectColor(raw?: string): string {
 }
 
 export function countStudiesOn(data: AppData, dateKey: string): number {
-  return data.records.filter((r) => r.studiedOn === dateKey).length;
+  return activeRecords(data.records).filter((r) => r.studiedOn === dateKey)
+    .length;
 }
 
 function newId(prefix: string): string {
@@ -118,49 +161,65 @@ export function addSubject(
   data: AppData,
   rawName: string,
   rawColor?: string,
+  now = new Date(),
 ): SubjectMutationResult {
   const name = normalizeSubjectName(rawName);
   if (!name) return { ok: false, reason: 'empty' };
   if (name.length > MAX_SUBJECT_NAME_LENGTH) {
     return { ok: false, reason: 'tooLong' };
   }
-  if (data.subjects.some((s) => s.name === name)) {
+  const live = activeSubjects(data.subjects);
+  if (live.some((s) => s.name === name)) {
     return { ok: false, reason: 'duplicate' };
   }
-  if (data.subjects.length >= MAX_SUBJECTS) {
+  if (live.length >= MAX_SUBJECTS) {
     return { ok: false, reason: 'limit' };
   }
+  const at = nowIso(now);
+  const maxOrder = live.reduce((m, s) => Math.max(m, s.order), -1);
   return {
     ok: true,
-    data: {
+    data: withSchedules({
       ...data,
       subjects: [
         ...data.subjects,
-        { id: newId('sub'), name, color: normalizeSubjectColor(rawColor) },
+        {
+          id: newId('sub'),
+          name,
+          color: normalizeSubjectColor(rawColor),
+          order: maxOrder + 1,
+          updatedAt: at,
+        },
       ],
-    },
+    }),
   };
 }
 
 /**
- * Remove a subject chip by name. Records/schedules that used it stay
+ * Soft-delete a subject chip by name. Records that used it stay
  * (subjectName snapshot on StudyRecord keeps display).
  */
 export function removeSubject(
   data: AppData,
   rawName: string,
+  now = new Date(),
 ): SubjectMutationResult {
   const name = normalizeSubjectName(rawName);
   if (!name) return { ok: false, reason: 'empty' };
-  if (!data.subjects.some((s) => s.name === name)) {
+  if (!activeSubjects(data.subjects).some((s) => s.name === name)) {
     return { ok: false, reason: 'missing' };
   }
+  const at = nowIso(now);
   return {
     ok: true,
-    data: {
+    data: withSchedules({
       ...data,
-      subjects: data.subjects.filter((s) => s.name !== name),
-    },
+      subjects: data.subjects.map((s) =>
+        !s.deleted && s.name === name
+          ? { ...s, deleted: true, updatedAt: at }
+          : s,
+      ),
+    }),
   };
 }
 
@@ -171,61 +230,114 @@ export function removeSubject(
 export function reorderSubjects(
   data: AppData,
   orderedNames: readonly string[],
+  now = new Date(),
 ): SubjectMutationResult {
-  if (data.subjects.length === 0) return { ok: false, reason: 'missing' };
-  const byName = new Map(data.subjects.map((s) => [s.name, s]));
-  const next: SubjectChip[] = [];
+  const live = activeSubjects(data.subjects);
+  if (live.length === 0) return { ok: false, reason: 'missing' };
+  const byName = new Map(live.map((s) => [s.name, s]));
+  const nextLive: SubjectChip[] = [];
   const seen = new Set<string>();
   for (const raw of orderedNames) {
     const name = normalizeSubjectName(raw);
     if (!name || seen.has(name)) continue;
     const chip = byName.get(name);
     if (!chip) continue;
-    next.push(chip);
+    nextLive.push(chip);
     seen.add(name);
   }
-  for (const chip of data.subjects) {
-    if (!seen.has(chip.name)) next.push(chip);
+  for (const chip of live) {
+    if (!seen.has(chip.name)) nextLive.push(chip);
   }
-  if (next.length !== data.subjects.length) {
+  if (nextLive.length !== live.length) {
     return { ok: false, reason: 'missing' };
   }
-  const unchanged = next.every((chip, i) => chip.id === data.subjects[i]?.id);
+  const at = nowIso(now);
+  const orderById = new Map(nextLive.map((chip, i) => [chip.id, i]));
+  const unchanged = nextLive.every(
+    (chip, i) => chip.id === live[i]?.id && chip.order === i,
+  );
   if (unchanged) return { ok: true, data };
-  return { ok: true, data: { ...data, subjects: next } };
+  return {
+    ok: true,
+    data: withSchedules({
+      ...data,
+      subjects: data.subjects.map((s) => {
+        if (s.deleted) return s;
+        const order = orderById.get(s.id);
+        if (order == null) return s;
+        if (s.order === order) return s;
+        return { ...s, order, updatedAt: at };
+      }),
+    }),
+  };
 }
 
 export async function loadAppData(): Promise<AppData> {
+  const { data: migrated } = await migrateAppDataIfNeeded();
+  if (migrated) {
+    return {
+      subjects: migrated.subjects.map(withSubjectColor),
+      records: migrated.records,
+      schedules: migrated.schedules,
+    };
+  }
+
   const raw = await AsyncStorage.getItem(STORAGE_KEYS.appData);
   if (!raw) {
-    // First launch only — seed a starter chip. An explicit empty list is kept.
+    const at = nowIso();
     return {
-      subjects: [...DEFAULT_SUBJECTS],
+      subjects: DEFAULT_SUBJECTS.map((s) => ({ ...s, updatedAt: at })),
       records: [],
       schedules: [],
     };
   }
   try {
-    const parsed = JSON.parse(raw) as AppData;
-    const subjects = Array.isArray(parsed.subjects)
-      ? parsed.subjects.map(withSubjectColor)
-      : [...DEFAULT_SUBJECTS];
+    const normalized = normalizeAppData(JSON.parse(raw));
     return {
-      subjects,
-      records: parsed.records ?? [],
-      schedules: parsed.schedules ?? [],
+      subjects: normalized.subjects.map(withSubjectColor),
+      records: normalized.records,
+      schedules: normalized.schedules,
     };
   } catch {
+    const at = nowIso();
     return {
-      subjects: [...DEFAULT_SUBJECTS],
+      subjects: DEFAULT_SUBJECTS.map((s) => ({ ...s, updatedAt: at })),
       records: [],
       schedules: [],
     };
   }
 }
 
-export async function saveAppData(data: AppData): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.appData, JSON.stringify(data));
+export type SaveAppDataOptions = {
+  /** When false, skip iCloud push (used after remote merge). Default true. */
+  sync?: boolean;
+};
+
+let pushToICloud:
+  | ((data: AppData) => Promise<void>)
+  | null = null;
+
+/** Wired from storage/icloud-sync to avoid a circular import at module load. */
+export function registerAppDataICloudPush(
+  fn: (data: AppData) => Promise<void>,
+): void {
+  pushToICloud = fn;
+}
+
+export async function saveAppData(
+  data: AppData,
+  options?: SaveAppDataOptions,
+): Promise<void> {
+  const normalized = withSchedules(data);
+  await AsyncStorage.setItem(STORAGE_KEYS.appData, JSON.stringify(normalized));
+  if (options?.sync === false) return;
+  if (pushToICloud) {
+    try {
+      await pushToICloud(normalized);
+    } catch (err) {
+      console.warn('[icloud-kvs] push after save failed', err);
+    }
+  }
 }
 
 export type CreateStudyInput = {
@@ -235,10 +347,11 @@ export type CreateStudyInput = {
   memo?: string;
 };
 
-/** Append one study + +1/3/7/15/30/60 review schedules. No-op at daily max. */
+/** Append one study + checks for cycle intervals. No-op at daily max. */
 export function appendStudyWithReviews(
   data: AppData,
   input: CreateStudyInput,
+  now = new Date(),
 ): AppData {
   if (countStudiesOn(data, input.studiedOn) >= MAX_STUDIES_PER_DAY) {
     return data;
@@ -247,72 +360,105 @@ export function appendStudyWithReviews(
   const fields = clampStudyFields(input.content, input.memo);
   if (!fields.content) return data;
 
-  // New studies require a live subject chip (no fake default).
-  const existing = data.subjects.find((s) => s.name === input.subjectName);
+  const existing = activeSubjects(data.subjects).find(
+    (s) => s.name === input.subjectName,
+  );
   if (!existing) return data;
 
-  const subjectId = existing.id;
-  const subjectName = input.subjectName;
-  const subjectColorSnap = snapshotSubjectColor(data, subjectName);
-
+  const at = nowIso(now);
+  const cycle = DEFAULT_CYCLE;
   const record: StudyRecord = {
     id: newId('study'),
-    subjectId,
-    subjectName,
-    ...(subjectColorSnap ? { subjectColor: subjectColorSnap } : {}),
+    subjectId: existing.id,
+    subjectName: input.subjectName,
+    ...(snapshotSubjectColor(data, input.subjectName)
+      ? { subjectColor: snapshotSubjectColor(data, input.subjectName) }
+      : {}),
     content: fields.content,
     ...(fields.memo ? { memo: fields.memo } : {}),
     studiedOn: input.studiedOn,
-    createdAt: new Date().toISOString(),
+    cycle,
+    checks: emptyChecks(cycle, at),
+    createdAt: at,
+    updatedAt: at,
   };
 
-  const schedules: ReviewSchedule[] = buildReviewDueDates(input.studiedOn).map(
-    ({ intervalDays, dueOn }) => ({
-      id: newId(`rev${intervalDays}`),
-      studyRecordId: record.id,
-      intervalDays,
-      dueOn,
-      completed: false,
-    }),
-  );
-
-  return {
+  return withSchedules({
     subjects: data.subjects,
     records: [...data.records, record],
-    schedules: [...data.schedules, ...schedules],
-  };
+  });
 }
 
+/** Toggle a single study's check for an interval (source of truth). */
+export function toggleReviewCheck(
+  data: AppData,
+  studyId: string,
+  intervalDays: number,
+  now = new Date(),
+): AppData {
+  const at = nowIso(now);
+  let changed = false;
+  const records = data.records.map((r) => {
+    if (r.id !== studyId || r.deleted) return r;
+    const key = String(intervalDays);
+    const prev = r.checks[key];
+    const done = !prev?.done;
+    changed = true;
+    return {
+      ...r,
+      updatedAt: at,
+      checks: {
+        ...r.checks,
+        [key]: { done, updatedAt: at },
+      },
+    };
+  });
+  if (!changed) return data;
+  return withSchedules({ ...data, records });
+}
+
+/**
+ * @deprecated Prefer `toggleReviewCheck(studyId, intervalDays)`.
+ * Parses synthetic `${studyId}#${interval}` ids used by home cards.
+ */
 export function toggleReviewCompleted(
   data: AppData,
   scheduleId: string,
+  now = new Date(),
 ): AppData {
-  const now = new Date().toISOString();
-  return {
-    ...data,
-    schedules: data.schedules.map((s) => {
-      if (s.id !== scheduleId) return s;
-      const completed = !s.completed;
-      return {
-        ...s,
-        completed,
-        completedAt: completed ? now : undefined,
-      };
-    }),
-  };
+  const hash = scheduleId.indexOf('#');
+  if (hash > 0) {
+    const studyId = scheduleId.slice(0, hash);
+    const interval = Number(scheduleId.slice(hash + 1));
+    if (studyId && Number.isFinite(interval)) {
+      return toggleReviewCheck(data, studyId, interval, now);
+    }
+  }
+  // Legacy schedule id path — update matching local schedule + checks.
+  const schedule = data.schedules.find((s) => s.id === scheduleId);
+  if (!schedule) return data;
+  return toggleReviewCheck(
+    data,
+    schedule.studyRecordId,
+    schedule.intervalDays,
+    now,
+  );
 }
 
-/** Remove one study and every review schedule generated from it. */
+/** Soft-delete one study (keeps tombstone for iCloud merge). */
 export function deleteStudyWithReviews(
   data: AppData,
   studyId: string,
+  now = new Date(),
 ): AppData {
-  if (!data.records.some((r) => r.id === studyId)) return data;
-  return {
+  if (!data.records.some((r) => r.id === studyId && !r.deleted)) return data;
+  const at = nowIso(now);
+  return withSchedules({
     ...data,
-    records: data.records.filter((r) => r.id !== studyId),
-    schedules: data.schedules.filter((s) => s.studyRecordId !== studyId),
-  };
+    records: data.records.map((r) =>
+      r.id === studyId ? { ...r, deleted: true, updatedAt: at } : r,
+    ),
+  });
 }
 
 export type UpdateStudyInput = {
@@ -323,21 +469,21 @@ export type UpdateStudyInput = {
 };
 
 /**
- * Update a study record. Content/subject/memo edits keep due dates.
- * studiedOn change regenerates +1/3/7/15/30/60 schedules (completion
- * preserved per interval when possible). Honors daily max on the target day.
+ * Update a study record. Content/subject/memo edits keep checks.
+ * studiedOn change regenerates due dates via cycle (completion preserved).
  */
 export function updateStudyWithReviews(
   data: AppData,
   studyId: string,
   input: UpdateStudyInput,
+  now = new Date(),
 ): AppData {
-  const existing = data.records.find((r) => r.id === studyId);
+  const existing = data.records.find((r) => r.id === studyId && !r.deleted);
   if (!existing) return data;
 
   const studiedOnChanged = existing.studiedOn !== input.studiedOn;
   if (studiedOnChanged) {
-    const othersOnTarget = data.records.filter(
+    const othersOnTarget = activeRecords(data.records).filter(
       (r) => r.studiedOn === input.studiedOn && r.id !== studyId,
     ).length;
     if (othersOnTarget >= MAX_STUDIES_PER_DAY) return data;
@@ -346,13 +492,20 @@ export function updateStudyWithReviews(
   const fields = clampStudyFields(input.content, input.memo);
   if (!fields.content) return data;
 
-  const chip = data.subjects.find((s) => s.name === input.subjectName);
-  // Edit may keep a deleted subject name snapshot (FR-A3).
+  const chip = activeSubjects(data.subjects).find(
+    (s) => s.name === input.subjectName,
+  );
   const subjectColorSnap = snapshotSubjectColor(
     data,
     input.subjectName,
     existing.subjectColor,
   );
+  const at = nowIso(now);
+  const cycle = existing.cycle?.length ? existing.cycle : DEFAULT_CYCLE;
+
+  // Ensure checks cover cycle intervals.
+  const checks = { ...emptyChecks(cycle, at), ...existing.checks };
+
   const nextRecord: StudyRecord = {
     id: existing.id,
     subjectId: chip?.id ?? existing.subjectId,
@@ -360,48 +513,20 @@ export function updateStudyWithReviews(
     ...(subjectColorSnap ? { subjectColor: subjectColorSnap } : {}),
     content: fields.content,
     studiedOn: input.studiedOn,
+    cycle,
+    checks,
     createdAt: existing.createdAt,
+    updatedAt: at,
     ...(fields.memo ? { memo: fields.memo } : {}),
   };
 
-  const records = data.records.map((r) =>
-    r.id === studyId ? nextRecord : r,
-  );
-
-  if (!studiedOnChanged) {
-    return { ...data, records };
-  }
-
-  const oldForStudy = data.schedules.filter((s) => s.studyRecordId === studyId);
-  const completionByInterval = new Map(
-    oldForStudy.map((s) => [
-      s.intervalDays,
-      { completed: s.completed, completedAt: s.completedAt },
-    ]),
-  );
-  const otherSchedules = data.schedules.filter(
-    (s) => s.studyRecordId !== studyId,
-  );
-  const regenerated: ReviewSchedule[] = buildReviewDueDates(
-    input.studiedOn,
-  ).map(({ intervalDays, dueOn }) => {
-    const prev = completionByInterval.get(intervalDays);
-    const reuseId = oldForStudy.find((s) => s.intervalDays === intervalDays)?.id;
-    return {
-      id: reuseId ?? newId(`rev${intervalDays}`),
-      studyRecordId: studyId,
-      intervalDays,
-      dueOn,
-      completed: prev?.completed ?? false,
-      ...(prev?.completed && prev.completedAt
-        ? { completedAt: prev.completedAt }
-        : {}),
-    };
-  });
-
-  return {
+  return withSchedules({
     ...data,
-    records,
-    schedules: [...otherSchedules, ...regenerated],
-  };
+    records: data.records.map((r) => (r.id === studyId ? nextRecord : r)),
+  });
+}
+
+/** @internal test helper — expose due-date builder usage */
+export function dueDatesForStudy(studiedOn: string) {
+  return buildReviewDueDates(studiedOn);
 }

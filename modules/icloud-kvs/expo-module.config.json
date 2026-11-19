@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["ICloudKvsModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.icloudkvs.ICloudKvsModule"]
+  }
+}

@@ -9,12 +9,8 @@
 import { REVIEW_INTERVAL_DAYS } from '@/constants/review';
 import { colors } from '@/constants/tokens';
 import { DEFAULT_SUBJECTS } from '@/storage/app-data';
-import type {
-  AppData,
-  ReviewSchedule,
-  StudyRecord,
-  SubjectChip,
-} from '@/types/domain';
+import { normalizeAppData } from '@/storage/migrate-app-data';
+import type { AppData, SubjectChip } from '@/types/domain';
 import { todayKey } from '@/utils/date';
 import { addDays } from '@/utils/review-schedule';
 
@@ -34,61 +30,47 @@ type SeedStudySpec = {
 };
 
 const SCREENSHOT_SUBJECTS: SubjectChip[] = [
-  { id: 'shot-sub-list', name: '목록', color: colors.chipGreen },
-  { id: 'shot-sub-class', name: '분류', color: colors.chipBlue },
-  { id: 'shot-sub-path', name: '학도', color: colors.chipPurple },
-  { id: 'shot-sub-media', name: '매체', color: colors.chipGray },
+  {
+    id: 'shot-sub-list',
+    name: '목록',
+    color: colors.chipGreen,
+    order: 0,
+    updatedAt: '1970-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'shot-sub-class',
+    name: '분류',
+    color: colors.chipBlue,
+    order: 1,
+    updatedAt: '1970-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'shot-sub-path',
+    name: '학도',
+    color: colors.chipPurple,
+    order: 2,
+    updatedAt: '1970-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'shot-sub-media',
+    name: '매체',
+    color: colors.chipGray,
+    order: 3,
+    updatedAt: '1970-01-01T00:00:00.000Z',
+  },
 ];
 
 /** Empty product seed after screenshots (same as first-load default). */
 export function buildDefaultAppData(): AppData {
-  return {
+  return normalizeAppData({
     subjects: DEFAULT_SUBJECTS.map((s) => ({ ...s })),
     records: [],
     schedules: [],
-  };
+  });
 }
 
 function studiedOnFrom(today: string, daysAgo: number): string {
   return addDays(today, -daysAgo);
-}
-
-function makeSchedules(
-  studyId: string,
-  studiedOn: string,
-  completedIntervals: readonly number[] = [],
-  completedAt: string,
-): ReviewSchedule[] {
-  const done = new Set(completedIntervals);
-  return REVIEW_INTERVAL_DAYS.map((intervalDays) => {
-    const completed = done.has(intervalDays);
-    return {
-      id: `shot-rev-${studyId}-${intervalDays}`,
-      studyRecordId: studyId,
-      intervalDays,
-      dueOn: addDays(studiedOn, intervalDays),
-      completed,
-      ...(completed ? { completedAt } : {}),
-    };
-  });
-}
-
-/** Today = all unchecked; yesterday = all checked. Other days keep seed flags. */
-function applyTodayYesterdayCompletion(
-  schedules: ReviewSchedule[],
-  today: string,
-  completedAt: string,
-): ReviewSchedule[] {
-  const yesterday = addDays(today, -1);
-  return schedules.map((s) => {
-    if (s.dueOn === today) {
-      return { id: s.id, studyRecordId: s.studyRecordId, intervalDays: s.intervalDays, dueOn: s.dueOn, completed: false };
-    }
-    if (s.dueOn === yesterday) {
-      return { ...s, completed: true, completedAt };
-    }
-    return s;
-  });
 }
 
 /**
@@ -98,9 +80,9 @@ function applyTodayYesterdayCompletion(
 export function buildScreenshotAppData(now = new Date()): AppData {
   const today = todayKey(now);
   const createdAt = now.toISOString();
+  const yesterday = addDays(today, -1);
 
   const specs: SeedStudySpec[] = [
-    // —— Today: exactly one study ——
     {
       id: 'shot-study-today-class',
       subjectId: 'shot-sub-class',
@@ -109,8 +91,6 @@ export function buildScreenshotAppData(now = new Date()): AppData {
       memo: '표 암기만 다시',
       daysAgo: 0,
     },
-
-    // —— Feed today’s reviews (+1 / +3 / +7 / +15 / +30 / +60) ——
     {
       id: 'shot-study-d1-list',
       subjectId: 'shot-sub-list',
@@ -120,111 +100,44 @@ export function buildScreenshotAppData(now = new Date()): AppData {
       daysAgo: 1,
     },
     {
-      id: 'shot-study-d1-media',
-      subjectId: 'shot-sub-media',
-      subjectName: '매체',
-      content: '매체 기출 20문항',
-      memo: '틀린 번호만',
-      daysAgo: 1,
-    },
-    {
       id: 'shot-study-d3-class',
       subjectId: 'shot-sub-class',
       subjectName: '분류',
       content: 'KDC 표 암기',
       daysAgo: 3,
-      // +1 was due 2d ago (calendar); +3 due today → forced unchecked
       completedIntervals: [1],
     },
     {
       id: 'shot-study-d7-path',
       subjectId: 'shot-sub-path',
       subjectName: '학도',
-      content: '이용자 서비스 요약',
+      content: '사서직 기출 요약',
       daysAgo: 7,
       completedIntervals: [1, 3],
     },
     {
-      id: 'shot-study-d15-list',
-      subjectId: 'shot-sub-list',
-      subjectName: '목록',
-      content: 'MARC 필드 정리',
+      id: 'shot-study-d15-media',
+      subjectId: 'shot-sub-media',
+      subjectName: '매체',
+      content: '시청각 자료 정리',
       daysAgo: 15,
       completedIntervals: [1, 3, 7],
     },
     {
-      id: 'shot-study-d30-class',
-      subjectId: 'shot-sub-class',
-      subjectName: '분류',
-      content: '분류 오답 노트',
+      id: 'shot-study-d30-list',
+      subjectId: 'shot-sub-list',
+      subjectName: '목록',
+      content: 'MARC 필드 복습',
       daysAgo: 30,
       completedIntervals: [1, 3, 7, 15],
     },
     {
-      id: 'shot-study-d60-path',
-      subjectId: 'shot-sub-path',
-      subjectName: '학도',
-      content: '도서관사 연표',
-      daysAgo: 60,
-      completedIntervals: [1, 3, 7, 15, 30],
-    },
-
-    // —— Week strip / yesterday dues (+1 from d2, +3 from d4, +7 from d8) ——
-    {
-      id: 'shot-study-d2-media',
-      subjectId: 'shot-sub-media',
-      subjectName: '매체',
-      content: '틀린 문제 표시',
-      daysAgo: 2,
-    },
-    {
-      id: 'shot-study-d2-list',
-      subjectId: 'shot-sub-list',
-      subjectName: '목록',
-      content: '표목 연습',
-      daysAgo: 2,
-    },
-    {
-      id: 'shot-study-d4-list',
-      subjectId: 'shot-sub-list',
-      subjectName: '목록',
-      content: '표목 선택 연습',
-      daysAgo: 4,
-      completedIntervals: [1],
-    },
-    {
-      id: 'shot-study-d8-path',
-      subjectId: 'shot-sub-path',
-      subjectName: '학도',
-      content: '열람 서비스 정리',
-      daysAgo: 8,
-      completedIntervals: [1, 3],
-    },
-    {
-      id: 'shot-study-d5-path',
-      subjectId: 'shot-sub-path',
-      subjectName: '학도',
-      content: '정보원 안내 사례',
-      daysAgo: 5,
-      completedIntervals: [1, 3],
-    },
-    {
-      id: 'shot-study-d6-class',
+      id: 'shot-study-d60-class',
       subjectId: 'shot-sub-class',
       subjectName: '분류',
-      content: '단원별 키워드',
-      daysAgo: 6,
-      completedIntervals: [1],
-    },
-
-    // —— Month calendar fill ——
-    {
-      id: 'shot-study-d10-media',
-      subjectId: 'shot-sub-media',
-      subjectName: '매체',
-      content: '매체 기출 10문항',
-      daysAgo: 10,
-      completedIntervals: [1, 3, 7],
+      content: '분류 체계 총정리',
+      daysAgo: 60,
+      completedIntervals: [1, 3, 7, 15, 30],
     },
     {
       id: 'shot-study-d12-list',
@@ -260,7 +173,26 @@ export function buildScreenshotAppData(now = new Date()): AppData {
     },
   ];
 
-  const records: StudyRecord[] = specs.map((spec) => {
+  const schedules = specs.flatMap((spec) => {
+    const studiedOn = studiedOnFrom(today, spec.daysAgo);
+    const done = new Set(spec.completedIntervals ?? []);
+    return REVIEW_INTERVAL_DAYS.map((intervalDays) => {
+      const dueOn = addDays(studiedOn, intervalDays);
+      let completed = done.has(intervalDays);
+      if (dueOn === today) completed = false;
+      if (dueOn === yesterday) completed = true;
+      return {
+        id: `shot-rev-${spec.id}-${intervalDays}`,
+        studyRecordId: spec.id,
+        intervalDays,
+        dueOn,
+        completed,
+        ...(completed ? { completedAt: createdAt } : {}),
+      };
+    });
+  });
+
+  const records = specs.map((spec) => {
     const studiedOn = studiedOnFrom(today, spec.daysAgo);
     return {
       id: spec.id,
@@ -273,22 +205,9 @@ export function buildScreenshotAppData(now = new Date()): AppData {
     };
   });
 
-  const schedules = applyTodayYesterdayCompletion(
-    specs.flatMap((spec) =>
-      makeSchedules(
-        spec.id,
-        studiedOnFrom(today, spec.daysAgo),
-        spec.completedIntervals ?? [],
-        createdAt,
-      ),
-    ),
-    today,
-    createdAt,
-  );
-
-  return {
-    subjects: SCREENSHOT_SUBJECTS.map((s) => ({ ...s })),
+  return normalizeAppData({
+    subjects: SCREENSHOT_SUBJECTS.map((s) => ({ ...s, updatedAt: createdAt })),
     records,
     schedules,
-  };
+  });
 }

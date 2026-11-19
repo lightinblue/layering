@@ -24,10 +24,11 @@ import {
 import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
 import type { AppData } from '@/types/domain';
 import { todayKey } from '@/utils/date';
+import { activeSubjects } from '@/utils/icloud-merge';
 import { haptics } from '@/utils/haptics';
 
 function toOptions(data: AppData): SubjectOption[] {
-  return data.subjects.map((s) => {
+  return activeSubjects(data.subjects).map((s) => {
     const chip = withSubjectColor(s);
     return { name: chip.name, color: chip.color ?? subjectColor(chip.name) };
   });
