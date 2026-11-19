@@ -5,7 +5,6 @@ import { tutorialVisualSize } from '@/components/tutorial/ForgettingCurveGraph';
 import { fonts } from '@/constants/fonts';
 import { intervalLabel } from '@/constants/home-mock';
 import {
-  colors,
   radii,
   sizes,
   spacing,
@@ -75,12 +74,16 @@ export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
               styles.studyChip,
               { backgroundColor: subjectColor(SAMPLE_STUDY.subject) },
             ]}>
-            <Text style={styles.studyChipText} numberOfLines={1}>
+            <Text
+              style={[styles.studyChipText, { color: theme.onAccent }]}
+              numberOfLines={1}>
               {SAMPLE_STUDY.subject}
             </Text>
           </View>
-          <View style={styles.studyBody}>
-            <Text style={styles.studyBodyText} numberOfLines={1}>
+          <View style={[styles.studyBody, { backgroundColor: theme.white }]}>
+            <Text
+              style={[styles.studyBodyText, { color: theme.body }]}
+              numberOfLines={1}>
               {SAMPLE_STUDY.content}
             </Text>
           </View>
@@ -96,8 +99,8 @@ export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
                   width: cardW,
                   backgroundColor: card.completed
                     ? theme.primarySoft
-                    : colors.white,
-                  borderColor: card.completed ? theme.primary : '#e4eaef',
+                    : theme.white,
+                  borderColor: card.completed ? theme.primary : theme.hairline,
                   borderWidth: card.completed ? 2 : 1,
                 },
               ]}>
@@ -108,12 +111,12 @@ export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
                     {
                       backgroundColor: card.completed
                         ? theme.primary
-                        : colors.mutedLight,
+                        : theme.mutedLight,
                     },
                   ]}>
                   {card.completed ? <CheckIcon /> : null}
                 </View>
-                <Text style={styles.intervalText} numberOfLines={1}>
+                <Text style={[styles.intervalText, { color: theme.accentText }]} numberOfLines={1}>
                   {intervalLabel(card.days)}
                 </Text>
               </View>
@@ -125,7 +128,7 @@ export function TutorialProductPreview({ width }: TutorialProductPreviewProps) {
                       styles.reviewChip,
                       { backgroundColor: subjectColor(name) },
                     ]}>
-                    <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
+                    <Text style={[styles.reviewChipText, { color: theme.onAccent }]}>{name.charAt(0)}</Text>
                   </View>
                 ))}
               </View>
@@ -166,14 +169,12 @@ const styles = StyleSheet.create({
   studyChipText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 15,
-    color: colors.white,
     textAlign: 'center',
   },
   studyBody: {
     flex: 1,
     minWidth: 0,
     height: sizes.studyBodyHeight,
-    backgroundColor: colors.white,
     borderRadius: radii.chip,
     justifyContent: 'center',
     paddingLeft: 14,
@@ -182,7 +183,6 @@ const styles = StyleSheet.create({
   studyBodyText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
-    color: colors.body,
   },
   reviewRow: {
     flexDirection: 'row',
@@ -213,7 +213,6 @@ const styles = StyleSheet.create({
   intervalText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 11,
-    color: colors.accentText,
     letterSpacing: -0.44,
     flexShrink: 1,
   },
@@ -232,7 +231,6 @@ const styles = StyleSheet.create({
   reviewChipText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 12,
-    color: colors.white,
     textAlign: 'center',
     lineHeight: 16,
   },

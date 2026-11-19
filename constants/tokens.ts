@@ -1,27 +1,9 @@
 /** Design tokens from Figma Home (zgjHZrcERnHvzlG6cfxE0Y). */
 
-export const colors = {
-  mainWhite: '#ffffff',
-  white: '#ffffff',
-  black: '#000000',
-  primary: '#1991ff',
-  primarySoft: '#dff0ff',
-  surface: '#f2f6fa',
-  muted: '#9fb1c1',
-  mutedLight: '#ced7e0',
-  sectionLabel: '#708AA2',
-  body: '#526477',
-  bodyAlt: '#646464',
-  accentText: '#708aa2',
-  chipBlue: '#62B3F6',
-  chipGreen: '#5DCB85',
-  chipYellow: '#F5C21C',
-  chipPurple: '#B7A4E9',
-  chipPink: '#F65E83',
-  chipOrange: '#FE9253',
-  chipGray: '#B2B2B2',
-  fabShadow: 'rgba(52, 61, 75, 0.16)',
-} as const;
+import { lightPalette } from '@/constants/palette';
+
+/** @deprecated Prefer `useThemeColors()` — static light fallback for module-level styles. */
+export const colors = { ...lightPalette } as const;
 
 export const spacing = {
   weekGap: 1,
@@ -140,15 +122,23 @@ export function darkenHex(hex: string, amount = 0.1): string {
   });
 }
 
-/** Mix hex toward white for soft accent surfaces (selected cards, chips). */
-export function softFromPrimary(hex: string, whiteMix = 0.86): string {
+/**
+ * Mix hex toward a canvas color for soft accent surfaces (selected cards).
+ * Light mode → toward white; dark mode → toward dark canvas.
+ */
+export function softFromPrimary(
+  hex: string,
+  mix = 0.86,
+  towardHex: string = lightPalette.softMixTarget,
+): string {
   const rgb = parseHexRgb(hex);
-  if (!rgb) return colors.primarySoft;
-  const t = Math.min(1, Math.max(0, whiteMix));
+  const toward = parseHexRgb(towardHex) ?? { r: 255, g: 255, b: 255 };
+  if (!rgb) return towardHex;
+  const t = Math.min(1, Math.max(0, mix));
   return toHex({
-    r: Math.round(rgb.r + (255 - rgb.r) * t),
-    g: Math.round(rgb.g + (255 - rgb.g) * t),
-    b: Math.round(rgb.b + (255 - rgb.b) * t),
+    r: Math.round(rgb.r + (toward.r - rgb.r) * t),
+    g: Math.round(rgb.g + (toward.g - rgb.g) * t),
+    b: Math.round(rgb.b + (toward.b - rgb.b) * t),
   });
 }
 

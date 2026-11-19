@@ -110,7 +110,11 @@ import {
 } from '@/storage/screenshot-seed';
 import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
 import { useCalendarPrefs } from '@/theme/CalendarPrefsProvider';
-import { useThemeColors } from '@/theme/ThemeProvider';
+import {
+  useColorScheme,
+  useThemeColors,
+  type ThemeColors,
+} from '@/theme/ThemeProvider';
 import type { AppData } from '@/types/domain';
 import { activeSubjects } from '@/utils/icloud-merge';
 import { parseKey, todayKey as deviceTodayKey } from '@/utils/date';
@@ -121,6 +125,11 @@ import {
 import { haptics } from '@/utils/haptics';
 
 const REVIEW_COLS = 3;
+
+function useHomeStyles() {
+  const c = useThemeColors();
+  return useMemo(() => createHomeStyles(c), [c]);
+}
 
 type HomeScreenProps = {
   /** Override data (skips AsyncStorage load — tests / previews). */
@@ -176,6 +185,7 @@ function AnimatedDayNumber({
   dateKey: string;
   dayNumber: string;
 }) {
+  const styles = useHomeStyles();
   const [incoming, setIncoming] = useState(dayNumber);
   const [outgoing, setOutgoing] = useState<string | null>(null);
   const dateKeyRef = useRef(dateKey);
@@ -251,6 +261,7 @@ function AnimatedDateMeta({
   weekdayLabel: string;
   dateLabel: string;
 }) {
+  const styles = useHomeStyles();
   const [incomingWeekday, setIncomingWeekday] = useState(weekdayLabel);
   const [outgoingWeekday, setOutgoingWeekday] = useState<string | null>(null);
   const [incomingLabel, setIncomingLabel] = useState(dateLabel);
@@ -405,6 +416,7 @@ function SoftFab({
   style: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
+  const styles = useHomeStyles();
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -458,6 +470,8 @@ function CalendarTodayFabIcon({ showCalendar }: { showCalendar: boolean }) {
   const arrowStyle = useAnimatedStyle(() => ({
     opacity: arrowOpacity.value,
   }));
+  const styles = useHomeStyles();
+  const theme = useThemeColors();
 
   return (
     <View style={styles.fabIconStack}>
@@ -469,7 +483,7 @@ function CalendarTodayFabIcon({ showCalendar }: { showCalendar: boolean }) {
       <Animated.View
         pointerEvents="none"
         style={[styles.fabIconLayer, styles.fabArrowPrev, arrowStyle]}>
-        <ArrowRightIcon size={sizes.fabIcon} color={colors.accentText} />
+        <ArrowRightIcon size={sizes.fabIcon} color={theme.accentText} />
       </Animated.View>
     </View>
   );
@@ -482,6 +496,8 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const theme = useThemeColors();
+  const colorScheme = useColorScheme();
+  const styles = useHomeStyles();
   const { weekStartsOn } = useCalendarPrefs();
 
   const [hydrated, setHydrated] = useState(dataProp != null);
@@ -974,7 +990,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <View
         style={[
           styles.body,
@@ -1139,6 +1155,7 @@ function WeekStripPager({
   onSelectDay: (dateKey: string) => void;
   onWeekChange: (weekIndex: number, weekdayIndex: number) => void;
 }) {
+  const styles = useHomeStyles();
   const listRef = useRef<FlatList<HomeWeekDay[]>>(null);
   const settledIndexRef = useRef(weekIndex);
   const draggingRef = useRef(false);
@@ -1237,6 +1254,7 @@ function WeekStripPage({
   accentColor: string;
   onSelectDay: (dateKey: string) => void;
 }) {
+  const styles = useHomeStyles();
   const selectedIndex = days.findIndex((d) => d.dateKey === selectedKey);
   const pillX = useSharedValue(
     selectedIndex >= 0 ? selectedIndex * cellWidth : 0,
@@ -1315,6 +1333,8 @@ function WeekDayCell({
   accentColor: string;
   onSelectDay: (dateKey: string) => void;
 }) {
+  const theme = useThemeColors();
+  const styles = useHomeStyles();
   const selectedProgress = useSharedValue(selected ? 1 : 0);
 
   useEffect(() => {
@@ -1326,7 +1346,7 @@ function WeekDayCell({
     color: interpolateColor(
       selectedProgress.value,
       [0, 1],
-      [colors.muted, colors.black],
+      [theme.muted, theme.black],
     ),
   }));
 
@@ -1334,7 +1354,7 @@ function WeekDayCell({
     color: interpolateColor(
       selectedProgress.value,
       [0, 1],
-      [colors.mutedLight, accentColor],
+      [theme.mutedLight, accentColor],
     ),
   }));
 
@@ -1388,6 +1408,7 @@ function DayContentPager({
   onToggle: (dateKey: string, card: HomeReviewCard) => void;
   onDetail: (card: HomeReviewCard) => void;
 }) {
+  const styles = useHomeStyles();
   const listRef = useRef<FlatList<HomeWeekDay>>(null);
   const settledIndexRef = useRef(dayIndex);
   const draggingRef = useRef(false);
@@ -1529,6 +1550,7 @@ function StudySection({
   onAdd: () => void;
   onEditStudy: (row: HomeStudyRow) => void;
 }) {
+  const styles = useHomeStyles();
   const [capHint, setCapHint] = useState<string | null>(null);
   const capMessage = `하루 ${MAX_STUDIES_PER_DAY}개까지`;
 
@@ -1617,6 +1639,7 @@ function StudyRow({
   colorByName: Record<string, string>;
   onPress: () => void;
 }) {
+  const styles = useHomeStyles();
   return (
     <Animated.View
       entering={ROW_ENTER}
@@ -1673,6 +1696,7 @@ function ReviewSection({
   onToggle: (card: HomeReviewCard) => void;
   onDetail: (card: HomeReviewCard) => void;
 }) {
+  const styles = useHomeStyles();
   const byInterval = useMemo(() => {
     const map = new Map<ReviewIntervalDay, HomeReviewCard>();
     for (const card of reviews) {
@@ -1722,6 +1746,7 @@ function EmptyReviewSlot({
   days: ReviewIntervalDay;
   width: number;
 }) {
+  const styles = useHomeStyles();
   const label = intervalLabel(days);
   return (
     <View
@@ -1746,6 +1771,8 @@ function ReviewCheck({
   accent: string;
   onToggle: () => void;
 }) {
+  const theme = useThemeColors();
+  const styles = useHomeStyles();
   const progress = useSharedValue(completed ? 1 : 0);
   const primed = useRef(false);
 
@@ -1764,7 +1791,7 @@ function ReviewCheck({
       backgroundColor: interpolateColor(
         progress.value,
         [0, 1],
-        [colors.mutedLight, accent],
+        [theme.mutedLight, accent],
       ),
     }),
     [accent],
@@ -1801,6 +1828,8 @@ function ReviewCard({
   onToggle: () => void;
   onDetail: () => void;
 }) {
+  const theme = useThemeColors();
+  const styles = useHomeStyles();
   const progress = useSharedValue(card.completed ? 1 : 0);
   const primed = useRef(false);
 
@@ -1819,7 +1848,7 @@ function ReviewCard({
       backgroundColor: interpolateColor(
         progress.value,
         [0, 1],
-        [colors.surface, accentSoft],
+        [theme.surface, accentSoft],
       ),
       borderColor: interpolateColor(
         progress.value,
@@ -1827,7 +1856,7 @@ function ReviewCard({
         ['#00000000', accent],
       ),
     }),
-    [accent, accentSoft],
+    [accent, accentSoft, theme.surface],
   );
 
   return (
@@ -1872,10 +1901,11 @@ function ReviewCard({
   );
 }
 
-const styles = StyleSheet.create({
+function createHomeStyles(c: ThemeColors) {
+  return StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.mainWhite,
+    backgroundColor: c.mainWhite,
   },
   loading: {
     alignItems: 'center',
@@ -1925,7 +1955,7 @@ const styles = StyleSheet.create({
   dayNumber: {
     fontFamily: fonts.gothamBold,
     fontSize: sizes.dayNumber,
-    color: colors.black,
+    color: c.black,
     lineHeight: DAY_NUMBER_TRAVEL,
     letterSpacing: -2,
     flexShrink: 0,
@@ -1962,14 +1992,14 @@ const styles = StyleSheet.create({
   weekday: {
     fontFamily: fonts.nexonMedium,
     fontSize: 22,
-    color: colors.muted,
+    color: c.muted,
     textAlign: 'right',
     width: '100%',
   },
   dateLabel: {
     fontFamily: fonts.nexonMedium,
     fontSize: 20,
-    color: colors.mutedLight,
+    color: c.mutedLight,
     textAlign: 'right',
     width: '100%',
   },
@@ -1988,7 +2018,7 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     borderRadius: radii.weekDay,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     zIndex: 0,
   },
   dayPager: {
@@ -2011,14 +2041,14 @@ const styles = StyleSheet.create({
   weekDayNum: {
     fontFamily: fonts.gothamBold,
     fontSize: 22,
-    color: colors.muted,
+    color: c.muted,
     textAlign: 'center',
     width: 26,
   },
   weekDow: {
     fontFamily: fonts.nexonBold,
     fontSize: 12,
-    color: colors.mutedLight,
+    color: c.mutedLight,
     textAlign: 'center',
     width: 26,
   },
@@ -2044,7 +2074,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontFamily: fonts.nexonMedium,
     fontSize: 16,
-    color: colors.sectionLabel,
+    color: c.sectionLabel,
   },
   studyList: {
     width: '100%',
@@ -2070,14 +2100,14 @@ const styles = StyleSheet.create({
   studyChipText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 15,
-    color: colors.white,
+    color: c.onAccent,
     textAlign: 'center',
   },
   studyBody: {
     flex: 1,
     minWidth: 0,
     height: sizes.studyBodyHeight,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radii.chip,
     justifyContent: 'center',
     paddingLeft: 14,
@@ -2086,13 +2116,13 @@ const styles = StyleSheet.create({
   studyBodyText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
-    color: colors.body,
+    color: c.body,
   },
   addStudyBtn: {
     height: sizes.addStudyHeight,
     borderRadius: radii.chip,
-    // Empty / future shell fill (`colors.surface` = #F2F6FA).
-    backgroundColor: colors.surface,
+    // Empty / future shell fill (`c.surface` = #F2F6FA).
+    backgroundColor: c.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2102,7 +2132,7 @@ const styles = StyleSheet.create({
   addStudyText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
-    color: colors.accentText,
+    color: c.accentText,
   },
   addStudyMoreBtn: {
     height: sizes.studyBodyHeight,
@@ -2118,12 +2148,12 @@ const styles = StyleSheet.create({
   addStudyMoreText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
-    color: colors.accentText,
+    color: c.accentText,
   },
   studyCapHint: {
     fontFamily: fonts.nexonMedium,
     fontSize: 13,
-    color: colors.muted,
+    color: c.muted,
     paddingHorizontal: spacing.labelPad,
   },
   reviewGrid: {
@@ -2133,7 +2163,7 @@ const styles = StyleSheet.create({
     gap: spacing.reviewGap,
   },
   reviewCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radii.reviewCard,
     paddingTop: 12,
     paddingBottom: 11,
@@ -2145,10 +2175,10 @@ const styles = StyleSheet.create({
   },
   reviewCardEmpty: {
     // No checkbox / detail — white shell + hairline border (not gray fill).
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderWidth: 1,
     // One step lighter than mutedLight (#ced7e0).
-    borderColor: '#e4eaef',
+    borderColor: c.hairline,
     justifyContent: 'flex-start',
   },
   reviewCardInner: {
@@ -2175,12 +2205,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxOff: {
-    backgroundColor: colors.mutedLight,
+    backgroundColor: c.mutedLight,
   },
   intervalText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 11,
-    color: colors.accentText,
+    color: c.accentText,
     letterSpacing: -0.44,
     flexShrink: 1,
   },
@@ -2188,7 +2218,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 11,
     // Noticeably lighter than filled 「N일 전」 (accentText).
-    color: colors.mutedLight,
+    color: c.mutedLight,
     letterSpacing: -0.44,
   },
   reviewChips: {
@@ -2206,7 +2236,7 @@ const styles = StyleSheet.create({
   reviewChipText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 12,
-    color: colors.white,
+    color: c.onAccent,
     textAlign: 'center',
     lineHeight: 16,
   },
@@ -2221,7 +2251,7 @@ const styles = StyleSheet.create({
   detailText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 10,
-    color: colors.muted,
+    color: c.muted,
     letterSpacing: -0.4,
     textAlign: 'right',
     lineHeight: 12,
@@ -2232,12 +2262,12 @@ const styles = StyleSheet.create({
     width: sizes.fab,
     height: sizes.fab,
     borderRadius: radii.fab,
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#343D4B',
+    shadowColor: c.fabShadowColor,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
+    shadowOpacity: c.fabShadowOpacity,
     shadowRadius: 32,
     elevation: 4,
     zIndex: 10,
@@ -2263,3 +2293,4 @@ const styles = StyleSheet.create({
     transform: [{ scaleX: -1 }],
   },
 });
+}

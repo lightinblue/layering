@@ -1,3 +1,4 @@
+import { StatusBar } from 'expo-status-bar';
 import { useCallback, useRef, useState } from 'react';
 import {
   FlatList,
@@ -27,7 +28,7 @@ import {
   TUTORIAL_PAGES,
   type TutorialPage,
 } from '@/constants/tutorial';
-import { useThemeColors } from '@/theme/ThemeProvider';
+import { useColorScheme, useThemeColors } from '@/theme/ThemeProvider';
 import { haptics } from '@/utils/haptics';
 
 type TutorialScreenProps = {
@@ -40,6 +41,7 @@ type TutorialScreenProps = {
  */
 export function TutorialScreen({ onFinished }: TutorialScreenProps) {
   const colors = useThemeColors();
+  const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<TutorialPage>>(null);
@@ -144,6 +146,7 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
           paddingBottom: Math.max(insets.bottom, 20) + 8,
         },
       ]}>
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <View style={[styles.topBar, { width: contentWidth }]}>
         <View style={styles.dots}>
           {TUTORIAL_PAGES.map((_, i) => (
@@ -200,7 +203,7 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
               opacity: pressed ? 0.88 : 1,
             },
           ]}>
-          <Text style={[styles.ctaLabel, { color: colors.white }]}>
+          <Text style={[styles.ctaLabel, { color: colors.onAccent }]}>
             {isLast ? '시작하기' : '다음'}
           </Text>
         </Pressable>

@@ -96,16 +96,29 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <CalendarPrefsProvider>
-        <View style={styles.root}>
-          {tutorialSeen ? (
-            <RootLayoutNav />
-          ) : (
-            <TutorialScreen onFinished={finishTutorial} />
-          )}
-          <LaunchScreen />
-        </View>
+        <RootChrome tutorialSeen={tutorialSeen} onTutorialFinished={finishTutorial} />
       </CalendarPrefsProvider>
     </ThemeProvider>
+  );
+}
+
+function RootChrome({
+  tutorialSeen,
+  onTutorialFinished,
+}: {
+  tutorialSeen: boolean;
+  onTutorialFinished: () => void;
+}) {
+  const colors = useThemeColors();
+  return (
+    <View style={[styles.root, { backgroundColor: colors.mainWhite }]}>
+      {tutorialSeen ? (
+        <RootLayoutNav />
+      ) : (
+        <TutorialScreen onFinished={onTutorialFinished} />
+      )}
+      <LaunchScreen />
+    </View>
   );
 }
 
