@@ -24,10 +24,7 @@ import {
   type SubjectOption,
 } from '@/components/home/AddStudyForm';
 import { StudyDayTimeline } from '@/components/home/StudyDayTimeline';
-import {
-  ArrowRightIcon,
-  EllipseIcon,
-} from '@/components/icons/HomeIcons';
+import { ArrowRightIcon } from '@/components/icons/HomeIcons';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import type { HomeStudyRow } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
@@ -224,18 +221,20 @@ export default function DayTimelineScreen() {
           Easing.out(Easing.cubic),
         )}
         style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="뒤로"
-          hitSlop={12}
-          onPress={onClose}
-          style={styles.backBtn}>
-          <View style={styles.backArrow}>
-            <ArrowRightIcon color={colors.muted} />
-          </View>
-          <Text style={[styles.backText, { color: colors.muted }]}>홈</Text>
-        </Pressable>
-        <DayTitleDate meta={meta} isToday={isToday} />
+        <View style={styles.headerBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="뒤로"
+            hitSlop={12}
+            onPress={onClose}
+            style={styles.backBtn}>
+            <View style={styles.backArrow}>
+              <ArrowRightIcon color={colors.muted} />
+            </View>
+            <Text style={[styles.backText, { color: colors.muted }]}>홈</Text>
+          </Pressable>
+          <DayTitleDate meta={meta} isToday={isToday} />
+        </View>
       </Animated.View>
 
       <ScrollView
@@ -286,7 +285,7 @@ function parseLoose(dateKey: string): Date {
   return new Date(y, (m || 1) - 1, d || 1);
 }
 
-/** `11/19 (목)` — Gotham digits (home date face) + Nexon weekday; today → small ellipse. */
+/** Far-right light gray `11.19 (목)` — Gotham digits + Nexon weekday. */
 function DayTitleDate({
   meta,
   isToday,
@@ -298,23 +297,18 @@ function DayTitleDate({
   const month = meta.dateKey.slice(5, 7).replace(/^0/, '');
   const day = String(meta.day);
   return (
-    <View
-      style={styles.titleRow}
+    <Text
       accessibilityRole="header"
-      accessibilityLabel={`${month}월 ${day}일 ${meta.weekdayLabel}${isToday ? ', 오늘' : ''}`}>
-      <Text style={[styles.titleNums, { color: colors.black }]}>
-        {month}/{day}
+      accessibilityLabel={`${month}월 ${day}일 ${meta.weekdayLabel}${isToday ? ', 오늘' : ''}`}
+      style={styles.titleDate}>
+      <Text style={[styles.titleNums, { color: colors.mutedLight }]}>
+        {month}.{day}
       </Text>
-      <Text style={[styles.titleDow, { color: colors.black }]}>
+      <Text style={[styles.titleDow, { color: colors.mutedLight }]}>
         {' '}
         ({meta.dow})
       </Text>
-      {isToday ? (
-        <View style={styles.todayDot}>
-          <EllipseIcon size={10} />
-        </View>
-      ) : null}
-    </View>
+    </Text>
   );
 }
 
@@ -330,13 +324,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
-    gap: 10,
+  },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    alignSelf: 'flex-start',
   },
   backArrow: {
     transform: [{ scaleX: -1 }],
@@ -345,23 +342,19 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
   },
-  titleRow: {
+  titleDate: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   titleNums: {
-    fontFamily: fonts.gothamBold,
-    fontSize: 28,
-    letterSpacing: -0.5,
+    fontFamily: fonts.gothamMedium,
+    fontSize: 16,
+    letterSpacing: -0.2,
     includeFontPadding: false,
   },
   titleDow: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 20,
-  },
-  todayDot: {
-    marginLeft: 8,
-    justifyContent: 'center',
+    fontSize: 15,
   },
   scroll: {
     paddingHorizontal: 20,

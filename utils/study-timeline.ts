@@ -15,7 +15,7 @@ export type TimelineBandView = {
   slots: TimelineSlot[];
   /** One add control for this band (not per empty slot). */
   showAdd: boolean;
-  /** Visual slot-heights the single add control should span. */
+  /** Display height in slot units (~3/4/3 pad, not hard cap). */
   addSpan: number;
   addLabel: string;
 };
@@ -69,14 +69,16 @@ export function buildTimelineBands(
       kind: 'study',
       row,
     }));
-    const spare = Math.max(0, band.emptySlots - filled.length);
+    const hardSpare = Math.max(0, band.emptySlots - filled.length);
+    // Display pad uses ~3/4/3 visual heights, independent of hard 4/6/4 caps.
+    const visualSpare = Math.max(0, band.visualPad - filled.length);
     return {
       id: band.id,
       labelStart: band.labelStart,
       labelEnd: band.labelEnd,
       slots,
-      showAdd: spare > 0 || band.id === 'evening',
-      addSpan: Math.max(1, spare),
+      showAdd: hardSpare > 0 || band.id === 'evening',
+      addSpan: Math.max(1, visualSpare),
       addLabel: band.addLabel,
     };
   });

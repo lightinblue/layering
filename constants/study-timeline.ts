@@ -7,8 +7,9 @@
 export const TIMELINE_MAX_STUDIES_PER_DAY = 14;
 
 /**
- * Visual empty-slot capacity per band (between clock marks).
- * Filled items may exceed a band’s empty count; empties pad up to these.
+ * Per-band limits:
+ * - emptySlots = hard fill cap (4 / 6 / 4)
+ * - visualPad = display height padding (~3 / 4 / 3) for empty add control
  */
 export const TIMELINE_BANDS = [
   {
@@ -16,6 +17,7 @@ export const TIMELINE_BANDS = [
     labelStart: '8',
     labelEnd: '12',
     emptySlots: 4,
+    visualPad: 3,
     addLabel: '오전 투두',
   },
   {
@@ -23,6 +25,7 @@ export const TIMELINE_BANDS = [
     labelStart: '12',
     labelEnd: '18',
     emptySlots: 6,
+    visualPad: 4,
     addLabel: '오후 투두',
   },
   {
@@ -30,6 +33,7 @@ export const TIMELINE_BANDS = [
     labelStart: '18',
     labelEnd: '24',
     emptySlots: 4,
+    visualPad: 3,
     addLabel: '밤 투두',
   },
 ] as const;

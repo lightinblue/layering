@@ -157,6 +157,7 @@ function TimelineMark({ label }: { label: string }) {
 
 function BandAddControl({
   label,
+  span,
   onPress,
 }: {
   label: string;
@@ -164,6 +165,7 @@ function BandAddControl({
   onPress: () => void;
 }) {
   const colors = useThemeColors();
+  const height = SLOT_HEIGHT * span + 5 * Math.max(0, span - 1);
   return (
     <Animated.View entering={ENTER} exiting={EXIT} layout={ROW_LAYOUT}>
       <Pressable
@@ -172,7 +174,10 @@ function BandAddControl({
         onPress={onPress}
         style={[
           styles.bandAdd,
-          { backgroundColor: colors.surface },
+          {
+            minHeight: height,
+            backgroundColor: colors.surface,
+          },
         ]}>
         <PlusIcon size={14} />
         <Text style={[styles.emptyText, { color: colors.accentText }]}>
@@ -412,12 +417,12 @@ const styles = StyleSheet.create({
     paddingLeft: 32,
   },
   bandAdd: {
-    height: SLOT_HEIGHT,
     borderRadius: radii.chip,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    paddingVertical: 6,
   },
   emptyText: {
     fontFamily: fonts.nexonMedium,
@@ -448,7 +453,7 @@ const styles = StyleSheet.create({
     minWidth: 56,
     height: 32,
     paddingHorizontal: 10,
-    borderRadius: radii.chip,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
