@@ -1,10 +1,14 @@
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
-import { Image, StyleSheet } from 'react-native';
+import { Image, StyleSheet, useColorScheme as useSystemColorScheme } from 'react-native';
 import Animated, { FadeOut } from 'react-native-reanimated';
 
-import { useColorScheme } from '@/components/useColorScheme';
-import { LAUNCH, launchHoldBeforeFadeMs } from '@/constants/launch';
+import {
+  LAUNCH,
+  LAUNCH_MARK_DARK,
+  LAUNCH_MARK_LIGHT,
+  launchHoldBeforeFadeMs,
+} from '@/constants/launch';
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => {
@@ -14,17 +18,18 @@ function sleep(ms: number) {
 
 /**
  * In-app splash: symbol only, true center — must match expo-splash-screen
- * (same asset, imageWidth ≈ markSize, scheme bg) so hideAsync does not flash.
- * Expo Go still paints the app icon as its native splash (SDK 52+ limit);
- * we use that same icon asset here so the handoff stays one symbol.
+ * (light/dark image + bg, imageWidth ≈ markSize) so hideAsync does not flash.
+ * Uses system appearance directly so the mark matches native splash before
+ * ThemeProvider settles.
  */
 export function LaunchScreen() {
-  const colorScheme = useColorScheme();
+  const systemScheme = useSystemColorScheme();
   const [visible, setVisible] = useState(true);
-  const backgroundColor =
-    colorScheme === 'dark'
-      ? LAUNCH.backgroundColorDark
-      : LAUNCH.backgroundColor;
+  const isDark = systemScheme === 'dark';
+  const backgroundColor = isDark
+    ? LAUNCH.backgroundColorDark
+    : LAUNCH.backgroundColor;
+  const markSource = isDark ? LAUNCH_MARK_DARK : LAUNCH_MARK_LIGHT;
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +60,7 @@ export function LaunchScreen() {
       <Image
         accessibilityIgnoresInvertColors
         style={styles.mark}
-        source={require('../assets/images/icon.png')}
+        source={markSource}
         resizeMode="contain"
       />
     </Animated.View>

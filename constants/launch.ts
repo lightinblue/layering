@@ -14,6 +14,12 @@ export const LAUNCH = {
   fadeOutMs: 400,
 } as const;
 
+/** Light mark — same asset as expo-splash-screen `image`. */
+export const LAUNCH_MARK_LIGHT = require('../assets/images/icon.png');
+
+/** Dark mark — dark-bg logo; matches expo-splash-screen `dark.image`. */
+export const LAUNCH_MARK_DARK = require('../assets/images/splash-logo-dark.png');
+
 export function launchHoldBeforeFadeMs() {
   return LAUNCH.holdMs;
 }
