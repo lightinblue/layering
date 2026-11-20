@@ -22,7 +22,7 @@ import {
 import {
   activeRecords,
   activeSubjects,
-  dedupeStudyRecords,
+  recoverFromShowcaseContamination,
 } from '@/utils/icloud-merge';
 import { buildReviewDueDates } from '@/utils/review-schedule';
 
@@ -295,12 +295,11 @@ async function finalizeLoadedAppData(data: AppData): Promise<AppData> {
     records: data.records,
     schedules: data.schedules,
   };
-  const { records, didChange } = dedupeStudyRecords(colored.records);
-  if (!didChange) return colored;
-  const next: AppData = { ...colored, records };
-  // Persist + push tombstones so Mac/KVS drop content twins (sync default).
-  await saveAppData(next);
-  return next;
+  const cleanup = recoverFromShowcaseContamination(colored);
+  if (!cleanup.didChange) return colored;
+  // Persist + push tombstones so Mac/KVS drop seed junk + content twins.
+  await saveAppData(cleanup.data);
+  return cleanup.data;
 }
 
 export async function loadAppData(): Promise<AppData> {

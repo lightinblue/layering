@@ -7,6 +7,7 @@ import {
   mergeChecks,
   pickWinner,
   purgeExpiredTombstones,
+  recoverFromShowcaseContamination,
   SOFT_DELETE_PURGE_DAYS,
 } from '@/utils/icloud-merge';
 
@@ -170,6 +171,7 @@ describe('dedupeStudyRecords', () => {
       id: 'a',
       studiedOn: '2026-11-20',
       subjectId: 'edu',
+      subjectName: '교육학',
       content: '만능틀 적용, 연습',
       updatedAt: '2026-11-20T01:00:00.000Z',
     });
@@ -177,6 +179,7 @@ describe('dedupeStudyRecords', () => {
       id: 'b',
       studiedOn: '2026-11-20',
       subjectId: 'edu',
+      subjectName: '교육학',
       content: '만능틀 적용, 연습',
       updatedAt: '2026-11-20T02:00:00.000Z',
     });
@@ -186,6 +189,95 @@ describe('dedupeStudyRecords', () => {
     expect(active).toHaveLength(1);
     expect(active[0]?.id).toBe('b');
     expect(records.find((r) => r.id === 'a')?.deleted).toBe(true);
+  });
+
+  it('matches twins across subjectId drift and NFC/NFD Hangul', () => {
+    const nfc = '만능틀 적용, 연습';
+    const nfd = nfc.normalize('NFD');
+    expect(nfc).not.toBe(nfd);
+    const a = study({
+      id: 'a',
+      studiedOn: '2026-11-20',
+      subjectId: 'phone-edu',
+      subjectName: '교육학',
+      content: nfc,
+      updatedAt: '2026-11-20T01:00:00.000Z',
+    });
+    const b = study({
+      id: 'b',
+      studiedOn: '2026-11-20',
+      subjectId: 'mac-edu',
+      subjectName: '교육학'.normalize('NFD'),
+      content: nfd,
+      updatedAt: '2026-11-20T02:00:00.000Z',
+    });
+    const { records, didChange } = dedupeStudyRecords([a, b]);
+    expect(didChange).toBe(true);
+    expect(records.filter((r) => !r.deleted)).toHaveLength(1);
+  });
+
+  it('does not collapse 만능틀 vs 만능틀 정리', () => {
+    const a = study({
+      id: 'a',
+      studiedOn: '2026-11-20',
+      subjectName: '교육학',
+      content: '만능틀',
+    });
+    const b = study({
+      id: 'b',
+      studiedOn: '2026-11-20',
+      subjectName: '교육학',
+      content: '만능틀 정리',
+    });
+    const { records, didChange } = dedupeStudyRecords([a, b]);
+    expect(didChange).toBe(false);
+    expect(records.filter((r) => !r.deleted)).toHaveLength(2);
+  });
+});
+
+describe('recoverFromShowcaseContamination', () => {
+  it('tombstones shot-* seed and keeps real unique studies', () => {
+    const real = study({
+      id: 'real-1',
+      studiedOn: '2026-11-20',
+      subjectId: 'edu',
+      subjectName: '교육학',
+      content: '만능틀 적용, 연습',
+    });
+    const twin = study({
+      id: 'real-2',
+      studiedOn: '2026-11-20',
+      subjectId: 'edu',
+      subjectName: '교육학',
+      content: '만능틀 적용, 연습',
+      updatedAt: '2026-11-20T02:00:00.000Z',
+    });
+    const seed = study({
+      id: 'shot-today-a1',
+      studiedOn: '2026-11-20',
+      subjectId: 'shot-sub-edu',
+      subjectName: '교육학',
+      content: '1단원 교육과정',
+    });
+    const seedSub = subject({
+      id: 'shot-sub-korean',
+      name: '국어',
+    });
+    const realSub = subject({ id: 'edu', name: '교육학' });
+    const cleanup = recoverFromShowcaseContamination({
+      subjects: [realSub, seedSub],
+      records: [real, twin, seed],
+      schedules: [],
+    });
+    expect(cleanup.didChange).toBe(true);
+    expect(cleanup.seedRecordsTombstoned).toBe(1);
+    expect(cleanup.seedSubjectsTombstoned).toBe(1);
+    const active = cleanup.data.records.filter((r) => !r.deleted);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.content).toBe('만능틀 적용, 연습');
+    expect(cleanup.data.subjects.find((s) => s.id === 'shot-sub-korean')?.deleted).toBe(
+      true,
+    );
   });
 });
 
