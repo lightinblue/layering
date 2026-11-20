@@ -36,17 +36,14 @@ enum AppMutations {
     ICloudMerge.activeRecords(data.records).filter { $0.studiedOn == dateKey }.count
   }
 
+  /// Local empty-state only. Uses epoch `updatedAt` so a later iCloud merge
+  /// always prefers phone subjects (never stamp `now` — that used to win LWW).
   static func ensureSeedSubjects(_ data: AppData, now: Date = Date()) -> AppData {
+    _ = now
     if !ICloudMerge.activeSubjects(data.subjects).isEmpty {
       return data
     }
-    let at = ISO8601DateFormatter.fractional.string(from: now)
-    let seeded = defaultSubjects.map { chip -> SubjectChip in
-      var next = chip
-      next.updatedAt = at
-      return next
-    }
-    return AppData(subjects: seeded, records: data.records)
+    return AppData(subjects: defaultSubjects, records: data.records)
   }
 
   static func normalizeSubjectName(_ raw: String) -> String? {

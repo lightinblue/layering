@@ -1,4 +1,7 @@
 import Foundation
+import os.log
+
+private let kvsLog = Logger(subsystem: "com.lightinblue.layering.mac", category: "KVS")
 
 /// Thin wrapper around `NSUbiquitousKeyValueStore` — same keys as iOS Expo module.
 /// Local UserDefaults mirror keeps Mac usable when iCloud is off; push when available.
@@ -14,19 +17,26 @@ final class ICloudKvsStore: ObservableObject {
   private let deviceId: String
   private let localCacheKey = "poogae.mac.app-data-v1"
   private var applyingRemote = false
+  /// True once we have seen non-empty cloud subjects or month records.
+  private var hasSeenRemotePayload = false
+  private var bootstrapRetryTask: Task<Void, Never>?
 
   init(deviceId: String = DeviceIdentity.loadOrCreate()) {
     self.deviceId = deviceId
     iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
     if let cached = loadLocalCache() {
-      data = AppMutations.ensureSeedSubjects(cached)
+      // Local cache only — never push seed from init.
+      data = cached
     }
     observer = NotificationCenter.default.addObserver(
       forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
       object: store,
       queue: .main
-    ) { [weak self] _ in
+    ) { [weak self] notification in
+      let reason = notification.userInfo?[NSUbiquitousKeyValueStoreChangeReasonKey] as? Int
+      let keys = notification.userInfo?[NSUbiquitousKeyValueStoreChangedKeysKey] as? [String] ?? []
       Task { @MainActor in
+        kvsLog.info("external change reason=\(reason ?? -1, privacy: .public) keys=\(keys.joined(separator: ","), privacy: .public)")
         await self?.refreshFromCloud()
       }
     }
@@ -36,35 +46,64 @@ final class ICloudKvsStore: ObservableObject {
     if let observer {
       NotificationCenter.default.removeObserver(observer)
     }
+    bootstrapRetryTask?.cancel()
   }
 
   func bootstrap() async {
     _ = store.synchronize()
     iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
     await refreshFromCloud()
+
+    // Local-only seed for empty UI. NEVER push — early push overwrites phone subjects
+    // when KVS has not downloaded yet (looks like “클라우드 비어 있음”).
     if ICloudMerge.activeSubjects(data.subjects).isEmpty {
-      let seeded = AppMutations.ensureSeedSubjects(data)
-      applyLocal(seeded, push: iCloudAvailable)
+      data = AppMutations.ensureSeedSubjects(data)
+      persistLocalCache(data)
+      kvsLog.info("local seed applied (no cloud push)")
     }
+
+    scheduleBootstrapRetries()
   }
 
   func refreshFromCloud() async {
     iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
     _ = store.synchronize()
 
-    let subjectsPayload = readSubjects()
+    let allKeys = store.dictionaryRepresentation.keys.compactMap { $0 as? String }
+    let subjectKeys = allKeys.filter { $0 == KVSKeys.subjects }
+    let monthKeys = allKeys
+      .filter { $0.hasPrefix(KVSKeys.monthPrefix) }
+      .sorted()
+
+    let subjectsRead = readSubjects()
+    let subjectsPayload = subjectsRead.payload
     var remoteRecords: [StudyRecord] = []
     var remoteDeviceId = subjectsPayload?.deviceId ?? ""
+    var monthDecodeFailures = 0
 
-    var months = Set(DateKeys.nearbyYearMonths())
-    months.formUnion(localYearMonths())
-    for ym in months.sorted() {
-      if let month = readMonth(KVSKeys.monthKey(ym)) {
-        remoteRecords.append(contentsOf: month.records)
-        if remoteDeviceId.isEmpty {
-          remoteDeviceId = month.deviceId
-        }
+    // Match iOS: read every `rec/*` key present in the store (not only ±1 month).
+    let keysToRead = monthKeys.isEmpty
+      ? DateKeys.nearbyYearMonths().map(KVSKeys.monthKey)
+      : monthKeys
+
+    for key in keysToRead {
+      let monthRead = readMonth(key)
+      if monthRead.hadRaw, monthRead.payload == nil {
+        monthDecodeFailures += 1
+        kvsLog.error("decode failed for \(key, privacy: .public)")
       }
+      guard let month = monthRead.payload else { continue }
+      remoteRecords.append(contentsOf: month.records)
+      if remoteDeviceId.isEmpty {
+        remoteDeviceId = month.deviceId
+      }
+    }
+
+    let hadRemote =
+      (subjectsPayload?.subjects.isEmpty == false)
+      || !remoteRecords.isEmpty
+    if hadRemote {
+      hasSeenRemotePayload = true
     }
 
     applyingRemote = true
@@ -77,16 +116,33 @@ final class ICloudKvsStore: ObservableObject {
       localDeviceId: deviceId,
       remoteDeviceId: remoteDeviceId
     )
-    data = AppMutations.ensureSeedSubjects(merged)
-    persistLocalCache(data)
-    lastReadAt = Date()
-    if !iCloudAvailable {
-      statusMessage = "iCloud 없음 — 로컬만"
-    } else if subjectsPayload == nil && remoteRecords.isEmpty {
-      statusMessage = "클라우드 비어 있음 (읽기 OK)"
+
+    if hadRemote {
+      data = merged
+      persistLocalCache(data)
+      // Reconcile union to cloud after remote merge (same as iOS pullAndMerge).
+      pushToCloud(data)
+    } else if ICloudMerge.activeSubjects(merged.subjects).isEmpty {
+      // Still empty after pull — seed locally only (epoch timestamps; never push here).
+      data = AppMutations.ensureSeedSubjects(merged)
+      persistLocalCache(data)
     } else {
-      statusMessage = "KVS 동기화됨"
+      data = merged
+      persistLocalCache(data)
     }
+
+    lastReadAt = Date()
+    statusMessage = makeStatus(
+      iCloud: iCloudAvailable,
+      subjectKeyPresent: !subjectKeys.isEmpty,
+      subjectsDecoded: subjectsPayload != nil,
+      subjectsDecodeFailed: subjectsRead.hadRaw && subjectsPayload == nil,
+      monthKeyCount: monthKeys.count,
+      remoteRecordCount: remoteRecords.count,
+      monthDecodeFailures: monthDecodeFailures,
+      hadRemote: hadRemote
+    )
+    kvsLog.info("\(self.statusMessage, privacy: .public) localSubjects=\(self.data.subjects.count) localRecords=\(self.data.records.count)")
   }
 
   /// Apply mutation, cache locally, and push to KVS when available.
@@ -97,10 +153,25 @@ final class ICloudKvsStore: ObservableObject {
     pushToCloud(next)
   }
 
+  private func scheduleBootstrapRetries() {
+    bootstrapRetryTask?.cancel()
+    bootstrapRetryTask = Task { @MainActor in
+      // KVS download is async; empty first read is normal. Retry before giving up.
+      for delayNs in [2_000_000_000, 5_000_000_000, 12_000_000_000] as [UInt64] {
+        try? await Task.sleep(nanoseconds: delayNs)
+        if Task.isCancelled { return }
+        if hasSeenRemotePayload { return }
+        kvsLog.info("bootstrap re-pull after delay")
+        _ = store.synchronize()
+        await refreshFromCloud()
+      }
+    }
+  }
+
   private func pushToCloud(_ next: AppData) {
     iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
     guard iCloudAvailable else {
-      statusMessage = "iCloud 없음 — 로컬만"
+      statusMessage = "iCloud 없음 — 로컬만 (Team R39JVZ3ZNL + iCloud 로그인 확인)"
       return
     }
 
@@ -125,25 +196,72 @@ final class ICloudKvsStore: ObservableObject {
     }
 
     _ = store.synchronize()
-    statusMessage = "KVS 동기화됨"
+    if !statusMessage.contains("KVS") {
+      statusMessage = "KVS 동기화됨 · subjects=\(next.subjects.count) rec=\(next.records.count)"
+    }
   }
 
-  private func readSubjects() -> SubjectsPayload? {
-    guard let raw = store.string(forKey: KVSKeys.subjects),
-          let data = raw.data(using: .utf8)
-    else { return nil }
-    return try? JSONDecoder().decode(SubjectsPayload.self, from: data)
+  private struct DecodeRead<T> {
+    var payload: T?
+    var hadRaw: Bool
   }
 
-  private func readMonth(_ key: String) -> MonthPayload? {
-    guard let raw = store.string(forKey: key),
-          let data = raw.data(using: .utf8)
-    else { return nil }
-    return try? JSONDecoder().decode(MonthPayload.self, from: data)
+  private func readSubjects() -> DecodeRead<SubjectsPayload> {
+    guard let raw = store.string(forKey: KVSKeys.subjects) else {
+      return DecodeRead(payload: nil, hadRaw: false)
+    }
+    guard let data = raw.data(using: .utf8) else {
+      return DecodeRead(payload: nil, hadRaw: true)
+    }
+    do {
+      let payload = try JSONDecoder().decode(SubjectsPayload.self, from: data)
+      return DecodeRead(payload: payload, hadRaw: true)
+    } catch {
+      kvsLog.error("subjects decode error: \(error.localizedDescription, privacy: .public)")
+      return DecodeRead(payload: nil, hadRaw: true)
+    }
   }
 
-  private func localYearMonths() -> Set<String> {
-    Set(data.records.map { KVSKeys.yearMonth(from: $0.studiedOn) })
+  private func readMonth(_ key: String) -> DecodeRead<MonthPayload> {
+    guard let raw = store.string(forKey: key) else {
+      return DecodeRead(payload: nil, hadRaw: false)
+    }
+    guard let data = raw.data(using: .utf8) else {
+      return DecodeRead(payload: nil, hadRaw: true)
+    }
+    do {
+      let payload = try JSONDecoder().decode(MonthPayload.self, from: data)
+      return DecodeRead(payload: payload, hadRaw: true)
+    } catch {
+      kvsLog.error("month \(key, privacy: .public) decode error: \(error.localizedDescription, privacy: .public)")
+      return DecodeRead(payload: nil, hadRaw: true)
+    }
+  }
+
+  private func makeStatus(
+    iCloud: Bool,
+    subjectKeyPresent: Bool,
+    subjectsDecoded: Bool,
+    subjectsDecodeFailed: Bool,
+    monthKeyCount: Int,
+    remoteRecordCount: Int,
+    monthDecodeFailures: Int,
+    hadRemote: Bool
+  ) -> String {
+    if !iCloud {
+      return "iCloud 없음 — 로컬만 (Team R39JVZ3ZNL ≠ Personal)"
+    }
+    if subjectsDecodeFailed {
+      return "subjects 디코드 실패 · rec keys=\(monthKeyCount)"
+    }
+    if monthDecodeFailures > 0 {
+      return "KVS 일부 디코드 실패 · months=\(monthDecodeFailures) · rec=\(remoteRecordCount)"
+    }
+    if hadRemote {
+      let subj = subjectsDecoded ? "ok" : (subjectKeyPresent ? "empty" : "missing")
+      return "KVS 동기화됨 · subjects=\(subj) · rec keys=\(monthKeyCount) · records=\(remoteRecordCount)"
+    }
+    return "클라우드 대기/비어 있음 · keys subjects=\(subjectKeyPresent ? 1 : 0) rec=\(monthKeyCount)"
   }
 
   private func persistLocalCache(_ next: AppData) {

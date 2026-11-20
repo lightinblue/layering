@@ -29,7 +29,9 @@ xcodebuild -project macos/PoogaeMac.xcodeproj -scheme PoogaeMac -configuration D
 2. Select target **PoogaeMac** → **Signing & Capabilities** → check **Automatically manage signing** → **Team** = `R39JVZ3ZNL` (not empty).
 3. Press **Run** (My Mac). Xcode will create the Mac development cert/profile if needed.
 
-A free **Personal Team** can also clear the two signing errors for My Mac-only debug, but its Team ID ≠ `R39JVZ3ZNL`, so iCloud KVS will **not** share data with the iOS app. Prefer the paid team above for real sync testing.
+A free **Personal Team** shows as **`Name (Personal Team)`** in the Team dropdown and uses a different Team ID — iCloud KVS will **not** share data with the iOS app. The paid Individual team appears as **`Seoyoung Yoon`** (no “Personal Team” suffix) with Team ID **`R39JVZ3ZNL`**. Prefer that for sync testing.
+
+**KVS status** (menu bar footer): after Run, look for `KVS 동기화됨 · subjects=ok · rec keys=…`. `클라우드 대기/비어 있음` that never clears usually means Mac iCloud Apple ID ≠ phone, or phone has not pushed yet — not a wrong Team ID when Team is already `R39JVZ3ZNL`.
 
 ## Usable now (phase 2–3 slice)
 
