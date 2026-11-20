@@ -156,6 +156,8 @@ struct AppData: Sendable {
 enum KVSKeys {
   static let subjects = "subjects"
   static let monthPrefix = "rec/"
+  /// Device settings JSON (`SyncedPrefsPayload`) — weekStartsOn (+ optional themePrimary).
+  static let prefs = "prefs"
 
   static func monthKey(_ yearMonth: String) -> String {
     monthPrefix + yearMonth
@@ -164,6 +166,33 @@ enum KVSKeys {
   static func yearMonth(from dateKey: String) -> String {
     String(DateKeys.normalizeDateKey(dateKey).prefix(7))
   }
+}
+
+/// Synced via KVS `prefs` (matches iOS `storage/synced-prefs.ts`).
+struct SyncedPrefsBody: Codable, Hashable, Sendable {
+  /// 0 = Sunday, 1 = Monday (Date.getDay / Calendar.weekday).
+  var weekStartsOn: Int
+  var themePrimary: String?
+
+  static let `default` = SyncedPrefsBody(weekStartsOn: 0, themePrimary: nil)
+
+  init(weekStartsOn: Int = 0, themePrimary: String? = nil) {
+    self.weekStartsOn = (weekStartsOn == 1) ? 1 : 0
+    self.themePrimary = themePrimary
+  }
+
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    let raw = try c.decodeIfPresent(Int.self, forKey: .weekStartsOn) ?? 0
+    weekStartsOn = (raw == 1) ? 1 : 0
+    themePrimary = try c.decodeIfPresent(String.self, forKey: .themePrimary)
+  }
+}
+
+struct SyncedPrefsPayload: Codable, Hashable, Sendable {
+  var deviceId: String
+  var updatedAt: String
+  var prefs: SyncedPrefsBody
 }
 
 enum ReviewIntervals {

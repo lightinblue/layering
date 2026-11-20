@@ -5,6 +5,25 @@ import Foundation
 enum ICloudMerge {
   static let softDeletePurgeDays = 180
 
+  /// LWW for KVS `prefs` (matches iOS `mergeSyncedPrefsPayload`).
+  static func mergeSyncedPrefs(
+    local: SyncedPrefsPayload?,
+    remote: SyncedPrefsPayload?,
+    localDeviceId: String
+  ) -> SyncedPrefsPayload? {
+    guard let remote else { return local }
+    guard let local else { return remote }
+    let winner = pickWinner(
+      local: local,
+      remote: remote,
+      localUpdatedAt: local.updatedAt,
+      remoteUpdatedAt: remote.updatedAt,
+      localDeviceId: local.deviceId.isEmpty ? localDeviceId : local.deviceId,
+      remoteDeviceId: remote.deviceId
+    )
+    return winner
+  }
+
   static func parseIso(_ iso: String) -> TimeInterval {
     ISO8601DateFormatter.fractional.date(from: iso)?.timeIntervalSince1970
       ?? ISO8601DateFormatter().date(from: iso)?.timeIntervalSince1970

@@ -76,7 +76,12 @@ struct CalendarView: View {
   }
 
   private var weekdayLabels: [String] {
-    ["일", "월", "화", "수", "목", "금", "토"]
+    let all = ["일", "월", "화", "수", "목", "금", "토"]
+    // weekStartsOn: 0 = Sunday, 1 = Monday (synced via KVS prefs).
+    if model.weekStartsOn == 1 {
+      return Array(all[1...]) + [all[0]]
+    }
+    return all
   }
 
   private var daysInMonth: [Date?] {
@@ -84,7 +89,9 @@ struct CalendarView: View {
     guard let range = cal.range(of: .day, in: .month, for: monthAnchor),
           let first = cal.date(from: cal.dateComponents([.year, .month], from: monthAnchor))
     else { return [] }
-    let pad = cal.component(.weekday, from: first) - 1
+    // Calendar.weekday: 1 = Sunday … 7 = Saturday.
+    let weekday = cal.component(.weekday, from: first)
+    let pad = model.weekStartsOn == 1 ? (weekday + 5) % 7 : weekday - 1
     var cells: [Date?] = Array(repeating: nil, count: pad)
     for day in range {
       if let date = cal.date(byAdding: .day, value: day - 1, to: first) {

@@ -8,6 +8,8 @@ private let kvsLog = Logger(subsystem: "com.lightinblue.layering.mac", category:
 @MainActor
 final class ICloudKvsStore: ObservableObject {
   @Published private(set) var data: AppData = .empty
+  /// Synced device settings (KVS `prefs`) — weekStartsOn + optional themePrimary.
+  @Published private(set) var prefs: SyncedPrefsBody = .default
   @Published private(set) var iCloudAvailable: Bool = false
   @Published private(set) var lastReadAt: Date?
   @Published private(set) var statusMessage: String = "준비 중"
@@ -21,6 +23,8 @@ final class ICloudKvsStore: ObservableObject {
   private var observer: NSObjectProtocol?
   private let deviceId: String
   private let localCacheKey = "poogae.mac.app-data-v1"
+  private let localPrefsCacheKey = "poogae.mac.synced-prefs-v1"
+  private var prefsUpdatedAt: String = "1970-01-01T00:00:00.000Z"
   private var applyingRemote = false
   /// True once we have seen non-empty cloud subjects or month records.
   private var hasSeenRemotePayload = false
@@ -33,6 +37,10 @@ final class ICloudKvsStore: ObservableObject {
     if let cached = loadLocalCache() {
       // Local cache only — never push seed from init.
       data = cached
+    }
+    if let cachedPrefs = loadLocalPrefsCache() {
+      prefs = cachedPrefs.prefs
+      prefsUpdatedAt = cachedPrefs.updatedAt
     }
     observer = NotificationCenter.default.addObserver(
       forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
@@ -88,9 +96,13 @@ final class ICloudKvsStore: ObservableObject {
     let allKeys = Array(dict.keys).sorted()
     let subjectKeys = allKeys.filter { $0 == KVSKeys.subjects }
     let monthKeys = allKeys.filter { $0.hasPrefix(KVSKeys.monthPrefix) }
-    let otherKeys = allKeys.filter { $0 != KVSKeys.subjects && !$0.hasPrefix(KVSKeys.monthPrefix) }
+    let otherKeys = allKeys.filter {
+      $0 != KVSKeys.subjects && $0 != KVSKeys.prefs && !$0.hasPrefix(KVSKeys.monthPrefix)
+    }
 
     logDictionary(dict, allKeys: allKeys)
+
+    pullAndMergePrefs()
 
     let subjectsRead = readSubjects()
     let subjectsPayload = subjectsRead.payload
@@ -242,6 +254,91 @@ final class ICloudKvsStore: ObservableObject {
     pushToCloud(next)
   }
 
+  /// Update synced prefs locally and push KVS `prefs` (LWW stamp = now).
+  func updatePrefs(_ mutate: (inout SyncedPrefsBody) -> Void) {
+    guard !applyingRemote else { return }
+    var next = prefs
+    mutate(&next)
+    next.weekStartsOn = (next.weekStartsOn == 1) ? 1 : 0
+    prefs = next
+    let stamp = ISO8601DateFormatter.fractional.string(from: Date())
+    prefsUpdatedAt = stamp
+    persistLocalPrefsCache(
+      SyncedPrefsPayload(deviceId: deviceId, updatedAt: stamp, prefs: next)
+    )
+    pushPrefsToCloud(
+      SyncedPrefsPayload(deviceId: deviceId, updatedAt: stamp, prefs: next)
+    )
+  }
+
+  /// Pull/merge KVS `prefs` with local mirror. Seeds cloud once if empty.
+  private func pullAndMergePrefs() {
+    let remote = readPrefs().payload
+    let local = SyncedPrefsPayload(
+      deviceId: deviceId,
+      updatedAt: prefsUpdatedAt,
+      prefs: prefs
+    )
+
+    guard let remote else {
+      // Avoid seeding into an undownloaded store (same Mac caution as subjects).
+      // Once other KVS keys exist, migrate local prefs once.
+      let dictHasKeys = !store.dictionaryRepresentation.isEmpty
+      if dictHasKeys || hasSeenRemotePayload {
+        let stamp = ISO8601DateFormatter.fractional.string(from: Date())
+        let seed = SyncedPrefsPayload(deviceId: deviceId, updatedAt: stamp, prefs: prefs)
+        prefsUpdatedAt = stamp
+        persistLocalPrefsCache(seed)
+        pushPrefsToCloud(seed)
+      } else {
+        persistLocalPrefsCache(
+          SyncedPrefsPayload(deviceId: deviceId, updatedAt: prefsUpdatedAt, prefs: prefs)
+        )
+      }
+      return
+    }
+
+    let localStampIsEpoch = prefsUpdatedAt.hasPrefix("1970-")
+    let localForMerge = localStampIsEpoch
+      ? SyncedPrefsPayload(
+        deviceId: deviceId,
+        updatedAt: ISO8601DateFormatter.fractional.string(from: Date()),
+        prefs: prefs
+      )
+      : local
+
+    let winner = ICloudMerge.mergeSyncedPrefs(
+      local: localForMerge,
+      remote: remote,
+      localDeviceId: deviceId
+    ) ?? remote
+
+    applyingRemote = true
+    prefs = winner.prefs
+    prefsUpdatedAt = winner.updatedAt
+    persistLocalPrefsCache(winner)
+    applyingRemote = false
+
+    if winner.deviceId != remote.deviceId
+      || winner.updatedAt != remote.updatedAt
+      || winner.prefs != remote.prefs
+    {
+      pushPrefsToCloud(winner)
+    }
+  }
+
+  private func pushPrefsToCloud(_ payload: SyncedPrefsPayload) {
+    iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
+    guard iCloudAvailable else { return }
+    let encoder = JSONEncoder()
+    guard let data = try? encoder.encode(payload),
+          let json = String(data: data, encoding: .utf8)
+    else { return }
+    store.set(json, forKey: KVSKeys.prefs)
+    _ = store.synchronize()
+    kvsLog.info("pushed prefs weekStartsOn=\(payload.prefs.weekStartsOn)")
+  }
+
   private func scheduleBootstrapRetries() {
     bootstrapRetryTask?.cancel()
     bootstrapRetryTask = Task { @MainActor in
@@ -299,6 +396,10 @@ final class ICloudKvsStore: ObservableObject {
 
   private func readMonth(_ key: String) -> DecodeRead<MonthPayload> {
     decodeJSON(MonthPayload.self, key: key)
+  }
+
+  private func readPrefs() -> DecodeRead<SyncedPrefsPayload> {
+    decodeJSON(SyncedPrefsPayload.self, key: KVSKeys.prefs)
   }
 
   /// iOS writes UTF-8 JSON strings; also accept Data / NSString object forms.
@@ -440,6 +541,18 @@ final class ICloudKvsStore: ObservableObject {
           let payload = try? JSONDecoder().decode(LocalAppDataCache.self, from: raw)
     else { return nil }
     return Self.normalizedAppData(AppData(subjects: payload.subjects, records: payload.records))
+  }
+
+  private func persistLocalPrefsCache(_ payload: SyncedPrefsPayload) {
+    guard let encoded = try? JSONEncoder().encode(payload) else { return }
+    UserDefaults.standard.set(encoded, forKey: localPrefsCacheKey)
+  }
+
+  private func loadLocalPrefsCache() -> SyncedPrefsPayload? {
+    guard let raw = UserDefaults.standard.data(forKey: localPrefsCacheKey),
+          let payload = try? JSONDecoder().decode(SyncedPrefsPayload.self, from: raw)
+    else { return nil }
+    return payload
   }
 }
 

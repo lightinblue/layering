@@ -7,7 +7,8 @@ struct StudyDayTimeline: View {
   @Environment(\.colorScheme) private var colorScheme
 
   private let slotHeight: CGFloat = 36
-  private let slotGap: CGFloat = 5
+  /// Slight gap between study rows (REV-76 — tightened, not flush).
+  private let slotGap: CGFloat = 3
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {

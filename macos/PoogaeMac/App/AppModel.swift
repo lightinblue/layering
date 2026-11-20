@@ -51,6 +51,13 @@ final class AppModel: ObservableObject {
     StudyTimeline.buildBands(studies: studies)
   }
 
+  /// 0 = Sunday, 1 = Monday — from KVS `prefs`.
+  var weekStartsOn: Int { kvs.prefs.weekStartsOn }
+
+  func setWeekStartsOn(_ value: Int) {
+    kvs.updatePrefs { $0.weekStartsOn = (value == 1) ? 1 : 0 }
+  }
+
   init() {
     // Use `$data` (post-change), not `objectWillChange` (pre-change) — forwarding willChange
     // made HomeView render with an empty store right before records landed.
@@ -59,6 +66,10 @@ final class AppModel: ObservableObject {
       .sink { [weak self] data in
         self?.appData = data
       }
+      .store(in: &cancellables)
+    kvs.$prefs
+      .receive(on: RunLoop.main)
+      .sink { [weak self] _ in self?.objectWillChange.send() }
       .store(in: &cancellables)
     kvs.$statusMessage
       .receive(on: RunLoop.main)

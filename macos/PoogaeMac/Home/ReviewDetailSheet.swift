@@ -119,7 +119,7 @@ struct ReviewDetailSheet: View {
       .buttonStyle(.plain)
       .help("학습일로 이동")
 
-      VStack(alignment: .leading, spacing: 2) {
+      VStack(alignment: .leading, spacing: 0) {
         ForEach(group.items) { study in
           Button {
             goToStudyDate(study.studiedOn)
@@ -136,8 +136,9 @@ struct ReviewDetailSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             // Full-row hit box: empty trailing padding is tappable too.
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+            // REV-76: tighter vertical rhythm between study/todo rows.
+            .padding(.vertical, 3)
+            .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
             .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
