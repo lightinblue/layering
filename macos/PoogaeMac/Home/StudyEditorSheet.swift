@@ -175,18 +175,21 @@ struct StudyEditorSheet: View {
 
   private func subjectChip(_ subject: SubjectChip) -> some View {
     let selected = subject.id == selectedSubjectId
-    let fill = Color(hexString: subject.color ?? "", fallback: PoogaeTheme.brand)
+    let fill = SubjectChipStyle.fill(hex: subject.color)
+    let border = SubjectChipStyle.border(hex: subject.color)
     return Text(subject.name)
-      .font(.system(size: 13, weight: .semibold))
-      .foregroundStyle(selected ? .white : PoogaeTheme.ink(colorScheme))
-      .padding(.horizontal, 12)
-      .padding(.vertical, 8)
-      .background(selected ? fill : PoogaeTheme.surface(colorScheme))
-      .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+      .font(.system(size: 15, weight: .medium))
+      .foregroundStyle(.white)
+      .padding(.horizontal, SubjectChipStyle.horizontalPadding)
+      .frame(minHeight: SubjectChipStyle.minHeight)
+      .background(fill)
+      .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
       .overlay(
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-          .strokeBorder(selected ? Color.clear : fill.opacity(0.35), lineWidth: 1)
+        RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous)
+          .strokeBorder(border, lineWidth: SubjectChipStyle.borderWidth)
       )
+      .opacity(selected ? SubjectChipStyle.selectedOpacity : SubjectChipStyle.idleOpacity)
+      .animation(PoogaeMotion.quick, value: selected)
       .contentShape(Rectangle())
       .onTapGesture {
         withAnimation(PoogaeMotion.quick) {
@@ -195,13 +198,17 @@ struct StudyEditorSheet: View {
       }
       .draggable(subject.id) {
         Text(subject.name)
-          .font(.system(size: 13, weight: .semibold))
+          .font(.system(size: 15, weight: .medium))
           .foregroundStyle(.white)
-          .padding(.horizontal, 12)
-          .padding(.vertical, 8)
+          .padding(.horizontal, SubjectChipStyle.horizontalPadding)
+          .frame(minHeight: SubjectChipStyle.minHeight)
           .background(fill)
-          .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-          .opacity(0.92)
+          .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
+          .overlay(
+            RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous)
+              .strokeBorder(border, lineWidth: SubjectChipStyle.borderWidth)
+          )
+          .opacity(0.98)
       }
       .dropDestination(for: String.self) { items, _ in
         guard let id = items.first, id != subject.id else { return false }

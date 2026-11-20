@@ -47,6 +47,25 @@ enum PoogaeTheme {
   }
 }
 
+/// Subject chip look — matches iOS `AddStudyForm` SelectableChip.
+enum SubjectChipStyle {
+  static let cornerRadius: CGFloat = 12
+  static let borderWidth: CGFloat = 2
+  static let idleOpacity = 0.45
+  static let selectedOpacity = 1.0
+  static let horizontalPadding: CGFloat = 14
+  static let minHeight: CGFloat = 44
+
+  static func fill(hex: String?) -> Color {
+    Color(hexString: hex ?? "", fallback: PoogaeTheme.brand)
+  }
+
+  /// Same-hue rim as iOS `subjectBorderColor` / `darkenHex(..., 0.1)`.
+  static func border(hex: String?) -> Color {
+    Color(darkenedHexString: hex ?? "", amount: 0.1, fallback: PoogaeTheme.brand)
+  }
+}
+
 extension Color {
   init(hex: UInt32, opacity: Double = 1) {
     let r = Double((hex >> 16) & 0xFF) / 255
@@ -63,5 +82,19 @@ extension Color {
       return
     }
     self.init(hex: value)
+  }
+
+  init(darkenedHexString: String, amount: Double = 0.1, fallback: Color = .gray) {
+    var raw = darkenedHexString.trimmingCharacters(in: .whitespacesAndNewlines)
+    if raw.hasPrefix("#") { raw.removeFirst() }
+    guard raw.count == 6, let value = UInt32(raw, radix: 16) else {
+      self = fallback
+      return
+    }
+    let factor = max(0, min(1, 1 - amount))
+    let r = UInt32(Double((value >> 16) & 0xFF) * factor)
+    let g = UInt32(Double((value >> 8) & 0xFF) * factor)
+    let b = UInt32(Double(value & 0xFF) * factor)
+    self.init(hex: (r << 16) | (g << 8) | b)
   }
 }
