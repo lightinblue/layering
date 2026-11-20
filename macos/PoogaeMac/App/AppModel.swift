@@ -103,7 +103,7 @@ final class AppModel: ObservableObject {
   }
 
   func forcePullFromICloud() {
-    Task { await kvs.refreshFromCloud() }
+    Task { await kvs.forcePullFromICloud() }
   }
 
   func resetLocalStoreAndPull() {

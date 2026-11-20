@@ -70,6 +70,8 @@ struct MenuBarPopover: View {
         .font(.system(size: 10, weight: .regular))
         .foregroundStyle(PoogaeTheme.muted(colorScheme))
         .textSelection(.enabled)
+        .id(model.kvs.statusMessage)
+        .animation(PoogaeMotion.settle, value: model.kvs.statusMessage)
 
       if !model.kvs.debugSummary.isEmpty {
         Text(model.kvs.debugSummary)
@@ -85,6 +87,7 @@ struct MenuBarPopover: View {
         .buttonStyle(.plain)
         .font(.system(size: 11, weight: .medium))
         .foregroundStyle(PoogaeTheme.brand)
+        .help("iCloud KVS를 다시 읽고 상태를 갱신합니다")
 
         Button("로컬 초기화") {
           model.resetLocalStoreAndPull()
@@ -92,7 +95,7 @@ struct MenuBarPopover: View {
         .buttonStyle(.plain)
         .font(.system(size: 11, weight: .medium))
         .foregroundStyle(PoogaeTheme.section(colorScheme))
-        .help("Mac 로컬 캐시만 지우고 iCloud를 다시 읽습니다")
+        .help("Mac 로컬 캐시를 비우고 클라우드만 다시 읽습니다 (푸시 없음)")
       }
     }
     .padding(14)

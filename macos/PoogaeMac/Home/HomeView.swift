@@ -12,6 +12,21 @@ struct HomeView: View {
         .padding(.top, 16)
         .padding(.bottom, 22)
 
+      subjectChips
+        .padding(.horizontal, 20)
+        .padding(.bottom, 12)
+
+      if model.subjects.isEmpty == false,
+         model.studies.isEmpty,
+         model.appData.records.contains(where: { $0.deleted == true })
+      {
+        Text("클라우드 과목은 왔지만 활성 공부가 없어요 (삭제된 기록만 있음). 폰에서 공부를 하나 추가한 뒤 Mac 「다시 받기」.")
+          .font(.system(size: 12, weight: .medium))
+          .foregroundStyle(PoogaeTheme.muted(colorScheme))
+          .padding(.horizontal, 20)
+          .padding(.bottom, 10)
+      }
+
       HStack(alignment: .top, spacing: 16) {
         studySection
           .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -97,6 +112,46 @@ struct HomeView: View {
     }
     .buttonStyle(.plain)
     .help(help)
+  }
+
+  private var subjectChips: some View {
+    HStack(spacing: 8) {
+      if model.subjects.isEmpty {
+        Text("과목 없음 · KVS 대기")
+          .font(.system(size: 12, weight: .medium))
+          .foregroundStyle(PoogaeTheme.muted(colorScheme))
+      } else {
+        ForEach(model.subjects) { subject in
+          Text(subject.name)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(PoogaeTheme.ink(colorScheme))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+              Color(hexString: subject.color ?? "", fallback: PoogaeTheme.brand).opacity(0.22)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .onTapGesture {
+              model.openEditSubject(subject)
+            }
+        }
+      }
+      Spacer(minLength: 0)
+      if model.canAddSubject {
+        Button {
+          model.openAddSubject()
+        } label: {
+          Image(systemName: "plus")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(PoogaeTheme.section(colorScheme))
+            .frame(width: 26, height: 26)
+            .background(PoogaeTheme.surface(colorScheme))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help("과목 추가")
+      }
+    }
   }
 
   private var studySection: some View {

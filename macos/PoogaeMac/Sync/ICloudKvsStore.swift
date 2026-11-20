@@ -25,6 +25,7 @@ final class ICloudKvsStore: ObservableObject {
   /// True once we have seen non-empty cloud subjects or month records.
   private var hasSeenRemotePayload = false
   private var bootstrapRetryTask: Task<Void, Never>?
+  private var pullFeedbackTask: Task<Void, Never>?
 
   init(deviceId: String = DeviceIdentity.loadOrCreate()) {
     self.deviceId = deviceId
@@ -42,7 +43,7 @@ final class ICloudKvsStore: ObservableObject {
       let keys = notification.userInfo?[NSUbiquitousKeyValueStoreChangedKeysKey] as? [String] ?? []
       Task { @MainActor in
         kvsLog.info("external change reason=\(reason ?? -1, privacy: .public) keys=\(keys.joined(separator: ","), privacy: .public)")
-        await self?.refreshFromCloud()
+        await self?.refreshFromCloud(mode: .pullOnly)
       }
     }
   }
@@ -52,13 +53,21 @@ final class ICloudKvsStore: ObservableObject {
       NotificationCenter.default.removeObserver(observer)
     }
     bootstrapRetryTask?.cancel()
+    pullFeedbackTask?.cancel()
+  }
+
+  enum PullMode {
+    /// Read + merge into memory/cache. Never write back to KVS (avoids Mac tombstone poison).
+    case pullOnly
+    /// Drop local first, then adopt remote snapshot (or empty) without pushing.
+    case hardReset
   }
 
   func bootstrap() async {
     logEnvironment()
     _ = store.synchronize()
     iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
-    await refreshFromCloud()
+    await refreshFromCloud(mode: .pullOnly)
 
     // Local-only seed for empty UI. NEVER push — early push overwrites phone subjects
     // when KVS has not downloaded yet (looks like “클라우드 비어 있음”).
@@ -71,7 +80,7 @@ final class ICloudKvsStore: ObservableObject {
     scheduleBootstrapRetries()
   }
 
-  func refreshFromCloud() async {
+  func refreshFromCloud(mode: PullMode = .pullOnly) async {
     iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
     _ = store.synchronize()
 
@@ -107,9 +116,8 @@ final class ICloudKvsStore: ObservableObject {
       }
     }
 
-    let hadRemote =
-      (subjectsPayload?.subjects.isEmpty == false)
-      || !remoteRecords.isEmpty
+    let remoteSubjects = subjectsPayload?.subjects ?? []
+    let hadRemote = !remoteSubjects.isEmpty || !remoteRecords.isEmpty
     if hadRemote {
       hasSeenRemotePayload = true
     }
@@ -117,9 +125,10 @@ final class ICloudKvsStore: ObservableObject {
     applyingRemote = true
     defer { applyingRemote = false }
 
+    let localForMerge: AppData = (mode == .hardReset) ? .empty : data
     let merged = ICloudMerge.mergeAppData(
-      local: data,
-      remoteSubjects: subjectsPayload?.subjects ?? [],
+      local: localForMerge,
+      remoteSubjects: remoteSubjects,
       remoteRecords: remoteRecords,
       localDeviceId: deviceId,
       remoteDeviceId: remoteDeviceId
@@ -127,21 +136,28 @@ final class ICloudKvsStore: ObservableObject {
 
     let normalized = Self.normalizedAppData(merged)
     if hadRemote {
+      // Adopt cloud into AppModel. Do NOT push — Mac pull used to re-write tombstones
+      // and could win LWW over newer phone actives.
       data = normalized
       persistLocalCache(data)
-      // Reconcile union to cloud after remote merge (same as iOS pullAndMerge).
-      pushToCloud(data)
     } else if ICloudMerge.activeSubjects(normalized.subjects).isEmpty {
-      // Still empty after pull — seed locally only (epoch timestamps; never push here).
-      data = AppMutations.ensureSeedSubjects(normalized)
-      persistLocalCache(data)
+      if mode == .hardReset {
+        data = .empty
+        persistLocalCache(data)
+      } else {
+        // Still empty after pull — seed locally only (epoch timestamps; never push here).
+        data = AppMutations.ensureSeedSubjects(normalized)
+        persistLocalCache(data)
+      }
     } else {
       data = normalized
       persistLocalCache(data)
     }
 
     lastReadAt = Date()
+    let activeSubjects = ICloudMerge.activeSubjects(data.subjects)
     let activeTotal = ICloudMerge.activeRecords(data.records).count
+    let deletedTotal = data.records.filter { $0.deleted == true }.count
     let studiedDays = Set(
       ICloudMerge.activeRecords(data.records).map { DateKeys.normalizeDateKey($0.studiedOn) }
     ).sorted()
@@ -150,9 +166,11 @@ final class ICloudKvsStore: ObservableObject {
       subjectKeyPresent: !subjectKeys.isEmpty,
       subjectsDecoded: subjectsPayload != nil,
       subjectsDecodeFailed: subjectsRead.hadRaw && subjectsPayload == nil,
+      subjectNames: activeSubjects.map(\.name),
       monthKeyCount: monthKeys.count,
       remoteRecordCount: remoteRecords.count,
       activeRecordCount: activeTotal,
+      deletedRecordCount: deletedTotal,
       studiedDays: studiedDays,
       monthDecodeFailures: monthDecodeFailures,
       hadRemote: hadRemote,
@@ -164,7 +182,8 @@ final class ICloudKvsStore: ObservableObject {
       otherKeys: otherKeys,
       dict: dict,
       subjectsBytes: subjectsRead.rawByteCount,
-      records: data.records
+      records: data.records,
+      activeSubjects: activeSubjects
     )
     for record in data.records {
       kvsLog.info(
@@ -175,21 +194,44 @@ final class ICloudKvsStore: ObservableObject {
     kvsLog.info("debug \(self.debugSummary, privacy: .public)")
   }
 
-  /// Wipe Mac local mirror + in-memory seed, then re-pull (does not clear iCloud).
+  /// User-initiated pull — always flashes status so the menu bar shows feedback even when
+  /// the settled message matches the previous one (common when cloud is unchanged).
+  func forcePullFromICloud() async {
+    pullFeedbackTask?.cancel()
+    statusMessage = "다시 받는 중…"
+    kvsLog.info("user force pull")
+    _ = store.synchronize()
+    await refreshFromCloud(mode: .pullOnly)
+    flashSettledStatus()
+  }
+
+  /// Wipe Mac local mirror + in-memory state, re-pull cloud as source of truth (never pushes).
   func resetLocalStoreAndPull() async {
+    pullFeedbackTask?.cancel()
     UserDefaults.standard.removeObject(forKey: localCacheKey)
     data = .empty
     hasSeenRemotePayload = false
-    statusMessage = "로컬 초기화 후 재동기화…"
+    statusMessage = "하드 리셋 후 재동기화…"
     debugSummary = ""
-    kvsLog.info("local cache cleared; re-pulling")
+    kvsLog.info("hard reset: local cache cleared; pull-only (no push)")
     _ = store.synchronize()
-    await refreshFromCloud()
-    if ICloudMerge.activeSubjects(data.subjects).isEmpty {
-      data = AppMutations.ensureSeedSubjects(data)
-      persistLocalCache(data)
+    await refreshFromCloud(mode: .hardReset)
+    if !hasSeenRemotePayload {
+      scheduleBootstrapRetries()
     }
-    scheduleBootstrapRetries()
+    flashSettledStatus()
+  }
+
+  private func flashSettledStatus() {
+    let settled = statusMessage
+    statusMessage = "방금 갱신 · \(settled)"
+    pullFeedbackTask = Task { @MainActor in
+      try? await Task.sleep(nanoseconds: 2_500_000_000)
+      guard !Task.isCancelled else { return }
+      if statusMessage.hasPrefix("방금 갱신 · ") {
+        statusMessage = settled
+      }
+    }
   }
 
   /// Apply mutation, cache locally, and push to KVS when available.
@@ -210,7 +252,7 @@ final class ICloudKvsStore: ObservableObject {
         if hasSeenRemotePayload { return }
         kvsLog.info("bootstrap re-pull after delay")
         _ = store.synchronize()
-        await refreshFromCloud()
+        await refreshFromCloud(mode: .pullOnly)
       }
     }
   }
@@ -330,9 +372,11 @@ final class ICloudKvsStore: ObservableObject {
     subjectKeyPresent: Bool,
     subjectsDecoded: Bool,
     subjectsDecodeFailed: Bool,
+    subjectNames: [String],
     monthKeyCount: Int,
     remoteRecordCount: Int,
     activeRecordCount: Int,
+    deletedRecordCount: Int,
     studiedDays: [String],
     monthDecodeFailures: Int,
     hadRemote: Bool,
@@ -348,9 +392,13 @@ final class ICloudKvsStore: ObservableObject {
       return "KVS 일부 디코드 실패 · months=\(monthDecodeFailures) · rec=\(remoteRecordCount)"
     }
     if hadRemote {
-      let subj = subjectsDecoded ? "ok" : (subjectKeyPresent ? "empty" : "missing")
+      let names = subjectNames.isEmpty ? "-" : subjectNames.joined(separator: ",")
       let days = studiedDays.isEmpty ? "-" : studiedDays.joined(separator: ",")
-      return "KVS 동기화됨 · subjects=\(subj) · dict=\(totalKeyCount) · records=\(remoteRecordCount) active=\(activeRecordCount) days=\(days)"
+      if activeRecordCount == 0 && deletedRecordCount > 0 {
+        return "KVS 과목=\(names) · 활성공부=0 · 삭제tombstone=\(deletedRecordCount) · 폰에서 공부 추가 필요"
+      }
+      let subj = subjectsDecoded ? "ok(\(names))" : (subjectKeyPresent ? "empty" : "missing")
+      return "KVS 동기화됨 · subjects=\(subj) · dict=\(totalKeyCount) · rec=\(remoteRecordCount) active=\(activeRecordCount) days=\(days)"
     }
     return "클라우드 비어 있음 · dict=\(totalKeyCount) · subjects=\(subjectKeyPresent ? 1 : 0) · rec=\(monthKeyCount) · 컨테이너 \(Self.expectedKvStoreId)"
   }
@@ -361,17 +409,24 @@ final class ICloudKvsStore: ObservableObject {
     otherKeys: [String],
     dict: [AnyHashable: Any],
     subjectsBytes: Int,
-    records: [StudyRecord]
+    records: [StudyRecord],
+    activeSubjects: [SubjectChip]
   ) -> String {
     let keyPreview = allKeys.isEmpty ? "(none)" : allKeys.prefix(12).joined(separator: ", ")
     let more = allKeys.count > 12 ? "…" : ""
     let other = otherKeys.isEmpty ? "" : " other=[\(otherKeys.joined(separator: ","))]"
     let active = ICloudMerge.activeRecords(records)
+    let deleted = records.filter { $0.deleted == true }.count
     let rows = active.prefix(6).map { r in
-      "\(r.studiedOn)\(r.deleted == true ? "!" : ""):\(r.content.prefix(10))"
+      "\(r.studiedOn):\(r.content.prefix(10))"
+    }.joined(separator: " | ")
+    let tomb = records.filter { $0.deleted == true }.prefix(4).map { r in
+      "!\(r.studiedOn):\(r.content.prefix(8))"
     }.joined(separator: " | ")
     let rowPart = rows.isEmpty ? "rows=-" : "rows=[\(rows)]"
-    return "dict=\(dict.count) keys=[\(keyPreview)\(more)] subjectsBytes=\(subjectsBytes) months=\(monthKeys.count) \(rowPart)\(other)"
+    let tombPart = deleted == 0 ? "" : " tomb=[\(tomb)]"
+    let subjPart = "appSubjects=[\(activeSubjects.map(\.name).joined(separator: ","))]"
+    return "dict=\(dict.count) keys=[\(keyPreview)\(more)] subjectsBytes=\(subjectsBytes) months=\(monthKeys.count) \(subjPart) activeRec=\(active.count) deletedRec=\(deleted) \(rowPart)\(tombPart)\(other)"
   }
 
   private func persistLocalCache(_ next: AppData) {
