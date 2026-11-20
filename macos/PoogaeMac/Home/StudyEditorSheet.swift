@@ -186,6 +186,14 @@ struct StudyEditorSheet: View {
   }
 
   private func saveIfPossible() {
+    let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+    // Empty content: dismiss add sheet / no-op on edit — never create a record.
+    if trimmed.isEmpty {
+      if !isEditing {
+        withAnimation(PoogaeMotion.quick) { dismiss() }
+      }
+      return
+    }
     guard canSave, let subjectId = selectedSubjectId else { return }
     let keepOpen = model.saveStudy(
       subjectId: subjectId,
