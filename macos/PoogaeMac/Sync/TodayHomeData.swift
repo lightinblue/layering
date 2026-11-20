@@ -37,7 +37,12 @@ enum TodayHomeData {
           id: $0.id,
           subjectId: $0.subjectId,
           subjectName: $0.subjectName,
-          subjectColor: $0.subjectColor,
+          subjectColor: AppMutations.resolveSubjectColor(
+            name: $0.subjectName,
+            subjectId: $0.subjectId,
+            recordColor: $0.subjectColor,
+            subjects: data.subjects
+          ),
           content: $0.content,
           memo: $0.memo,
           dayBand: $0.dayBand,
@@ -84,8 +89,25 @@ enum TodayHomeData {
       let targets = items.map {
         HomeReviewCheckTarget(studyId: $0.record.id, intervalDays: interval)
       }
-      let names = Array(Set(items.map(\.record.subjectName)))
-      let colors = items.compactMap(\.record.subjectColor)
+      // Stable unique names (Set alone shuffled colors vs names by index).
+      var seen = Set<String>()
+      var names: [String] = []
+      for item in items {
+        let name = item.record.subjectName
+        if seen.insert(name).inserted {
+          names.append(name)
+        }
+      }
+      // Parallel colors: live subject.color first (same as iOS colorByName).
+      let colors: [String] = names.map { name in
+        let sample = items.first { $0.record.subjectName == name }?.record
+        return AppMutations.resolveSubjectColor(
+          name: name,
+          subjectId: sample?.subjectId,
+          recordColor: sample?.subjectColor,
+          subjects: data.subjects
+        )
+      }
       let completed = items.allSatisfy { item in
         item.record.checks[String(interval)]?.done == true
       }

@@ -13,6 +13,46 @@ enum AppMutations {
     "#F65E83", "#FE9253", "#F5C21C", "#5DCB85", "#62B3F6", "#B7A4E9", "#B2B2B2",
   ]
 
+  /// Matches iOS `colors.chipGray` fallback in `subjectColor()`.
+  static let fallbackSubjectColor = "#B2B2B2"
+
+  /**
+   Resolve chip fill like iOS `subjectColor(name, colorByName)`:
+   live subject.color → record snapshot → gray (never index/hash).
+   */
+  static func resolveSubjectColor(
+    name: String,
+    subjectId: String? = nil,
+    recordColor: String? = nil,
+    subjects: [SubjectChip]
+  ) -> String {
+    let active = ICloudMerge.activeSubjects(subjects)
+    if let subjectId, !subjectId.isEmpty,
+       let chip = active.first(where: { $0.id == subjectId }),
+       let hex = normalizedHex(chip.color)
+    {
+      return hex
+    }
+    if let chip = active.first(where: { $0.name == name }),
+       let hex = normalizedHex(chip.color)
+    {
+      return hex
+    }
+    if let hex = normalizedHex(recordColor) {
+      return hex
+    }
+    return fallbackSubjectColor
+  }
+
+  static func normalizedHex(_ raw: String?) -> String? {
+    guard var s = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty
+    else { return nil }
+    if !s.hasPrefix("#") { s = "#" + s }
+    let digits = String(s.dropFirst())
+    guard digits.count == 6, UInt32(digits, radix: 16) != nil else { return nil }
+    return "#" + digits.uppercased()
+  }
+
   static let defaultSubjects: [SubjectChip] = [
     SubjectChip(
       id: "sub-jeongong",

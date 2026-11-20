@@ -29,7 +29,13 @@ struct ReviewDetailSheet: View {
     for study in studies {
       if map[study.subjectName] == nil {
         order.append(study.subjectName)
-        map[study.subjectName] = (study.subjectColor, [study])
+        let color = AppMutations.resolveSubjectColor(
+          name: study.subjectName,
+          subjectId: study.subjectId,
+          recordColor: study.subjectColor,
+          subjects: model.appData.subjects
+        )
+        map[study.subjectName] = (color, [study])
       } else {
         map[study.subjectName]?.items.append(study)
       }

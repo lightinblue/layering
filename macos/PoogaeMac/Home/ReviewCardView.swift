@@ -35,7 +35,12 @@ struct ReviewCardView: View {
         Spacer(minLength: 8)
 
         // Full subject chips on the right; wrap to a 2nd line when needed.
-        SubjectChipFlow(names: card.subjectNames, colors: card.subjectColors)
+        // colors[i] is aligned with names[i] (from synced subjects, not record index).
+        SubjectChipFlow(
+          chips: zip(card.subjectNames, card.subjectColors).map {
+            SubjectChipFlow.Chip(name: $0.0, color: $0.1)
+          }
+        )
           .frame(maxWidth: 168, alignment: .trailing)
       }
       .padding(.horizontal, 12)
@@ -64,21 +69,25 @@ struct ReviewCardView: View {
 
 /// Wrapping row of full-name subject chips (right-aligned).
 private struct SubjectChipFlow: View {
-  let names: [String]
-  let colors: [String]
+  struct Chip: Hashable {
+    var name: String
+    var color: String
+  }
+
+  let chips: [Chip]
 
   var body: some View {
     // Simple wrap via flexible stack — enough for 1–4 subjects on a card.
     VStack(alignment: .trailing, spacing: 4) {
       ForEach(chipRows, id: \.self) { row in
         HStack(spacing: 4) {
-          ForEach(row, id: \.offset) { item in
-            Text(item.name)
+          ForEach(row, id: \.name) { chip in
+            Text(chip.name)
               .font(.system(size: 12, weight: .semibold))
               .foregroundStyle(.white)
               .padding(.horizontal, 8)
               .frame(minHeight: 22)
-              .background(chipColor(at: item.offset, name: item.name))
+              .background(SubjectChipStyle.fill(hex: chip.color))
               .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
               .lineLimit(1)
           }
@@ -87,26 +96,12 @@ private struct SubjectChipFlow: View {
     }
   }
 
-  private struct ChipItem: Hashable {
-    var offset: Int
-    var name: String
-  }
-
-  /// Pack names into up to 2 visual rows (prefer 2+2 / 1+rest).
-  private var chipRows: [[ChipItem]] {
-    let items = Array(names.prefix(4).enumerated()).map {
-      ChipItem(offset: $0.offset, name: $0.element)
-    }
+  /// Pack chips into up to 2 visual rows (prefer 2+2 / 1+rest).
+  private var chipRows: [[Chip]] {
+    let items = Array(chips.prefix(4))
     guard !items.isEmpty else { return [] }
     if items.count <= 2 { return [items] }
     let mid = (items.count + 1) / 2
     return [Array(items.prefix(mid)), Array(items.suffix(from: mid))]
-  }
-
-  private func chipColor(at index: Int, name: String) -> Color {
-    if index < colors.count {
-      return Color(hexString: colors[index], fallback: PoogaeTheme.brand)
-    }
-    return PoogaeTheme.brand
   }
 }
