@@ -10,7 +10,7 @@
     "ios": {
       "bundleIdentifier": "com.lightinblue.layering",
       "appleTeamId": "R39JVZ3ZNL",
-      "buildNumber": "13",
+      "buildNumber": "14",
       "supportsTablet": true,
       "infoPlist": {
         "CFBundleDisplayName": "포개",
@@ -20,8 +20,7 @@
         "com.apple.security.application-groups": [
           "group.com.lightinblue.layering.poogae"
         ],
-        "com.apple.developer.ubiquity-kvstore-identifier":
-          "$(TeamIdentifierPrefix)com.lightinblue.layering"
+        "com.apple.developer.ubiquity-kvstore-identifier": "$(TeamIdentifierPrefix)com.lightinblue.layering"
       }
     },
     "android": {
