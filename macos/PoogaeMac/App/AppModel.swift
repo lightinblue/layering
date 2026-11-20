@@ -102,6 +102,15 @@ final class AppModel: ObservableObject {
     }
   }
 
+  /// Jump home to a study's 학습일 (e.g. from review detail).
+  func selectDate(_ dateKey: String) {
+    let next = DateKeys.normalizeDateKey(dateKey)
+    guard !next.isEmpty, next != selectedDateKey else { return }
+    withAnimation(PoogaeMotion.settle) {
+      selectedDateKey = next
+    }
+  }
+
   func forcePullFromICloud() {
     Task { await kvs.forcePullFromICloud() }
   }

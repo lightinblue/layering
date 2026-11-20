@@ -10,7 +10,7 @@ struct StudyRecordRow: View {
 
   var body: some View {
     Button(action: onEdit) {
-      HStack(spacing: 8) {
+      HStack(spacing: 5) {
         Text(row.subjectName)
           .font(.system(size: SubjectChipStyle.fontSize, weight: .semibold))
           .foregroundStyle(.white)

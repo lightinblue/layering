@@ -109,19 +109,7 @@ struct ReviewDetailSheet: View {
         ForEach(group.items) { study in
           Button {
             dismiss()
-            model.openEditStudy(
-              HomeStudyRow(
-                id: study.id,
-                subjectId: study.subjectId,
-                subjectName: study.subjectName,
-                subjectColor: study.subjectColor,
-                content: study.content,
-                memo: study.memo,
-                dayBand: study.dayBand,
-                dayOrder: study.dayOrder,
-                createdAt: study.createdAt
-              )
-            )
+            model.selectDate(study.studiedOn)
           } label: {
             HStack(alignment: .top, spacing: 8) {
               Text("•")
@@ -137,7 +125,7 @@ struct ReviewDetailSheet: View {
             .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
-          .help("기록 수정")
+          .help("학습일로 이동")
         }
       }
     }
