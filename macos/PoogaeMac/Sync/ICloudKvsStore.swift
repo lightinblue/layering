@@ -85,7 +85,7 @@ final class ICloudKvsStore: ObservableObject {
     _ = store.synchronize()
 
     let dict = store.dictionaryRepresentation
-    let allKeys = dict.keys.compactMap { $0 as? String }.sorted()
+    let allKeys = Array(dict.keys).sorted()
     let subjectKeys = allKeys.filter { $0 == KVSKeys.subjects }
     let monthKeys = allKeys.filter { $0.hasPrefix(KVSKeys.monthPrefix) }
     let otherKeys = allKeys.filter { $0 != KVSKeys.subjects && !$0.hasPrefix(KVSKeys.monthPrefix) }
