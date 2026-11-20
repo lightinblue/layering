@@ -128,42 +128,6 @@ enum AppMutations {
     return .success(next)
   }
 
-  /// Reorder live subjects by id list (unknown ids skipped; missing chips appended).
-  static func reorderSubjects(
-    _ data: AppData,
-    orderedIds: [String],
-    now: Date = Date()
-  ) -> AppData? {
-    let live = ICloudMerge.activeSubjects(data.subjects)
-    guard !live.isEmpty else { return nil }
-
-    var nextLive: [SubjectChip] = []
-    var seen = Set<String>()
-    for id in orderedIds {
-      guard let chip = live.first(where: { $0.id == id }), !seen.contains(id) else { continue }
-      nextLive.append(chip)
-      seen.insert(id)
-    }
-    for chip in live where !seen.contains(chip.id) {
-      nextLive.append(chip)
-    }
-    guard nextLive.count == live.count else { return nil }
-    if nextLive.map(\.id) == live.map(\.id) { return data }
-
-    let at = ISO8601DateFormatter.fractional.string(from: now)
-    let orderById = Dictionary(uniqueKeysWithValues: nextLive.enumerated().map { ($0.element.id, $0.offset) })
-    var next = data
-    for i in next.subjects.indices {
-      if next.subjects[i].deleted == true { continue }
-      guard let order = orderById[next.subjects[i].id] else { continue }
-      if next.subjects[i].order != order {
-        next.subjects[i].order = order
-        next.subjects[i].updatedAt = at
-      }
-    }
-    return next
-  }
-
   static func appendStudy(
     _ data: AppData,
     subjectId: String,

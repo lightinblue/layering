@@ -58,32 +58,21 @@ struct StudyEditorSheet: View {
             ForEach(model.subjects) { subject in
               subjectChip(subject)
             }
-            // Drop at end
-            Color.clear
-              .frame(width: 12, height: 28)
-              .dropDestination(for: String.self) { items, _ in
-                guard let id = items.first else { return false }
-                model.moveSubject(draggedId: id, beforeId: nil)
-                return true
-              }
           }
-          .animation(PoogaeMotion.settle, value: model.subjects.map(\.id))
         }
-        Text("드래그해서 순서 변경")
-          .font(.system(size: 10, weight: .regular))
-          .foregroundStyle(PoogaeTheme.muted(colorScheme))
       }
 
       VStack(alignment: .leading, spacing: 8) {
         Text("학습 내용")
           .font(.system(size: 12, weight: .semibold))
           .foregroundStyle(PoogaeTheme.section(colorScheme))
-        TextField("무엇을 공부했나요?", text: $title)
+        TextField("1-3단원 / p. 22-36", text: $title)
           .textFieldStyle(.plain)
-          .padding(.horizontal, 12)
-          .padding(.vertical, 10)
+          .font(.system(size: 15, weight: .medium))
+          .padding(.horizontal, 14)
+          .frame(height: SubjectChipStyle.minHeight)
           .background(PoogaeTheme.surface(colorScheme))
-          .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+          .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
           .onChange(of: title) { _, value in
             if value.count > AppMutations.maxTitleLength {
               title = String(value.prefix(AppMutations.maxTitleLength))
@@ -92,16 +81,18 @@ struct StudyEditorSheet: View {
       }
 
       VStack(alignment: .leading, spacing: 8) {
-        Text("메모 (선택)")
+        Text("메모")
           .font(.system(size: 12, weight: .semibold))
           .foregroundStyle(PoogaeTheme.section(colorScheme))
-        TextField("짧은 메모", text: $memo, axis: .vertical)
+        TextField("추가로 기록하고 싶은 내용", text: $memo, axis: .vertical)
           .textFieldStyle(.plain)
+          .font(.system(size: 15, weight: .medium))
           .lineLimit(2...3)
-          .padding(.horizontal, 12)
-          .padding(.vertical, 10)
+          .padding(.horizontal, 14)
+          .padding(.vertical, 12)
+          .frame(minHeight: 72, alignment: .topLeading)
           .background(PoogaeTheme.surface(colorScheme))
-          .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+          .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
           .onChange(of: memo) { _, value in
             if value.count > AppMutations.maxMemoLength {
               memo = String(value.prefix(AppMutations.maxMemoLength))
@@ -149,7 +140,7 @@ struct StudyEditorSheet: View {
       }
     }
     .padding(22)
-    .frame(width: 440, height: 380)
+    .frame(width: 440, height: 360)
     .background(PoogaeTheme.canvas(colorScheme))
     .onAppear(perform: hydrate)
     .onChange(of: model.subjects.map(\.id)) { _, ids in
@@ -177,48 +168,30 @@ struct StudyEditorSheet: View {
     let selected = subject.id == selectedSubjectId
     let fill = SubjectChipStyle.fill(hex: subject.color)
     let border = SubjectChipStyle.border(hex: subject.color)
-    return Text(subject.name)
-      .font(.system(size: 15, weight: .medium))
-      .foregroundStyle(.white)
-      .padding(.horizontal, SubjectChipStyle.horizontalPadding)
-      .frame(minHeight: SubjectChipStyle.minHeight)
-      .background(fill)
-      .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
-      .overlay(
-        RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous)
-          .strokeBorder(border, lineWidth: SubjectChipStyle.borderWidth)
-      )
-      .opacity(selected ? SubjectChipStyle.selectedOpacity : SubjectChipStyle.idleOpacity)
-      .animation(PoogaeMotion.quick, value: selected)
-      .contentShape(Rectangle())
-      .onTapGesture {
-        withAnimation(PoogaeMotion.quick) {
-          selectedSubjectId = subject.id
-        }
+    return Button {
+      withAnimation(PoogaeMotion.quick) {
+        selectedSubjectId = subject.id
       }
-      .draggable(subject.id) {
-        Text(subject.name)
-          .font(.system(size: 15, weight: .medium))
-          .foregroundStyle(.white)
-          .padding(.horizontal, SubjectChipStyle.horizontalPadding)
-          .frame(minHeight: SubjectChipStyle.minHeight)
-          .background(fill)
-          .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
-          .overlay(
-            RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous)
-              .strokeBorder(border, lineWidth: SubjectChipStyle.borderWidth)
-          )
-          .opacity(0.98)
-      }
-      .dropDestination(for: String.self) { items, _ in
-        guard let id = items.first, id != subject.id else { return false }
-        model.moveSubject(draggedId: id, beforeId: subject.id)
-        return true
-      }
-      .contextMenu {
-        Button("수정") { model.openEditSubject(subject) }
-        Button("삭제", role: .destructive) { model.deleteSubject(id: subject.id) }
-      }
-      .help("드래그해서 순서 변경 · 클릭해서 선택")
+    } label: {
+      Text(subject.name)
+        .font(.system(size: 15, weight: .medium))
+        .foregroundStyle(.white)
+        .padding(.horizontal, SubjectChipStyle.horizontalPadding)
+        .frame(minHeight: SubjectChipStyle.minHeight)
+        .background(fill)
+        .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
+        .overlay(
+          RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous)
+            .strokeBorder(border, lineWidth: SubjectChipStyle.borderWidth)
+        )
+        .opacity(selected ? SubjectChipStyle.selectedOpacity : SubjectChipStyle.idleOpacity)
+    }
+    .buttonStyle(.plain)
+    .animation(PoogaeMotion.quick, value: selected)
+    .contextMenu {
+      Button("수정") { model.openEditSubject(subject) }
+      Button("삭제", role: .destructive) { model.deleteSubject(id: subject.id) }
+    }
+    .help("클릭해서 선택")
   }
 }
