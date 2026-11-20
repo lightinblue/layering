@@ -8,7 +8,7 @@ import { useThemeColors } from '@/theme/ThemeProvider';
 
 export type ReviewDetailContentProps = {
   studies: HomeReviewStudy[];
-  /** Card interval — shown as 「n일 전」 beside each study item. */
+  /** Card interval — shown under the sheet title as 「n일 전」. */
   intervalDays: number;
   /** Optional chip fills from current subject list. */
   colorByName?: Record<string, string>;
@@ -55,7 +55,7 @@ function groupBySubject(
   });
 }
 
-/** 「복습 내용」 sheet — studies grouped by subject; 「n일 전」 per item. */
+/** 「복습 내용」 sheet — header meta + subject-grouped bullets. */
 export function ReviewDetailContent({
   studies,
   intervalDays,
@@ -65,6 +65,14 @@ export function ReviewDetailContent({
   const colors = useThemeColors();
   const groups = useMemo(() => groupBySubject(studies), [studies]);
   const agoLabel = `${intervalDays}일 전`;
+  const studiedOn = useMemo(() => {
+    const dates = [
+      ...new Set(
+        studies.map((s) => s.studiedOn?.trim()).filter((d): d is string => Boolean(d)),
+      ),
+    ];
+    return dates[0] ?? '';
+  }, [studies]);
 
   return (
     <ScrollView
@@ -72,6 +80,18 @@ export function ReviewDetailContent({
       style={styles.scroll}
       contentContainerStyle={[styles.body, { backgroundColor: colors.white }]}
       keyboardShouldPersistTaps="handled">
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.body }]}>복습 내용</Text>
+        <View style={styles.metaRow}>
+          <Text style={[styles.ago, { color: colors.muted }]}>{agoLabel}</Text>
+          {studiedOn ? (
+            <Text style={[styles.studiedOn, { color: colors.accentText }]}>
+              학습일 {studiedOn}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+
       {groups.length === 0 ? (
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <Text style={[styles.bodyText, { color: colors.body }]}>
@@ -115,11 +135,6 @@ export function ReviewDetailContent({
                       numberOfLines={3}>
                       {study.content}
                     </Text>
-                    <Text
-                      style={[styles.ago, { color: colors.muted }]}
-                      numberOfLines={1}>
-                      {agoLabel}
-                    </Text>
                   </View>
                 );
 
@@ -128,7 +143,7 @@ export function ReviewDetailContent({
                     <Pressable
                       key={`${study.studyId ?? study.content}-${study.studiedOn}-${index}`}
                       accessibilityRole="button"
-                      accessibilityLabel={`${study.subjectName} ${study.content}, ${agoLabel}`}
+                      accessibilityLabel={`${study.subjectName} ${study.content}`}
                       accessibilityHint="시트를 닫고 홈 주간 날짜로 이동합니다"
                       onPress={() => onStudyPress?.(study.studiedOn)}
                       style={({ pressed }) => [
@@ -164,6 +179,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 8,
     gap: 14,
+  },
+  header: {
+    gap: 6,
+    paddingBottom: 2,
+  },
+  title: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 18,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  ago: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 13,
+  },
+  studiedOn: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 13,
   },
   subjectChip: {
     alignSelf: 'flex-start',
@@ -209,12 +246,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 15,
     lineHeight: 22,
-  },
-  ago: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 12,
-    lineHeight: 22,
-    flexShrink: 0,
   },
   bodyText: {
     fontFamily: fonts.nexonMedium,
