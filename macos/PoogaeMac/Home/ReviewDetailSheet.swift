@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 「복습 내용」 — header 「n일 전」+학습일; body grouped by subject bullets.
+/// 「복습 내용」 — header 「n일 전」+ date; body grouped by subject bullets.
 struct ReviewDetailSheet: View {
   @ObservedObject var model: AppModel
   let card: HomeReviewCard
@@ -52,7 +52,7 @@ struct ReviewDetailSheet: View {
               .font(.system(size: 12, weight: .medium))
               .foregroundStyle(PoogaeTheme.muted(colorScheme))
             if !studiedOnLabel.isEmpty {
-              Text("학습일 \(studiedOnLabel)")
+              Text(studiedOnLabel)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(PoogaeTheme.section(colorScheme))
             }
