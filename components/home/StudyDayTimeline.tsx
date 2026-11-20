@@ -208,6 +208,7 @@ export function StudyDayTimeline({
                 <BandAddControl
                   label={band.addLabel}
                   span={band.addSpan}
+                  filled={studyRows.length > 0}
                   onPress={() => openDraft(band.id)}
                 />
               ) : null}
@@ -242,10 +243,13 @@ function TimelineMark({ label }: { label: string }) {
 function BandAddControl({
   label,
   span,
+  filled,
   onPress,
 }: {
   label: string;
   span: number;
+  /** When the band already has ≥1 study, drop the gray surface fill. */
+  filled: boolean;
   onPress: () => void;
 }) {
   const colors = useThemeColors();
@@ -260,7 +264,7 @@ function BandAddControl({
           styles.bandAdd,
           {
             minHeight: height,
-            backgroundColor: colors.surface,
+            backgroundColor: filled ? 'transparent' : colors.surface,
           },
         ]}>
         <PlusIcon size={14} />
