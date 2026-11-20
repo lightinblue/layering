@@ -10,7 +10,7 @@ struct HomeView: View {
       header
         .padding(.horizontal, 20)
         .padding(.top, 16)
-        .padding(.bottom, 12)
+        .padding(.bottom, 22)
 
       HStack(alignment: .top, spacing: 16) {
         studySection
