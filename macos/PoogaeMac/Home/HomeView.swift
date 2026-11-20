@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Landscape home: today's study records + review cards (calendar is a depth).
+/// Landscape home: LEFT 공부 기록 | RIGHT 복습 (calendar is a depth).
 struct HomeView: View {
   @ObservedObject var model: AppModel
   @Environment(\.colorScheme) private var colorScheme
@@ -8,18 +8,19 @@ struct HomeView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       header
-        .padding(.horizontal, 28)
-        .padding(.top, 22)
-        .padding(.bottom, 18)
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
 
-      ScrollView(.vertical, showsIndicators: false) {
-        VStack(alignment: .leading, spacing: 28) {
-          studySection
-          reviewSection
-        }
-        .padding(.horizontal, 28)
-        .padding(.bottom, 28)
+      HStack(alignment: .top, spacing: 16) {
+        studySection
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+        reviewSection
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
       }
+      .padding(.horizontal, 20)
+      .padding(.bottom, 16)
     }
     .background(PoogaeTheme.canvas(colorScheme).ignoresSafeArea())
     .animation(PoogaeMotion.settle, value: model.studies.count)
@@ -28,7 +29,7 @@ struct HomeView: View {
 
   private var header: some View {
     HStack(alignment: .firstTextBaseline) {
-      VStack(alignment: .leading, spacing: 6) {
+      VStack(alignment: .leading, spacing: 4) {
         HStack(spacing: 8) {
           Circle()
             .fill(PoogaeTheme.brand)
@@ -38,7 +39,7 @@ struct HomeView: View {
             .foregroundStyle(PoogaeTheme.section(colorScheme))
         }
         Text(headerDateLabel)
-          .font(.system(size: 28, weight: .bold))
+          .font(.system(size: 24, weight: .bold))
           .foregroundStyle(PoogaeTheme.ink(colorScheme))
       }
 
@@ -60,18 +61,20 @@ struct HomeView: View {
   }
 
   private var studySection: some View {
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: 10) {
       Text("공부 기록")
         .font(.system(size: 15, weight: .semibold))
         .foregroundStyle(PoogaeTheme.section(colorScheme))
 
-      if model.studies.isEmpty {
-        emptyStudy
-      } else {
-        LazyVStack(alignment: .leading, spacing: 8) {
-          ForEach(model.studies) { row in
-            StudyRecordRow(row: row)
-              .transition(.opacity.combined(with: .move(edge: .top)))
+      ScrollView(.vertical, showsIndicators: false) {
+        if model.studies.isEmpty {
+          emptyStudy
+        } else {
+          LazyVStack(alignment: .leading, spacing: 8) {
+            ForEach(model.studies) { row in
+              StudyRecordRow(row: row)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
           }
         }
       }
@@ -79,25 +82,24 @@ struct HomeView: View {
   }
 
   private var reviewSection: some View {
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: 10) {
       Text("복습")
         .font(.system(size: 15, weight: .semibold))
         .foregroundStyle(PoogaeTheme.section(colorScheme))
 
-      if model.reviews.isEmpty {
-        emptyReview
-      } else {
-        ScrollView(.horizontal, showsIndicators: false) {
-          HStack(alignment: .top, spacing: 12) {
+      ScrollView(.vertical, showsIndicators: false) {
+        if model.reviews.isEmpty {
+          emptyReview
+        } else {
+          LazyVStack(alignment: .leading, spacing: 10) {
             ForEach(model.reviews) { card in
               ReviewCardView(card: card) {
                 model.toggleReview(card)
               }
-              .frame(width: 200)
+              .frame(maxWidth: .infinity)
               .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
           }
-          .padding(.vertical, 2)
         }
       }
     }
@@ -108,7 +110,7 @@ struct HomeView: View {
       .font(.system(size: 14, weight: .medium))
       .foregroundStyle(PoogaeTheme.muted(colorScheme))
       .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(16)
+      .padding(14)
       .background(PoogaeTheme.surface(colorScheme))
       .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
   }
@@ -118,7 +120,7 @@ struct HomeView: View {
       .font(.system(size: 14, weight: .medium))
       .foregroundStyle(PoogaeTheme.muted(colorScheme))
       .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(16)
+      .padding(14)
       .background(PoogaeTheme.surface(colorScheme))
       .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
   }

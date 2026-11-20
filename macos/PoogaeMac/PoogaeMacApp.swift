@@ -12,7 +12,7 @@ struct PoogaeMacApp: App {
           await model.bootstrap()
         }
     }
-    .defaultSize(width: 820, height: 560)
+    .defaultSize(width: 720, height: 480)
     .commands {
       CommandGroup(replacing: .newItem) {}
     }
