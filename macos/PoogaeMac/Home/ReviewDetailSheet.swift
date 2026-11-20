@@ -108,54 +108,65 @@ struct ReviewDetailSheet: View {
     _ group: (subjectName: String, subjectColor: String?, items: [StudyRecord])
   ) -> some View {
     let chipDate = group.items.first?.studiedOn ?? ""
-    return VStack(alignment: .leading, spacing: 10) {
+    return VStack(alignment: .leading, spacing: 6) {
       // Subject chip is tappable (navigates; never opens edit).
-      Button {
-        goToStudyDate(chipDate)
-      } label: {
-        Text(group.subjectName)
-          .font(.system(size: SubjectChipStyle.fontSize, weight: .semibold))
-          .foregroundStyle(.white)
-          .padding(.horizontal, SubjectChipStyle.horizontalPadding)
-          .frame(minHeight: SubjectChipStyle.minHeight)
-          .background(SubjectChipStyle.fill(hex: group.subjectColor))
-          .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
-          .contentShape(Rectangle())
-      }
-      .buttonStyle(.plain)
-      .help("학습일로 이동")
+      Text(group.subjectName)
+        .font(.system(size: SubjectChipStyle.fontSize, weight: .semibold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, SubjectChipStyle.horizontalPadding)
+        .frame(minHeight: SubjectChipStyle.minHeight)
+        .background(SubjectChipStyle.fill(hex: group.subjectColor))
+        .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
+        .contentShape(Rectangle())
+        .onTapGesture { goToStudyDate(chipDate) }
+        .help("학습일로 이동")
 
+      // Dense bullet rows — full-width hit layer (macOS Button/.plain ignores empty space).
       VStack(alignment: .leading, spacing: 0) {
         ForEach(group.items) { study in
-          Button {
-            goToStudyDate(study.studiedOn)
-          } label: {
-            HStack(alignment: .top, spacing: 8) {
-              Text("•")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(PoogaeTheme.body(colorScheme))
-                .frame(width: 12, alignment: .leading)
-              Text(study.content)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(PoogaeTheme.body(colorScheme))
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            // Full gray row is the hit target (not text-only); AppKit needs a
-            // real fill or nearly-opaque clear won't receive clicks.
-            .padding(.vertical, 3)
-            .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
-            .contentShape(Rectangle())
-            .background(PoogaeTheme.surface(colorScheme))
-          }
-          .buttonStyle(.plain)
-          .help("학습일로 이동")
+          studyTodoRow(study)
         }
       }
+      .frame(maxWidth: .infinity, alignment: .leading)
     }
-    .padding(14)
+    .padding(.horizontal, 14)
+    .padding(.vertical, 12)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(PoogaeTheme.surface(colorScheme))
     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    // Leftover gray padding (not on a row) → group studiedOn.
+    .contentShape(Rectangle())
+    .onTapGesture { goToStudyDate(chipDate) }
+  }
+
+  /// Full-row gray hit target. Uses an explicit fill + highPriorityGesture because
+  /// macOS ScrollView + Button(.plain) only hits opaque Text glyphs, and a parent
+  /// card tap must not steal the row’s studiedOn.
+  private func studyTodoRow(_ study: StudyRecord) -> some View {
+    HStack(alignment: .firstTextBaseline, spacing: 8) {
+      Text("•")
+        .font(.system(size: 13, weight: .medium))
+        .foregroundStyle(PoogaeTheme.body(colorScheme))
+        .frame(width: 12, alignment: .leading)
+      Text(study.content)
+        .font(.system(size: 13, weight: .medium))
+        .foregroundStyle(PoogaeTheme.body(colorScheme))
+        .multilineTextAlignment(.leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .textSelection(.disabled)
+    }
+    .allowsHitTesting(false)
+    .padding(.vertical, 1)
+    .frame(maxWidth: .infinity, minHeight: 20, alignment: .leading)
+    .background {
+      // Must be a real (near-invisible) fill — Color.clear does not receive clicks on AppKit.
+      Rectangle()
+        .fill(Color.primary.opacity(0.001))
+    }
+    .contentShape(Rectangle())
+    .highPriorityGesture(
+      TapGesture().onEnded { goToStudyDate(study.studiedOn) }
+    )
+    .help("학습일로 이동")
   }
 }
