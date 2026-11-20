@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct PoogaeMacApp: App {
+struct PogaeMacApp: App {
   @StateObject private var model = AppModel()
 
   var body: some Scene {

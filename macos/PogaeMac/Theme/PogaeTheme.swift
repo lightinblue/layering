@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum PoogaeTheme {
+enum PogaeTheme {
   static let brand = Color(hex: 0x1991FF)
 
   static let canvasLight = Color(hex: 0xFFFFFF)
@@ -66,12 +66,12 @@ enum SubjectChipStyle {
   static let fontSize: CGFloat = 13
 
   static func fill(hex: String?) -> Color {
-    Color(hexString: hex ?? "", fallback: PoogaeTheme.brand)
+    Color(hexString: hex ?? "", fallback: PogaeTheme.brand)
   }
 
   /// Same-hue rim as iOS `subjectBorderColor` / `darkenHex(..., 0.1)`.
   static func border(hex: String?) -> Color {
-    Color(darkenedHexString: hex ?? "", amount: 0.1, fallback: PoogaeTheme.brand)
+    Color(darkenedHexString: hex ?? "", amount: 0.1, fallback: PogaeTheme.brand)
   }
 }
 

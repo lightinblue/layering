@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		150F1E4C12B34EC5AE652CBD /* PoogaeTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66423DEE2EE34AE8B9E739B8 /* PoogaeTheme.swift */; };
+		150F1E4C12B34EC5AE652CBD /* PogaeTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66423DEE2EE34AE8B9E739B8 /* PogaeTheme.swift */; };
 		2684421EEDE04EC09FF123B0 /* TodayHomeData.swift in Sources */ = {isa = PBXBuildFile; fileRef = E112D4F280A74AA2AC60E5EC /* TodayHomeData.swift */; };
 		2ECD3DF1FF5342ECAA5D1BD4 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C717F1136A2E41819E2E8384 /* HomeView.swift */; };
 		6B4D2FFAFD4B4226A9D7D907 /* StudyRecordRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1B419FF67F46378450CD39 /* StudyRecordRow.swift */; };
 		9001246205A547F48ED22F32 /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534CAAB67022438C8065B933 /* CalendarView.swift */; };
 		A4E17361D839461F868AB3EE /* ICloudKvsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDBC26445454C74B5C8FEDA /* ICloudKvsStore.swift */; };
-		AD03A3060817412C8FE27726 /* PoogaeMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 606A0F6F5BDC405C80DB06F6 /* PoogaeMacApp.swift */; };
+		AD03A3060817412C8FE27726 /* PogaeMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 606A0F6F5BDC405C80DB06F6 /* PogaeMacApp.swift */; };
 		B2B71023C55D429E821D0954 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD7A572BB1464B5C851791CF /* Motion.swift */; };
 		B460BD050D4D42E7A6C0D504 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74DAB81B962D4D188D200AF7 /* AppModel.swift */; };
 		C2FED1748B6443DB9396AB00 /* DomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8998282D38194D6EAC7C6479 /* DomainModels.swift */; };
@@ -37,9 +37,9 @@
 		534CAAB67022438C8065B933 /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
 		5C58BA9505D740C985CDBC78 /* ReviewCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewCardView.swift; sourceTree = "<group>"; };
 		A7E4C91D2B8F4E6A9D1C3B21 /* ReviewDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewDetailSheet.swift; sourceTree = "<group>"; };
-		606A0F6F5BDC405C80DB06F6 /* PoogaeMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoogaeMacApp.swift; sourceTree = "<group>"; };
-		66423DEE2EE34AE8B9E739B8 /* PoogaeTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoogaeTheme.swift; sourceTree = "<group>"; };
-		6894CAAC7A38483986751C83 /* PoogaeMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PoogaeMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		606A0F6F5BDC405C80DB06F6 /* PogaeMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PogaeMacApp.swift; sourceTree = "<group>"; };
+		66423DEE2EE34AE8B9E739B8 /* PogaeTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PogaeTheme.swift; sourceTree = "<group>"; };
+		6894CAAC7A38483986751C83 /* PogaeMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PogaeMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		74DAB81B962D4D188D200AF7 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		8998282D38194D6EAC7C6479 /* DomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainModels.swift; sourceTree = "<group>"; };
 		A91EFFD1367A49648246BAC5 /* Merge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Merge.swift; sourceTree = "<group>"; };
@@ -50,7 +50,7 @@
 		D0E89BCDB6EC4A5CB01E4D63 /* DateKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateKeys.swift; sourceTree = "<group>"; };
 		E112D4F280A74AA2AC60E5EC /* TodayHomeData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayHomeData.swift; sourceTree = "<group>"; };
 		F0FA2955A2394F5790EDB40C /* MainWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindow.swift; sourceTree = "<group>"; };
-		F5F76ACFA21641B6BC426070 /* PoogaeMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PoogaeMac.entitlements; sourceTree = "<group>"; };
+		F5F76ACFA21641B6BC426070 /* PogaeMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PogaeMac.entitlements; sourceTree = "<group>"; };
 		FA1B419FF67F46378450CD39 /* StudyRecordRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyRecordRow.swift; sourceTree = "<group>"; };
 		A0B71D03C2053B6DA7409001 /* StudyEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyEditorSheet.swift; sourceTree = "<group>"; };
 		B1C82E04D3164C7EB851A002 /* SubjectEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectEditorSheet.swift; sourceTree = "<group>"; };
@@ -73,15 +73,15 @@
 		03A6F36884CA4BEFBE12B77B = {
 			isa = PBXGroup;
 			children = (
-				0722FBF4F7A742CF99B7CEBE /* PoogaeMac */,
+				0722FBF4F7A742CF99B7CEBE /* PogaeMac */,
 				BD0919B9D75C4484A6E169EF /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		0722FBF4F7A742CF99B7CEBE /* PoogaeMac */ = {
+		0722FBF4F7A742CF99B7CEBE /* PogaeMac */ = {
 			isa = PBXGroup;
 			children = (
-				606A0F6F5BDC405C80DB06F6 /* PoogaeMacApp.swift */,
+				606A0F6F5BDC405C80DB06F6 /* PogaeMacApp.swift */,
 				67711566769C4FACA80AAC00 /* App */,
 				8F805906BE9F4C2FACAD4D42 /* Home */,
 				FEA358F138A84F88BA09CAB0 /* Calendar */,
@@ -89,7 +89,7 @@
 				40422EBC8FBD48B1828A0660 /* Sync */,
 				6B3FD7E13FD8466A92A3034F /* Resources */,
 			);
-			path = PoogaeMac;
+			path = PogaeMac;
 			sourceTree = "<group>";
 		};
 		40422EBC8FBD48B1828A0660 /* Sync */ = {
@@ -110,7 +110,7 @@
 			isa = PBXGroup;
 			children = (
 				CD7A572BB1464B5C851791CF /* Motion.swift */,
-				66423DEE2EE34AE8B9E739B8 /* PoogaeTheme.swift */,
+				66423DEE2EE34AE8B9E739B8 /* PogaeTheme.swift */,
 			);
 			path = Theme;
 			sourceTree = "<group>";
@@ -129,7 +129,7 @@
 			isa = PBXGroup;
 			children = (
 				CBFE870AF60E4F569E08C2CD /* Assets.xcassets */,
-				F5F76ACFA21641B6BC426070 /* PoogaeMac.entitlements */,
+				F5F76ACFA21641B6BC426070 /* PogaeMac.entitlements */,
 				07330D578A1A48599BD91871 /* Info.plist */,
 			);
 			path = Resources;
@@ -152,7 +152,7 @@
 		BD0919B9D75C4484A6E169EF /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				6894CAAC7A38483986751C83 /* PoogaeMac.app */,
+				6894CAAC7A38483986751C83 /* PogaeMac.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -168,9 +168,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		26DA4D8DE74C42A5BB53D20B /* PoogaeMac */ = {
+		26DA4D8DE74C42A5BB53D20B /* PogaeMac */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 73801DA1794F4843992F3983 /* Build configuration list for PBXNativeTarget "PoogaeMac" */;
+			buildConfigurationList = 73801DA1794F4843992F3983 /* Build configuration list for PBXNativeTarget "PogaeMac" */;
 			buildPhases = (
 				179828B0F6D24CE8AF0F2781 /* Sources */,
 				E06D18ADEE0046ADAC0D4956 /* Frameworks */,
@@ -180,9 +180,9 @@
 			);
 			dependencies = (
 			);
-			name = PoogaeMac;
-			productName = PoogaeMac;
-			productReference = 6894CAAC7A38483986751C83 /* PoogaeMac.app */;
+			name = PogaeMac;
+			productName = PogaeMac;
+			productReference = 6894CAAC7A38483986751C83 /* PogaeMac.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -201,7 +201,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 5433500B68B6481CA6B7176A /* Build configuration list for PBXProject "PoogaeMac" */;
+			buildConfigurationList = 5433500B68B6481CA6B7176A /* Build configuration list for PBXProject "PogaeMac" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = ko;
 			hasScannedForEncodings = 0;
@@ -215,7 +215,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				26DA4D8DE74C42A5BB53D20B /* PoogaeMac */,
+				26DA4D8DE74C42A5BB53D20B /* PogaeMac */,
 			);
 		};
 /* End PBXProject section */
@@ -246,7 +246,7 @@
 				B1C82E04D3164C7EB851A001 /* StudyEditorSheet.swift in Sources */,
 				C2D93F15E4275D8FC962B002 /* SubjectEditorSheet.swift in Sources */,
 				6B4D2FFAFD4B4226A9D7D907 /* StudyRecordRow.swift in Sources */,
-				AD03A3060817412C8FE27726 /* PoogaeMacApp.swift in Sources */,
+				AD03A3060817412C8FE27726 /* PogaeMacApp.swift in Sources */,
 				DFF0CC738D8143D1AEBC434B /* DateKeys.swift in Sources */,
 				C2FED1748B6443DB9396AB00 /* DomainModels.swift in Sources */,
 				A4E17361D839461F868AB3EE /* ICloudKvsStore.swift in Sources */,
@@ -256,7 +256,7 @@
 				2684421EEDE04EC09FF123B0 /* TodayHomeData.swift in Sources */,
 				E3A91C20B1D24F6A9C8E4F13 /* StudyDayTimeline.swift in Sources */,
 				B2B71023C55D429E821D0954 /* Motion.swift in Sources */,
-				150F1E4C12B34EC5AE652CBD /* PoogaeTheme.swift in Sources */,
+				150F1E4C12B34EC5AE652CBD /* PogaeTheme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -268,14 +268,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = PoogaeMac/Resources/PoogaeMac.entitlements;
+				CODE_SIGN_ENTITLEMENTS = PogaeMac/Resources/PogaeMac.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = R39JVZ3ZNL;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = PoogaeMac/Resources/Info.plist;
+				INFOPLIST_FILE = PogaeMac/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -324,14 +324,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = PoogaeMac/Resources/PoogaeMac.entitlements;
+				CODE_SIGN_ENTITLEMENTS = PogaeMac/Resources/PogaeMac.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = R39JVZ3ZNL;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = PoogaeMac/Resources/Info.plist;
+				INFOPLIST_FILE = PogaeMac/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -348,7 +348,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		5433500B68B6481CA6B7176A /* Build configuration list for PBXProject "PoogaeMac" */ = {
+		5433500B68B6481CA6B7176A /* Build configuration list for PBXProject "PogaeMac" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3B637E878D75486FA28E6685 /* Debug */,
@@ -357,7 +357,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		73801DA1794F4843992F3983 /* Build configuration list for PBXNativeTarget "PoogaeMac" */ = {
+		73801DA1794F4843992F3983 /* Build configuration list for PBXNativeTarget "PogaeMac" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				227F531FF66A40B59BD454CA /* Debug */,

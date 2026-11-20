@@ -21,12 +21,12 @@ struct StudyRecordRow: View {
 
         Text(row.content)
           .font(.system(size: 13, weight: .medium))
-          .foregroundStyle(PoogaeTheme.body(colorScheme))
+          .foregroundStyle(PogaeTheme.body(colorScheme))
           .lineLimit(1)
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.horizontal, 12)
           .frame(height: chipHeight)
-          .background(PoogaeTheme.surface(colorScheme))
+          .background(PogaeTheme.surface(colorScheme))
           .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
       }
       .contentShape(Rectangle())
@@ -41,8 +41,8 @@ struct StudyRecordRow: View {
 
   private var chipColor: Color {
     if let hex = row.subjectColor {
-      return Color(hexString: hex, fallback: PoogaeTheme.brand)
+      return Color(hexString: hex, fallback: PogaeTheme.brand)
     }
-    return PoogaeTheme.brand
+    return PogaeTheme.brand
   }
 }

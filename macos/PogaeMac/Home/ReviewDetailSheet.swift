@@ -52,24 +52,24 @@ struct ReviewDetailSheet: View {
         VStack(alignment: .leading, spacing: 4) {
           Text("복습 내용")
             .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(PoogaeTheme.ink(colorScheme))
+            .foregroundStyle(PogaeTheme.ink(colorScheme))
           HStack(spacing: 10) {
             Text("\(card.intervalDays)일 전")
               .font(.system(size: 12, weight: .medium))
-              .foregroundStyle(PoogaeTheme.muted(colorScheme))
+              .foregroundStyle(PogaeTheme.muted(colorScheme))
             if !studiedOnLabel.isEmpty {
               Text(studiedOnLabel)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(PoogaeTheme.section(colorScheme))
+                .foregroundStyle(PogaeTheme.section(colorScheme))
             }
           }
         }
         Spacer()
         Button("닫기") {
-          withAnimation(PoogaeMotion.quick) { dismiss() }
+          withAnimation(PogaeMotion.quick) { dismiss() }
         }
         .buttonStyle(.plain)
-        .foregroundStyle(PoogaeTheme.section(colorScheme))
+        .foregroundStyle(PogaeTheme.section(colorScheme))
       }
       .padding(.horizontal, 22)
       .padding(.top, 22)
@@ -80,10 +80,10 @@ struct ReviewDetailSheet: View {
           if groups.isEmpty {
             Text("연결된 공부 기록이 없어요")
               .font(.system(size: 14, weight: .medium))
-              .foregroundStyle(PoogaeTheme.muted(colorScheme))
+              .foregroundStyle(PogaeTheme.muted(colorScheme))
               .frame(maxWidth: .infinity, alignment: .leading)
               .padding(14)
-              .background(PoogaeTheme.surface(colorScheme))
+              .background(PogaeTheme.surface(colorScheme))
               .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
           } else {
             ForEach(groups, id: \.subjectName) { group in
@@ -96,7 +96,7 @@ struct ReviewDetailSheet: View {
       }
     }
     .frame(width: 420, height: 360)
-    .background(PoogaeTheme.canvas(colorScheme))
+    .background(PogaeTheme.canvas(colorScheme))
   }
 
   private func goToStudyDate(_ studiedOn: String) {
@@ -132,7 +132,7 @@ struct ReviewDetailSheet: View {
     .padding(.horizontal, 14)
     .padding(.vertical, 12)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(PoogaeTheme.surface(colorScheme))
+    .background(PogaeTheme.surface(colorScheme))
     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     // Leftover gray padding (not on a row) → group studiedOn.
     .contentShape(Rectangle())
@@ -146,11 +146,11 @@ struct ReviewDetailSheet: View {
     HStack(alignment: .firstTextBaseline, spacing: 8) {
       Text("•")
         .font(.system(size: 13, weight: .medium))
-        .foregroundStyle(PoogaeTheme.body(colorScheme))
+        .foregroundStyle(PogaeTheme.body(colorScheme))
         .frame(width: 12, alignment: .leading)
       Text(study.content)
         .font(.system(size: 13, weight: .medium))
-        .foregroundStyle(PoogaeTheme.body(colorScheme))
+        .foregroundStyle(PogaeTheme.body(colorScheme))
         .multilineTextAlignment(.leading)
         .frame(maxWidth: .infinity, alignment: .leading)
         .textSelection(.disabled)

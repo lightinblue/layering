@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "26DA4D8DE74C42A5BB53D20B"
-               BuildableName = "PoogaeMac.app"
-               BlueprintName = "PoogaeMac"
-               ReferencedContainer = "container:PoogaeMac.xcodeproj">
+               BuildableName = "PogaeMac.app"
+               BlueprintName = "PogaeMac"
+               ReferencedContainer = "container:PogaeMac.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -37,9 +37,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "26DA4D8DE74C42A5BB53D20B"
-            BuildableName = "PoogaeMac.app"
-            BlueprintName = "PoogaeMac"
-            ReferencedContainer = "container:PoogaeMac.xcodeproj">
+            BuildableName = "PogaeMac.app"
+            BlueprintName = "PogaeMac"
+            ReferencedContainer = "container:PogaeMac.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>

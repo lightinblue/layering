@@ -22,30 +22,30 @@ struct SubjectEditorSheet: View {
       HStack {
         Text(isEditing ? "과목 수정" : "과목 추가")
           .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(PoogaeTheme.ink(colorScheme))
+          .foregroundStyle(PogaeTheme.ink(colorScheme))
         Spacer()
         Button("닫기") {
-          withAnimation(PoogaeMotion.quick) { dismiss() }
+          withAnimation(PogaeMotion.quick) { dismiss() }
         }
         .buttonStyle(.plain)
-        .foregroundStyle(PoogaeTheme.section(colorScheme))
+        .foregroundStyle(PogaeTheme.section(colorScheme))
       }
 
       VStack(alignment: .leading, spacing: 8) {
         Text("이름 (최대 \(AppMutations.maxSubjectNameLength)자)")
           .font(.system(size: 12, weight: .semibold))
-          .foregroundStyle(PoogaeTheme.section(colorScheme))
+          .foregroundStyle(PogaeTheme.section(colorScheme))
         TextField(
           "",
           text: $name,
           prompt: Text("전공, 국어")
-            .foregroundStyle(PoogaeTheme.placeholder(colorScheme))
+            .foregroundStyle(PogaeTheme.placeholder(colorScheme))
         )
           .textFieldStyle(.plain)
           .font(.system(size: 15, weight: .medium))
           .padding(.horizontal, 14)
           .padding(.vertical, 12)
-          .background(PoogaeTheme.surface(colorScheme))
+          .background(PogaeTheme.surface(colorScheme))
           .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
           .onChange(of: name) { _, value in
             if value.count > AppMutations.maxSubjectNameLength {
@@ -58,14 +58,14 @@ struct SubjectEditorSheet: View {
       VStack(alignment: .leading, spacing: 8) {
         Text("색")
           .font(.system(size: 12, weight: .semibold))
-          .foregroundStyle(PoogaeTheme.section(colorScheme))
+          .foregroundStyle(PogaeTheme.section(colorScheme))
         HStack(spacing: 8) {
           ForEach(AppMutations.subjectColorOptions, id: \.self) { hex in
             Button {
-              withAnimation(PoogaeMotion.quick) { color = hex }
+              withAnimation(PogaeMotion.quick) { color = hex }
             } label: {
               Circle()
-                .fill(Color(hexString: hex, fallback: PoogaeTheme.brand))
+                .fill(Color(hexString: hex, fallback: PogaeTheme.brand))
                 .frame(width: 22, height: 22)
                 .overlay(
                   Circle()
@@ -73,7 +73,7 @@ struct SubjectEditorSheet: View {
                 )
                 .overlay(
                   Circle()
-                    .strokeBorder(PoogaeTheme.ink(colorScheme).opacity(color == hex ? 0.35 : 0), lineWidth: 1)
+                    .strokeBorder(PogaeTheme.ink(colorScheme).opacity(color == hex ? 0.35 : 0), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
@@ -100,7 +100,7 @@ struct SubjectEditorSheet: View {
               .frame(maxWidth: .infinity)
               .padding(.vertical, 10)
               .foregroundStyle(Color(hex: 0xE25555))
-              .background(PoogaeTheme.surface(colorScheme))
+              .background(PogaeTheme.surface(colorScheme))
               .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
           }
           .buttonStyle(.plain)
@@ -112,7 +112,7 @@ struct SubjectEditorSheet: View {
             color: color,
             editingSubjectId: presentation.editingSubjectId
           ) {
-            withAnimation(PoogaeMotion.quick) {
+            withAnimation(PogaeMotion.quick) {
               errorMessage = failureMessage(failure)
             }
           }
@@ -122,7 +122,7 @@ struct SubjectEditorSheet: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .foregroundStyle(.white)
-            .background(canSave ? PoogaeTheme.brand : PoogaeTheme.muted(colorScheme).opacity(0.45))
+            .background(canSave ? PogaeTheme.brand : PogaeTheme.muted(colorScheme).opacity(0.45))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -131,7 +131,7 @@ struct SubjectEditorSheet: View {
     }
     .padding(20)
     .frame(width: 360, height: 280)
-    .background(PoogaeTheme.canvas(colorScheme))
+    .background(PogaeTheme.canvas(colorScheme))
     .onAppear {
       if let id = presentation.editingSubjectId, let subject = model.subject(id: id) {
         name = subject.name

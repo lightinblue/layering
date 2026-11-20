@@ -22,8 +22,8 @@ final class ICloudKvsStore: ObservableObject {
   private let store = NSUbiquitousKeyValueStore.default
   private var observer: NSObjectProtocol?
   private let deviceId: String
-  private let localCacheKey = "poogae.mac.app-data-v1"
-  private let localPrefsCacheKey = "poogae.mac.synced-prefs-v1"
+  private let localCacheKey = "pogae.mac.app-data-v1"
+  private let localPrefsCacheKey = "pogae.mac.synced-prefs-v1"
   private var prefsUpdatedAt: String = "1970-01-01T00:00:00.000Z"
   private var applyingRemote = false
   /// True once we have seen non-empty cloud subjects or month records.
@@ -562,7 +562,7 @@ private struct LocalAppDataCache: Codable {
 }
 
 enum DeviceIdentity {
-  private static let key = "poogae.mac.device-id"
+  private static let key = "pogae.mac.device-id"
 
   static func loadOrCreate() -> String {
     if let existing = UserDefaults.standard.string(forKey: key), !existing.isEmpty {

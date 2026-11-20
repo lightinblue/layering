@@ -92,7 +92,7 @@ final class AppModel: ObservableObject {
   }
 
   func openCalendar() {
-    withAnimation(PoogaeMotion.panel) {
+    withAnimation(PogaeMotion.panel) {
       path.append(MacRoute.calendar)
     }
   }
@@ -101,14 +101,14 @@ final class AppModel: ObservableObject {
   func shiftSelectedDay(_ days: Int) {
     let next = DateKeys.addDays(selectedDateKey, days)
     guard next != selectedDateKey else { return }
-    withAnimation(PoogaeMotion.settle) {
+    withAnimation(PogaeMotion.settle) {
       selectedDateKey = next
     }
   }
 
   func goToday() {
     guard !isViewingToday else { return }
-    withAnimation(PoogaeMotion.settle) {
+    withAnimation(PogaeMotion.settle) {
       selectedDateKey = todayKey
     }
   }
@@ -117,7 +117,7 @@ final class AppModel: ObservableObject {
   func selectDate(_ dateKey: String) {
     let next = DateKeys.normalizeDateKey(dateKey)
     guard !next.isEmpty, next != selectedDateKey else { return }
-    withAnimation(PoogaeMotion.settle) {
+    withAnimation(PogaeMotion.settle) {
       selectedDateKey = next
     }
   }
@@ -132,26 +132,26 @@ final class AppModel: ObservableObject {
 
   func openAddStudy(band: DayBandId? = nil) {
     guard canAddStudy else { return }
-    withAnimation(PoogaeMotion.quick) {
+    withAnimation(PogaeMotion.quick) {
       studyEditor = .add(band: band)
     }
   }
 
   func openEditStudy(_ row: HomeStudyRow) {
-    withAnimation(PoogaeMotion.quick) {
+    withAnimation(PogaeMotion.quick) {
       studyEditor = .edit(studyId: row.id)
     }
   }
 
   func openAddSubject() {
     guard canAddSubject else { return }
-    withAnimation(PoogaeMotion.quick) {
+    withAnimation(PogaeMotion.quick) {
       subjectEditor = .add
     }
   }
 
   func openEditSubject(_ subject: SubjectChip) {
-    withAnimation(PoogaeMotion.quick) {
+    withAnimation(PogaeMotion.quick) {
       subjectEditor = .edit(subjectId: subject.id)
     }
   }
@@ -193,7 +193,7 @@ final class AppModel: ObservableObject {
       )
     }
     guard let next else { return false }
-    withAnimation(PoogaeMotion.settle) {
+    withAnimation(PogaeMotion.settle) {
       kvs.applyLocal(next)
       // Continuous add: keep sheet open under the daily cap.
       if !isAdd || AppMutations.countStudies(on: selectedDateKey, in: next) >= AppMutations.maxStudiesPerDay {
@@ -223,14 +223,14 @@ final class AppModel: ObservableObject {
       studiedOn: selectedDateKey,
       orderedIds: orderedIds
     ) else { return }
-    withAnimation(PoogaeMotion.settle) {
+    withAnimation(PogaeMotion.settle) {
       kvs.applyLocal(next)
     }
   }
 
   func deleteStudy(id: String) {
     guard let next = AppMutations.deleteStudy(kvs.data, studyId: id) else { return }
-    withAnimation(PoogaeMotion.settle) {
+    withAnimation(PogaeMotion.settle) {
       kvs.applyLocal(next)
       if case .edit(let editingId) = studyEditor, editingId == id {
         studyEditor = nil
@@ -253,7 +253,7 @@ final class AppModel: ObservableObject {
     }
     switch result {
     case .success(let next):
-      withAnimation(PoogaeMotion.settle) {
+      withAnimation(PogaeMotion.settle) {
         kvs.applyLocal(next)
         subjectEditor = nil
       }
@@ -265,7 +265,7 @@ final class AppModel: ObservableObject {
 
   func deleteSubject(id: String) {
     guard case .success(let next) = AppMutations.removeSubject(kvs.data, subjectId: id) else { return }
-    withAnimation(PoogaeMotion.settle) {
+    withAnimation(PogaeMotion.settle) {
       kvs.applyLocal(next)
       if case .edit(let editingId) = subjectEditor, editingId == id {
         subjectEditor = nil
@@ -285,7 +285,7 @@ final class AppModel: ObservableObject {
       next.records[idx].checks[key] = ReviewCheck(done: !wasDone, updatedAt: now)
       next.records[idx].updatedAt = now
     }
-    withAnimation(PoogaeMotion.settle) {
+    withAnimation(PogaeMotion.settle) {
       kvs.applyLocal(next)
     }
   }

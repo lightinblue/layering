@@ -13,7 +13,7 @@ struct ReviewCardView: View {
           Button(action: onToggle) {
             ZStack {
               RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(card.completed ? PoogaeTheme.brand : PoogaeTheme.muted(colorScheme).opacity(0.35))
+                .fill(card.completed ? PogaeTheme.brand : PogaeTheme.muted(colorScheme).opacity(0.35))
                 .frame(width: 24, height: 24)
               if card.completed {
                 Image(systemName: "checkmark")
@@ -28,7 +28,7 @@ struct ReviewCardView: View {
 
           Text("\(card.intervalDays)일 전")
             .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(PoogaeTheme.section(colorScheme))
+            .foregroundStyle(PogaeTheme.section(colorScheme))
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
         }
@@ -51,14 +51,14 @@ struct ReviewCardView: View {
       .frame(maxWidth: .infinity, minHeight: 72, alignment: .center)
       .background(
         card.completed
-          ? PoogaeTheme.primarySoft(colorScheme)
-          : PoogaeTheme.surface(colorScheme)
+          ? PogaeTheme.primarySoft(colorScheme)
+          : PogaeTheme.surface(colorScheme)
       )
       // Always reserve 2pt stroke so checking doesn't shift content.
       .overlay(
         RoundedRectangle(cornerRadius: 12, style: .continuous)
           .strokeBorder(
-            card.completed ? PoogaeTheme.brand : Color.clear,
+            card.completed ? PogaeTheme.brand : Color.clear,
             lineWidth: 2
           )
       )
@@ -66,7 +66,7 @@ struct ReviewCardView: View {
     }
     .buttonStyle(.plain)
     .help("복습 내용 보기")
-    .animation(PoogaeMotion.settle, value: card.completed)
+    .animation(PogaeMotion.settle, value: card.completed)
   }
 }
 

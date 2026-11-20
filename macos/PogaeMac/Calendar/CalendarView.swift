@@ -12,7 +12,7 @@ struct CalendarView: View {
     VStack(alignment: .leading, spacing: 20) {
       HStack {
         Button {
-          withAnimation(PoogaeMotion.settle) {
+          withAnimation(PogaeMotion.settle) {
             shiftMonth(-1)
           }
         } label: {
@@ -22,11 +22,11 @@ struct CalendarView: View {
 
         Text(monthTitle)
           .font(.system(size: 18, weight: .semibold))
-          .foregroundStyle(PoogaeTheme.ink(colorScheme))
+          .foregroundStyle(PogaeTheme.ink(colorScheme))
           .frame(maxWidth: .infinity)
 
         Button {
-          withAnimation(PoogaeMotion.settle) {
+          withAnimation(PogaeMotion.settle) {
             shiftMonth(1)
           }
         } label: {
@@ -39,7 +39,7 @@ struct CalendarView: View {
         ForEach(weekdayLabels, id: \.self) { label in
           Text(label)
             .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(PoogaeTheme.muted(colorScheme))
+            .foregroundStyle(PogaeTheme.muted(colorScheme))
             .frame(maxWidth: .infinity)
         }
         ForEach(Array(daysInMonth.enumerated()), id: \.offset) { _, day in
@@ -50,12 +50,12 @@ struct CalendarView: View {
       Spacer(minLength: 0)
     }
     .padding(28)
-    .background(PoogaeTheme.canvas(colorScheme).ignoresSafeArea())
+    .background(PogaeTheme.canvas(colorScheme).ignoresSafeArea())
     .navigationTitle("캘린더")
     .toolbar {
       ToolbarItem(placement: .cancellationAction) {
         Button("홈") {
-          withAnimation(PoogaeMotion.panel) {
+          withAnimation(PogaeMotion.panel) {
             dismiss()
           }
         }
@@ -110,25 +110,25 @@ struct CalendarView: View {
       let isToday = key == model.todayKey
       let hasStudy = model.studyDateKeys.contains(key)
       Button {
-        withAnimation(PoogaeMotion.quick) {
+        withAnimation(PogaeMotion.quick) {
           model.selectedDateKey = key
         }
-        withAnimation(PoogaeMotion.panel) {
+        withAnimation(PogaeMotion.panel) {
           dismiss()
         }
       } label: {
         VStack(spacing: 4) {
           Text("\(Calendar.current.component(.day, from: date))")
             .font(.system(size: 14, weight: selected ? .bold : .medium))
-            .foregroundStyle(isToday ? PoogaeTheme.brand : PoogaeTheme.ink(colorScheme))
+            .foregroundStyle(isToday ? PogaeTheme.brand : PogaeTheme.ink(colorScheme))
           Circle()
-            .fill(hasStudy ? PoogaeTheme.brand : Color.clear)
+            .fill(hasStudy ? PogaeTheme.brand : Color.clear)
             .frame(width: 5, height: 5)
         }
         .frame(maxWidth: .infinity, minHeight: 40)
         .background(
           selected
-            ? PoogaeTheme.primarySoft(colorScheme)
+            ? PogaeTheme.primarySoft(colorScheme)
             : Color.clear
         )
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))

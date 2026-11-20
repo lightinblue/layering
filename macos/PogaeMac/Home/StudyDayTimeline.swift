@@ -20,13 +20,13 @@ struct StudyDayTimeline: View {
       if !model.canAddStudy {
         Text("하루 \(StudyTimeline.maxStudiesPerDay)개까지")
           .font(.system(size: 12, weight: .medium))
-          .foregroundStyle(PoogaeTheme.muted(colorScheme))
+          .foregroundStyle(PogaeTheme.muted(colorScheme))
           .padding(.top, 4)
           .transition(.opacity)
       }
     }
-    .animation(PoogaeMotion.settle, value: model.studies.map(\.id))
-    .animation(PoogaeMotion.settle, value: model.studies.map { "\($0.id):\($0.dayOrder ?? -1)" })
+    .animation(PogaeMotion.settle, value: model.studies.map(\.id))
+    .animation(PogaeMotion.settle, value: model.studies.map { "\($0.id):\($0.dayOrder ?? -1)" })
   }
 
   private func bandBlock(_ band: StudyTimeline.BandView, isLast: Bool) -> some View {
@@ -62,10 +62,10 @@ struct StudyDayTimeline: View {
     HStack(spacing: 10) {
       Text(label)
         .font(.system(size: 11, weight: .medium).monospacedDigit())
-        .foregroundStyle(PoogaeTheme.muted(colorScheme).opacity(0.85))
+        .foregroundStyle(PogaeTheme.muted(colorScheme).opacity(0.85))
         .frame(width: 22, alignment: .trailing)
       Rectangle()
-        .fill(PoogaeTheme.muted(colorScheme).opacity(0.28))
+        .fill(PogaeTheme.muted(colorScheme).opacity(0.28))
         .frame(height: 1)
     }
     .padding(.vertical, 1)
@@ -82,11 +82,11 @@ struct StudyDayTimeline: View {
         Text(band.addLabel)
           .font(.system(size: 13, weight: .medium))
       }
-      .foregroundStyle(PoogaeTheme.section(colorScheme))
+      .foregroundStyle(PogaeTheme.section(colorScheme))
       .frame(maxWidth: .infinity)
       .frame(minHeight: height)
       // Match phone: gray fill only when the band is empty.
-      .background(filled ? Color.clear : PoogaeTheme.surface(colorScheme))
+      .background(filled ? Color.clear : PogaeTheme.surface(colorScheme))
       .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
     }
     .buttonStyle(.plain)
@@ -128,7 +128,7 @@ private struct BandStudyRows: View {
           else { return false }
           var to = index
           if from < to { to += 1 }
-          withAnimation(PoogaeMotion.settle) {
+          withAnimation(PogaeMotion.settle) {
             onMove(IndexSet(integer: from), to)
           }
           return true
@@ -140,6 +140,6 @@ private struct BandStudyRows: View {
         .frame(height: slotHeight)
       }
     }
-    .animation(PoogaeMotion.settle, value: rows.map(\.id))
+    .animation(PogaeMotion.settle, value: rows.map(\.id))
   }
 }
