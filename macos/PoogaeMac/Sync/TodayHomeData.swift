@@ -26,8 +26,9 @@ struct HomeReviewCard: Identifiable, Hashable {
 
 enum TodayHomeData {
   static func studies(for dateKey: String, data: AppData) -> [HomeStudyRow] {
-    ICloudMerge.activeRecords(data.records)
-      .filter { $0.studiedOn == dateKey }
+    let day = DateKeys.normalizeDateKey(dateKey)
+    return ICloudMerge.activeRecords(data.records)
+      .filter { DateKeys.normalizeDateKey($0.studiedOn) == day }
       .sorted { $0.createdAt < $1.createdAt }
       .map {
         HomeStudyRow(
@@ -48,11 +49,13 @@ enum TodayHomeData {
       var intervalDays: Int
     }
 
+    let day = DateKeys.normalizeDateKey(dateKey)
     var due: [Due] = []
     for record in ICloudMerge.activeRecords(data.records) {
+      let studiedOn = DateKeys.normalizeDateKey(record.studiedOn)
       let cycle = record.cycle.isEmpty ? ReviewIntervals.days : record.cycle
       for interval in cycle {
-        if DateKeys.addDays(record.studiedOn, interval) == dateKey {
+        if DateKeys.addDays(studiedOn, interval) == day {
           due.append(Due(record: record, intervalDays: interval))
         }
       }

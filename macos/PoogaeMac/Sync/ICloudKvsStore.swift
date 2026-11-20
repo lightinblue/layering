@@ -101,7 +101,7 @@ final class ICloudKvsStore: ObservableObject {
         kvsLog.error("decode failed for \(key, privacy: .public)")
       }
       guard let month = monthRead.payload else { continue }
-      remoteRecords.append(contentsOf: month.records)
+      remoteRecords.append(contentsOf: month.records.map(Self.normalizedRecord))
       if remoteDeviceId.isEmpty {
         remoteDeviceId = month.deviceId
       }
@@ -140,6 +140,10 @@ final class ICloudKvsStore: ObservableObject {
     }
 
     lastReadAt = Date()
+    let activeTotal = ICloudMerge.activeRecords(data.records).count
+    let studiedDays = Set(
+      ICloudMerge.activeRecords(data.records).map { DateKeys.normalizeDateKey($0.studiedOn) }
+    ).sorted()
     statusMessage = makeStatus(
       iCloud: iCloudAvailable,
       subjectKeyPresent: !subjectKeys.isEmpty,
@@ -147,6 +151,8 @@ final class ICloudKvsStore: ObservableObject {
       subjectsDecodeFailed: subjectsRead.hadRaw && subjectsPayload == nil,
       monthKeyCount: monthKeys.count,
       remoteRecordCount: remoteRecords.count,
+      activeRecordCount: activeTotal,
+      studiedDays: studiedDays,
       monthDecodeFailures: monthDecodeFailures,
       hadRemote: hadRemote,
       totalKeyCount: allKeys.count
@@ -300,6 +306,12 @@ final class ICloudKvsStore: ObservableObject {
     }
   }
 
+  private static func normalizedRecord(_ record: StudyRecord) -> StudyRecord {
+    var next = record
+    next.studiedOn = DateKeys.normalizeDateKey(record.studiedOn)
+    return next
+  }
+
   private func makeStatus(
     iCloud: Bool,
     subjectKeyPresent: Bool,
@@ -307,6 +319,8 @@ final class ICloudKvsStore: ObservableObject {
     subjectsDecodeFailed: Bool,
     monthKeyCount: Int,
     remoteRecordCount: Int,
+    activeRecordCount: Int,
+    studiedDays: [String],
     monthDecodeFailures: Int,
     hadRemote: Bool,
     totalKeyCount: Int
@@ -322,7 +336,8 @@ final class ICloudKvsStore: ObservableObject {
     }
     if hadRemote {
       let subj = subjectsDecoded ? "ok" : (subjectKeyPresent ? "empty" : "missing")
-      return "KVS 동기화됨 · subjects=\(subj) · dict=\(totalKeyCount) · records=\(remoteRecordCount)"
+      let days = studiedDays.isEmpty ? "-" : studiedDays.joined(separator: ",")
+      return "KVS 동기화됨 · subjects=\(subj) · dict=\(totalKeyCount) · records=\(remoteRecordCount) active=\(activeRecordCount) days=\(days)"
     }
     return "클라우드 비어 있음 · dict=\(totalKeyCount) · subjects=\(subjectKeyPresent ? 1 : 0) · rec=\(monthKeyCount) · 컨테이너 \(Self.expectedKvStoreId)"
   }

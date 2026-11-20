@@ -25,13 +25,39 @@ enum DateKeys {
   }
 
   static func parse(_ isoDate: String) -> Date? {
-    let parts = isoDate.split(separator: "-").compactMap { Int($0) }
+    let key = normalizeDateKey(isoDate)
+    let parts = key.split(separator: "-").compactMap { Int($0) }
     guard parts.count == 3 else { return nil }
     var comps = DateComponents()
     comps.year = parts[0]
     comps.month = parts[1]
     comps.day = parts[2]
     return calendar.date(from: comps)
+  }
+
+  /// Coerce `YYYY-MM-DD…` / ISO timestamps down to a calendar day key.
+  static func normalizeDateKey(_ raw: String) -> String {
+    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard trimmed.count >= 10 else { return trimmed }
+    let prefix = String(trimmed.prefix(10))
+    let parts = prefix.split(separator: "-")
+    guard parts.count == 3,
+          parts[0].count == 4,
+          parts[1].count == 2,
+          parts[2].count == 2,
+          parts.allSatisfy({ $0.allSatisfy(\.isNumber) })
+    else { return trimmed }
+    return prefix
+  }
+
+  /// Prefer today when it has studies; otherwise the latest studiedOn day.
+  static func preferredHomeDateKey(today: String = todayKey(), records: [StudyRecord]) -> String {
+    let active = ICloudMerge.activeRecords(records)
+    let todayNorm = normalizeDateKey(today)
+    if active.contains(where: { normalizeDateKey($0.studiedOn) == todayNorm }) {
+      return todayNorm
+    }
+    return active.map { normalizeDateKey($0.studiedOn) }.sorted().last ?? todayNorm
   }
 
   static func yearMonth(from dateKey: String) -> String {

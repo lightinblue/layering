@@ -26,6 +26,9 @@ struct HomeView: View {
     .animation(PoogaeMotion.settle, value: model.selectedDateKey)
     .animation(PoogaeMotion.settle, value: model.studies.count)
     .animation(PoogaeMotion.settle, value: model.reviews.map(\.id))
+    .onChange(of: model.kvs.data.records.count) { _, _ in
+      model.adoptDateWithDataIfNeeded()
+    }
     .sheet(item: $model.studyEditor) { presentation in
       StudyEditorSheet(model: model, presentation: presentation)
         .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -101,14 +104,45 @@ struct HomeView: View {
 
   private var studySection: some View {
     VStack(alignment: .leading, spacing: 10) {
-      Text("공부 기록")
-        .font(.system(size: 15, weight: .semibold))
-        .foregroundStyle(PoogaeTheme.section(colorScheme))
+      HStack {
+        Text("공부 기록")
+          .font(.system(size: 15, weight: .semibold))
+          .foregroundStyle(PoogaeTheme.section(colorScheme))
+        Spacer(minLength: 0)
+        if model.studies.isEmpty, !model.studyDateKeys.isEmpty {
+          Button("기록 있는 날") {
+            model.jumpToLatestStudyDay()
+          }
+          .buttonStyle(.plain)
+          .font(.system(size: 12, weight: .medium))
+          .foregroundStyle(PoogaeTheme.brand)
+          .help("공부 기록이 있는 최근 날짜로 이동")
+        }
+      }
 
       ScrollView(.vertical, showsIndicators: false) {
+        if model.studies.isEmpty {
+          emptyStudy
+            .padding(.bottom, 8)
+        }
         StudyDayTimeline(model: model)
       }
     }
+  }
+
+  private var emptyStudy: some View {
+    let otherDays = model.studyDateKeys.count
+    return Text(
+      otherDays > 0
+        ? "이 날 공부 기록이 없어요 · 다른 날 \(otherDays)일에 기록이 있어요"
+        : "이 날 공부 기록이 없어요"
+    )
+      .font(.system(size: 13, weight: .medium))
+      .foregroundStyle(PoogaeTheme.muted(colorScheme))
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(12)
+      .background(PoogaeTheme.surface(colorScheme))
+      .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
   }
 
   private var reviewSection: some View {

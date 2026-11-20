@@ -59,7 +59,19 @@ final class AppModel: ObservableObject {
 
   func bootstrap() async {
     await kvs.bootstrap()
-    selectedDateKey = todayKey
+    // KVS may have Nov records that are not "today" — land on a day with data.
+    selectedDateKey = DateKeys.preferredHomeDateKey(today: todayKey, records: kvs.data.records)
+  }
+
+  /// After pull/reset: if the open day has no studies, jump to latest studiedOn.
+  func adoptDateWithDataIfNeeded() {
+    let preferred = DateKeys.preferredHomeDateKey(today: todayKey, records: kvs.data.records)
+    let dayStudies = TodayHomeData.studies(for: selectedDateKey, data: kvs.data)
+    if dayStudies.isEmpty, preferred != selectedDateKey {
+      withAnimation(PoogaeMotion.settle) {
+        selectedDateKey = preferred
+      }
+    }
   }
 
   func openCalendar() {
@@ -85,11 +97,25 @@ final class AppModel: ObservableObject {
   }
 
   func forcePullFromICloud() {
-    Task { await kvs.refreshFromCloud() }
+    Task {
+      await kvs.refreshFromCloud()
+      adoptDateWithDataIfNeeded()
+    }
   }
 
   func resetLocalStoreAndPull() {
-    Task { await kvs.resetLocalStoreAndPull() }
+    Task {
+      await kvs.resetLocalStoreAndPull()
+      adoptDateWithDataIfNeeded()
+    }
+  }
+
+  func jumpToLatestStudyDay() {
+    let preferred = DateKeys.preferredHomeDateKey(today: todayKey, records: kvs.data.records)
+    guard preferred != selectedDateKey else { return }
+    withAnimation(PoogaeMotion.settle) {
+      selectedDateKey = preferred
+    }
   }
 
   func openAddStudy(band: DayBandId? = nil) {

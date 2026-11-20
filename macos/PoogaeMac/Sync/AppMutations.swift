@@ -33,7 +33,10 @@ enum AppMutations {
   }
 
   static func countStudies(on dateKey: String, in data: AppData) -> Int {
-    ICloudMerge.activeRecords(data.records).filter { $0.studiedOn == dateKey }.count
+    let day = DateKeys.normalizeDateKey(dateKey)
+    return ICloudMerge.activeRecords(data.records)
+      .filter { DateKeys.normalizeDateKey($0.studiedOn) == day }
+      .count
   }
 
   /// Local empty-state only. Uses epoch `updatedAt` so a later iCloud merge
@@ -234,7 +237,7 @@ enum AppMutations {
   }
 
   static func dateKeysWithStudies(_ data: AppData) -> Set<String> {
-    Set(ICloudMerge.activeRecords(data.records).map(\.studiedOn))
+    Set(ICloudMerge.activeRecords(data.records).map { DateKeys.normalizeDateKey($0.studiedOn) })
   }
 
   static func clampStudyFields(content: String, memo: String?) -> (content: String, memo: String?) {
