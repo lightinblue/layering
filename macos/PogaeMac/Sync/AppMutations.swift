@@ -1,0 +1,347 @@
+import Foundation
+
+/// Port of iOS `storage/app-data.ts` create/update/delete helpers (Mac-side, no schedules).
+enum AppMutations {
+  /// Matches iOS `TIMELINE_MAX_STUDIES_PER_DAY` (4+6+4).
+  static let maxStudiesPerDay = StudyTimeline.maxStudiesPerDay
+  static let maxSubjects = 10
+  static let maxSubjectNameLength = 4
+  static let maxTitleLength = 40
+  static let maxMemoLength = 120
+
+  static let subjectColorOptions: [String] = [
+    "#F65E83", "#FE9253", "#F5C21C", "#5DCB85", "#62B3F6", "#B7A4E9", "#B2B2B2",
+  ]
+
+  /// Matches iOS `colors.chipGray` fallback in `subjectColor()`.
+  static let fallbackSubjectColor = "#B2B2B2"
+
+  /**
+   Resolve chip fill like iOS `subjectColor(name, colorByName)`:
+   live subject.color → record snapshot → gray (never index/hash).
+   */
+  static func resolveSubjectColor(
+    name: String,
+    subjectId: String? = nil,
+    recordColor: String? = nil,
+    subjects: [SubjectChip]
+  ) -> String {
+    let active = ICloudMerge.activeSubjects(subjects)
+    if let subjectId, !subjectId.isEmpty,
+       let chip = active.first(where: { $0.id == subjectId }),
+       let hex = normalizedHex(chip.color)
+    {
+      return hex
+    }
+    if let chip = active.first(where: { $0.name == name }),
+       let hex = normalizedHex(chip.color)
+    {
+      return hex
+    }
+    if let hex = normalizedHex(recordColor) {
+      return hex
+    }
+    return fallbackSubjectColor
+  }
+
+  static func normalizedHex(_ raw: String?) -> String? {
+    guard var s = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty
+    else { return nil }
+    if !s.hasPrefix("#") { s = "#" + s }
+    let digits = String(s.dropFirst())
+    guard digits.count == 6, UInt32(digits, radix: 16) != nil else { return nil }
+    return "#" + digits.uppercased()
+  }
+
+  static let defaultSubjects: [SubjectChip] = [
+    SubjectChip(
+      id: "sub-jeongong",
+      name: "전공",
+      color: "#62B3F6",
+      order: 0,
+      updatedAt: "1970-01-01T00:00:00.000Z",
+      deleted: nil
+    ),
+  ]
+
+  enum SubjectFailure: Error, Equatable {
+    case empty
+    case tooLong
+    case duplicate
+    case limit
+    case missing
+  }
+
+  static func countStudies(on dateKey: String, in data: AppData) -> Int {
+    let day = DateKeys.normalizeDateKey(dateKey)
+    return ICloudMerge.activeRecords(data.records)
+      .filter { DateKeys.normalizeDateKey($0.studiedOn) == day }
+      .count
+  }
+
+  /// Local empty-state only. Uses epoch `updatedAt` so a later iCloud merge
+  /// always prefers phone subjects (never stamp `now` — that used to win LWW).
+  static func ensureSeedSubjects(_ data: AppData, now: Date = Date()) -> AppData {
+    _ = now
+    if !ICloudMerge.activeSubjects(data.subjects).isEmpty {
+      return data
+    }
+    return AppData(subjects: defaultSubjects, records: data.records)
+  }
+
+  static func normalizeSubjectName(_ raw: String) -> String? {
+    let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+      .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    return name.isEmpty ? nil : name
+  }
+
+  static func addSubject(
+    _ data: AppData,
+    rawName: String,
+    color: String?,
+    now: Date = Date()
+  ) -> Result<AppData, SubjectFailure> {
+    guard let name = normalizeSubjectName(rawName) else { return .failure(.empty) }
+    if name.count > maxSubjectNameLength { return .failure(.tooLong) }
+    let live = ICloudMerge.activeSubjects(data.subjects)
+    if live.contains(where: { $0.name == name }) { return .failure(.duplicate) }
+    if live.count >= maxSubjects { return .failure(.limit) }
+
+    let at = ISO8601DateFormatter.fractional.string(from: now)
+    let maxOrder = live.map(\.order).max() ?? -1
+    var next = data
+    next.subjects.append(
+      SubjectChip(
+        id: "sub-\(UUID().uuidString.lowercased())",
+        name: name,
+        color: normalizeColor(color),
+        order: maxOrder + 1,
+        updatedAt: at,
+        deleted: nil
+      )
+    )
+    return .success(next)
+  }
+
+  static func updateSubject(
+    _ data: AppData,
+    subjectId: String,
+    rawName: String,
+    color: String?,
+    now: Date = Date()
+  ) -> Result<AppData, SubjectFailure> {
+    guard let name = normalizeSubjectName(rawName) else { return .failure(.empty) }
+    if name.count > maxSubjectNameLength { return .failure(.tooLong) }
+    guard let idx = data.subjects.firstIndex(where: { $0.id == subjectId && !($0.deleted ?? false) })
+    else { return .failure(.missing) }
+
+    let live = ICloudMerge.activeSubjects(data.subjects)
+    if live.contains(where: { $0.id != subjectId && $0.name == name }) {
+      return .failure(.duplicate)
+    }
+
+    let at = ISO8601DateFormatter.fractional.string(from: now)
+    var next = data
+    next.subjects[idx].name = name
+    next.subjects[idx].color = normalizeColor(color)
+    next.subjects[idx].updatedAt = at
+
+    // Keep study snapshots in sync for this subject id.
+    for i in next.records.indices where next.records[i].subjectId == subjectId && !(next.records[i].deleted ?? false) {
+      next.records[i].subjectName = name
+      next.records[i].subjectColor = next.subjects[idx].color
+      next.records[i].updatedAt = at
+    }
+    return .success(next)
+  }
+
+  static func removeSubject(
+    _ data: AppData,
+    subjectId: String,
+    now: Date = Date()
+  ) -> Result<AppData, SubjectFailure> {
+    guard let idx = data.subjects.firstIndex(where: { $0.id == subjectId && !($0.deleted ?? false) })
+    else { return .failure(.missing) }
+    let at = ISO8601DateFormatter.fractional.string(from: now)
+    var next = data
+    next.subjects[idx].deleted = true
+    next.subjects[idx].updatedAt = at
+    return .success(next)
+  }
+
+  static func appendStudy(
+    _ data: AppData,
+    subjectId: String,
+    content: String,
+    memo: String?,
+    studiedOn: String,
+    dayBand: DayBandId?,
+    now: Date = Date()
+  ) -> AppData? {
+    var next = ensureSeedSubjects(data, now: now)
+    guard countStudies(on: studiedOn, in: next) < maxStudiesPerDay else { return nil }
+
+    let fields = clampStudyFields(content: content, memo: memo)
+    guard !fields.content.isEmpty else { return nil }
+    guard let subject = ICloudMerge.activeSubjects(next.subjects).first(where: { $0.id == subjectId })
+    else { return nil }
+
+    let at = ISO8601DateFormatter.fractional.string(from: now)
+    let cycle = ReviewIntervals.days
+    var checks: [String: ReviewCheck] = [:]
+    for interval in cycle {
+      checks[String(interval)] = ReviewCheck(done: false, updatedAt: at)
+    }
+
+    let sameDay = ICloudMerge.activeRecords(next.records).filter {
+      DateKeys.normalizeDateKey($0.studiedOn) == DateKeys.normalizeDateKey(studiedOn)
+    }
+    let maxOrder = sameDay.compactMap(\.dayOrder).max() ?? -1
+
+    next.records.append(
+      StudyRecord(
+        id: "study-\(UUID().uuidString.lowercased())",
+        subjectId: subject.id,
+        subjectName: subject.name,
+        subjectColor: subject.color,
+        content: fields.content,
+        memo: fields.memo,
+        studiedOn: studiedOn,
+        dayBand: dayBand,
+        dayOrder: maxOrder + 1,
+        cycle: cycle,
+        checks: checks,
+        createdAt: at,
+        updatedAt: at,
+        deleted: nil
+      )
+    )
+    return next
+  }
+
+  /// Persist a new display order for studies on one day (ascending `dayOrder`).
+  /// `orderedIds` must list every active study id for that day in visual order.
+  static func reorderStudiesOnDay(
+    _ data: AppData,
+    studiedOn: String,
+    orderedIds: [String],
+    now: Date = Date()
+  ) -> AppData? {
+    let day = DateKeys.normalizeDateKey(studiedOn)
+    let activeIds = Set(
+      ICloudMerge.activeRecords(data.records)
+        .filter { DateKeys.normalizeDateKey($0.studiedOn) == day }
+        .map(\.id)
+    )
+    guard !orderedIds.isEmpty,
+          orderedIds.count == activeIds.count,
+          orderedIds.allSatisfy({ activeIds.contains($0) })
+    else { return nil }
+
+    let at = ISO8601DateFormatter.fractional.string(from: now)
+    let orderById = Dictionary(uniqueKeysWithValues: orderedIds.enumerated().map { ($1, $0) })
+    var next = data
+    var changed = false
+    for idx in next.records.indices {
+      guard let order = orderById[next.records[idx].id] else { continue }
+      if next.records[idx].dayOrder == order { continue }
+      next.records[idx].dayOrder = order
+      next.records[idx].updatedAt = at
+      changed = true
+    }
+    return changed ? next : data
+  }
+
+  static func updateStudy(
+    _ data: AppData,
+    studyId: String,
+    subjectId: String,
+    content: String,
+    memo: String?,
+    studiedOn: String,
+    now: Date = Date()
+  ) -> AppData? {
+    guard let idx = data.records.firstIndex(where: { $0.id == studyId && !($0.deleted ?? false) })
+    else { return nil }
+
+    if data.records[idx].studiedOn != studiedOn {
+      let others = ICloudMerge.activeRecords(data.records)
+        .filter { $0.studiedOn == studiedOn && $0.id != studyId }
+        .count
+      if others >= maxStudiesPerDay { return nil }
+    }
+
+    let fields = clampStudyFields(content: content, memo: memo)
+    guard !fields.content.isEmpty else { return nil }
+    guard let subject = ICloudMerge.activeSubjects(data.subjects).first(where: { $0.id == subjectId })
+    else { return nil }
+
+    let at = ISO8601DateFormatter.fractional.string(from: now)
+    var next = data
+    var record = next.records[idx]
+    let cycle = record.cycle.isEmpty ? ReviewIntervals.days : record.cycle
+    var checks = record.checks
+    for interval in cycle {
+      let key = String(interval)
+      if checks[key] == nil {
+        checks[key] = ReviewCheck(done: false, updatedAt: at)
+      }
+    }
+    record.subjectId = subject.id
+    record.subjectName = subject.name
+    record.subjectColor = subject.color
+    record.content = fields.content
+    record.memo = fields.memo
+    record.studiedOn = studiedOn
+    // Keep existing dayBand on edit (iOS day screen does the same).
+    record.cycle = cycle
+    record.checks = checks
+    record.updatedAt = at
+    next.records[idx] = record
+    return next
+  }
+
+  static func deleteStudy(
+    _ data: AppData,
+    studyId: String,
+    now: Date = Date()
+  ) -> AppData? {
+    guard let idx = data.records.firstIndex(where: { $0.id == studyId && !($0.deleted ?? false) })
+    else { return nil }
+    let at = ISO8601DateFormatter.fractional.string(from: now)
+    var next = data
+    next.records[idx].deleted = true
+    next.records[idx].updatedAt = at
+    return next
+  }
+
+  static func dateKeysWithStudies(_ data: AppData) -> Set<String> {
+    Set(ICloudMerge.activeRecords(data.records).map { DateKeys.normalizeDateKey($0.studiedOn) })
+  }
+
+  static func clampStudyFields(content: String, memo: String?) -> (content: String, memo: String?) {
+    let title = String(content.trimmingCharacters(in: .whitespacesAndNewlines).prefix(maxTitleLength))
+    let memoValue: String?
+    if let memo {
+      let trimmed = String(memo.trimmingCharacters(in: .whitespacesAndNewlines).prefix(maxMemoLength))
+      memoValue = trimmed.isEmpty ? nil : trimmed
+    } else {
+      memoValue = nil
+    }
+    return (title, memoValue)
+  }
+
+  private static func normalizeColor(_ raw: String?) -> String {
+    let trimmed = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    if trimmed.hasPrefix("#"), trimmed.count == 7 { return trimmed }
+    return subjectColorOptions[4] // blue
+  }
+}
+
+extension ISO8601DateFormatter {
+  static let fractional: ISO8601DateFormatter = {
+    let f = ISO8601DateFormatter()
+    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return f
+  }()
+}

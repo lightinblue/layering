@@ -2,6 +2,8 @@
 
 에빙하우스 망각곡선 기반 복습 주기를 자동 적용하는 수험생용 복습 일정 관리 앱 (Expo / iOS). App Store 표시명: **레이어링 - 규칙적인 복습 스케줄러**. GitHub 저장소는 당분간 `bokbok`을 유지합니다.
 
+**macOS:** SwiftUI 메뉴 바 + 창 셸은 [`macos/`](./macos/README.md) (`com.lightinblue.layering.mac`, iCloud KVS는 iOS와 동일 컨테이너). iOS 번들 ID는 변경하지 않습니다.
+
 학습일을 기록하면 **+1 · 3 · 7 · 15 · 30 · 60일** 복습 일정이 생기고, 홈(오늘) · FAB 월 캘린더 · 기록 추가로 확인합니다. 데이터는 기기 로컬(AsyncStorage)에 두고, iOS에서 iCloud가 켜져 있으면 학습 기록·과목·복습 체크를 **로그인 UI 없이** iCloud 키-값 저장소로 동기화합니다. 출시 빌드는 **실데이터만** 사용합니다 (실제/더미 토글 없음).
 
 > **네이티브 모듈:** `modules/icloud-kvs` 는 Expo Go에서 동작하지 않습니다. iCloud 동기화를 쓰려면 **dev client / EAS 빌드**가 필요합니다 (`npx expo prebuild` 후 `eas build --profile development` 또는 `npx expo run:ios`).
