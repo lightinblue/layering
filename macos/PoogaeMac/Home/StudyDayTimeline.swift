@@ -7,7 +7,7 @@ struct StudyDayTimeline: View {
   @Environment(\.colorScheme) private var colorScheme
 
   private let slotHeight: CGFloat = 36
-  private let slotGap: CGFloat = 5
+  private let slotGap: CGFloat = 8
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
@@ -32,34 +32,18 @@ struct StudyDayTimeline: View {
       timelineMark(band.labelStart)
 
       VStack(alignment: .leading, spacing: slotGap) {
-        if !band.studyRows.isEmpty {
-          List {
-            ForEach(band.studyRows) { row in
-              StudyRecordRow(
-                row: row,
-                onEdit: { model.openEditStudy(row) },
-                onDelete: { model.deleteStudy(id: row.id) }
-              )
-              .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
-              .listRowSeparator(.hidden)
-              .listRowBackground(Color.clear)
-              .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-            .onMove { source, destination in
-              withAnimation(PoogaeMotion.settle) {
-                model.reorderBand(bandId: band.id, fromOffsets: source, toOffset: destination)
-              }
-            }
+        BandStudyRows(
+          rows: band.studyRows,
+          slotHeight: slotHeight,
+          onEdit: { model.openEditStudy($0) },
+          onDelete: { model.deleteStudy(id: $0) },
+          onMove: { from, to in
+            model.reorderBand(bandId: band.id, fromOffsets: from, toOffset: to)
           }
-          .listStyle(.plain)
-          .scrollContentBackground(.hidden)
-          .scrollDisabled(true)
-          .frame(height: listHeight(for: band.studyRows.count))
-          .environment(\.defaultMinListRowHeight, slotHeight)
-        }
+        )
 
         if model.canAddStudy && band.showAdd {
-          bandAddControl(band)
+          bandAddControl(band, filled: !band.studyRows.isEmpty)
             .transition(.opacity.combined(with: .scale(scale: 0.98)))
         }
       }
@@ -69,11 +53,6 @@ struct StudyDayTimeline: View {
         timelineMark(band.labelEnd)
       }
     }
-  }
-
-  private func listHeight(for count: Int) -> CGFloat {
-    guard count > 0 else { return 0 }
-    return CGFloat(count) * (slotHeight + slotGap)
   }
 
   private func timelineMark(_ label: String) -> some View {
@@ -89,7 +68,7 @@ struct StudyDayTimeline: View {
     .padding(.vertical, 1)
   }
 
-  private func bandAddControl(_ band: StudyTimeline.BandView) -> some View {
+  private func bandAddControl(_ band: StudyTimeline.BandView, filled: Bool) -> some View {
     let height = slotHeight * CGFloat(band.addSpan) + slotGap * CGFloat(max(0, band.addSpan - 1))
     return Button {
       model.openAddStudy(band: band.id)
@@ -103,10 +82,60 @@ struct StudyDayTimeline: View {
       .foregroundStyle(PoogaeTheme.section(colorScheme))
       .frame(maxWidth: .infinity)
       .frame(minHeight: height)
-      .background(PoogaeTheme.surface(colorScheme))
+      // Match phone: gray fill only when the band is empty.
+      .background(filled ? Color.clear : PoogaeTheme.surface(colorScheme))
       .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
     }
     .buttonStyle(.plain)
     .help(band.addLabel)
+  }
+}
+
+/// Drag-to-reorder study rows without a nested `List` (ScrollView-safe on macOS).
+private struct BandStudyRows: View {
+  let rows: [HomeStudyRow]
+  let slotHeight: CGFloat
+  var onEdit: (HomeStudyRow) -> Void
+  var onDelete: (String) -> Void
+  var onMove: (IndexSet, Int) -> Void
+
+  @State private var draggingId: String?
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+        StudyRecordRow(
+          row: row,
+          onEdit: { onEdit(row) },
+          onDelete: { onDelete(row.id) }
+        )
+        .opacity(draggingId == row.id ? 0.55 : 1)
+        .draggable(row.id) {
+          StudyRecordRow(row: row, onEdit: {}, onDelete: {})
+            .frame(width: 320)
+            .opacity(0.92)
+            .onAppear { draggingId = row.id }
+        }
+        .dropDestination(for: String.self) { items, _ in
+          defer { draggingId = nil }
+          guard let draggedId = items.first,
+                let from = rows.firstIndex(where: { $0.id == draggedId }),
+                from != index
+          else { return false }
+          var to = index
+          if from < to { to += 1 }
+          withAnimation(PoogaeMotion.settle) {
+            onMove(IndexSet(integer: from), to)
+          }
+          return true
+        } isTargeted: { hovering in
+          if !hovering && draggingId == row.id {
+            draggingId = nil
+          }
+        }
+        .frame(minHeight: slotHeight)
+      }
+    }
+    .animation(PoogaeMotion.settle, value: rows.map(\.id))
   }
 }
