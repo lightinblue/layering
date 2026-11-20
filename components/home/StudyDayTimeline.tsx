@@ -16,7 +16,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import type { SubjectOption } from '@/components/home/AddStudyForm';
@@ -274,13 +274,14 @@ function DraggableStudyRow({
       .onEnd((e) => {
         const from = startIndex.value;
         const ty = e.translationY;
-        translateY.value = withSpring(0, { damping: 22, stiffness: 220 });
+        // Soft settle — no spring bounce.
+        translateY.value = withTiming(0, { duration: 140 });
         isActive.value = false;
         runOnJS(finishDrag)(from, ty);
       })
       .onFinalize(() => {
         if (isActive.value) {
-          translateY.value = withSpring(0, { damping: 22, stiffness: 220 });
+          translateY.value = withTiming(0, { duration: 140 });
           isActive.value = false;
         }
       });
@@ -291,9 +292,14 @@ function DraggableStudyRow({
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
     zIndex: isActive.value ? 20 : 1,
-    opacity: isActive.value ? 0.96 : 1,
-    shadowOpacity: isActive.value ? 0.18 : 0,
-    elevation: isActive.value ? 4 : 0,
+    opacity: isActive.value ? 0.97 : 1,
+    // Soft downward shadow (iOS).
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: isActive.value ? 4 : 0 },
+    shadowOpacity: isActive.value ? 0.1 : 0,
+    shadowRadius: isActive.value ? 6 : 0,
+    // Soft downward shadow (Android).
+    elevation: isActive.value ? 3 : 0,
   }));
 
   const top = index * ROW_STRIDE;
