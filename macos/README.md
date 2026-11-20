@@ -34,7 +34,7 @@ A free **Personal Team** can also clear the two signing errors for My Mac-only d
 ## Milestone 1 contents
 
 - Menu bar extra → today-review checklist popover + “창 열기”
-- Main window (≈980×640): today **공부 기록** + **복습 카드** (horizontal)
+- Main window (≈820×560, min 720×480): today **공부 기록** + **복습 카드** (horizontal)
 - Calendar as NavigationStack destination (not always on home)
 - Theme tokens (#1991ff) + light motion
 - KVS read: `subjects` + `rec/YYYY-MM` → merge helpers → home lists (write/push later)

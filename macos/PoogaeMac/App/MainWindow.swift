@@ -18,7 +18,7 @@ struct MainWindow: View {
           }
         }
     }
-    .frame(minWidth: 860, minHeight: 560)
+    .frame(minWidth: 720, minHeight: 480)
     .background(PoogaeTheme.canvas(colorScheme))
   }
 }
