@@ -60,13 +60,11 @@ function groupStudiesBySubject(
   });
 }
 
-/** `1단원, 2단원… 총 3개` when multiple; single title otherwise. */
-function formatTitlePreview(titles: readonly string[]): string {
+/** Titles only; `총 n개` is rendered muted separately. */
+function titlePreviewLead(titles: readonly string[]): string {
   if (titles.length === 0) return '';
   if (titles.length === 1) return titles[0]!;
-  const a = titles[0]!;
-  const b = titles[1]!;
-  return `${a}, ${b}… 총 ${titles.length}개`;
+  return `${titles[0]!}, ${titles[1]!}…`;
 }
 
 type StudyDaySummaryProps = {
@@ -131,7 +129,12 @@ export function StudyDaySummary({
                   <Text
                     style={[styles.previewText, { color: colors.body }]}
                     numberOfLines={1}>
-                    {formatTitlePreview(group.titles)}
+                    {titlePreviewLead(group.titles)}
+                    {group.titles.length > 1 ? (
+                      <Text style={[styles.countMuted, { color: colors.muted }]}>
+                        {` 총 ${group.titles.length}개`}
+                      </Text>
+                    ) : null}
                   </Text>
                 </View>
               ))}
@@ -200,5 +203,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
+  },
+  countMuted: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 12,
+    opacity: 0.72,
   },
 });

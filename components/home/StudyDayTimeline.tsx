@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -6,6 +6,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import DraggableFlatList, {
+  type RenderItemParams,
+  ScaleDecorator,
+} from 'react-native-draggable-flatlist';
 import Animated, {
   Easing,
   FadeIn,
@@ -27,10 +31,7 @@ import {
 import { MAX_STUDY_TITLE_LENGTH } from '@/storage/app-data';
 import { radii, subjectColor } from '@/constants/tokens';
 import { useThemeColors } from '@/theme/ThemeProvider';
-import {
-  buildTimelineBands,
-  type TimelineSlot,
-} from '@/utils/study-timeline';
+import { buildTimelineBands } from '@/utils/study-timeline';
 import { haptics } from '@/utils/haptics';
 import { resolveSubjectAndTitle } from '@/utils/parse-subject-prefix';
 
@@ -53,11 +54,15 @@ type StudyDayTimelineProps = {
     title: string;
   }) => void;
   onEditStudy: (row: HomeStudyRow) => void;
+  /** Persist long-press reorder within a band (smooth drag). */
+  onReorderBand?: (bandId: TimelineBandId, orderedIds: string[]) => void;
 };
 
 /**
  * Day study bands: faint 8/12/18/24 marks + one 공부 add per band.
  * Tap → full-width inline input; subject from live prefix parse on save.
+ * After save, keeps an empty inline input open for continuous entry.
+ * Long-press drag reorders studies within the band.
  */
 export function StudyDayTimeline({
   studies,
@@ -66,12 +71,15 @@ export function StudyDayTimeline({
   allowAdd,
   onAddStudy,
   onEditStudy,
+  onReorderBand,
 }: StudyDayTimelineProps) {
   const colors = useThemeColors();
-  const bands = buildTimelineBands(studies);
+  const bands = useMemo(() => buildTimelineBands(studies), [studies]);
   const atCap = studies.length >= TIMELINE_MAX_STUDIES_PER_DAY;
   const canAdd = allowAdd && !atCap;
   const [draftBandId, setDraftBandId] = useState<TimelineBandId | null>(null);
+  /** Remount key so a fresh empty input appears after each save. */
+  const [draftKey, setDraftKey] = useState(0);
 
   const openDraft = (bandId: TimelineBandId) => {
     if (!canAdd) {
@@ -83,6 +91,7 @@ export function StudyDayTimeline({
       return;
     }
     haptics.select();
+    setDraftKey((k) => k + 1);
     setDraftBandId(bandId);
   };
 
@@ -90,28 +99,106 @@ export function StudyDayTimeline({
 
   const commitDraft = (subject: string, title: string) => {
     if (!draftBandId) return;
-    onAddStudy({ bandId: draftBandId, subject, title });
-    setDraftBandId(null);
+    const bandId = draftBandId;
+    onAddStudy({ bandId, subject, title });
+    // Continuous entry: reopen empty inline add under the new row when under cap.
+    if (studies.length + 1 >= TIMELINE_MAX_STUDIES_PER_DAY) {
+      setDraftBandId(null);
+      return;
+    }
+    setDraftKey((k) => k + 1);
+    setDraftBandId(bandId);
   };
 
   return (
     <View style={styles.root}>
       {bands.map((band, bandIndex) => {
         const drafting = draftBandId === band.id;
+        const studyRows = band.slots
+          .filter((s) => s.kind === 'study')
+          .map((s) => s.row);
         return (
           <View key={band.id} style={styles.bandBlock}>
             <TimelineMark label={band.labelStart} />
-            <Animated.View style={styles.slotStack} layout={ROW_LAYOUT}>
-              {band.slots.map((slot) => (
-                <TimelineSlotRow
-                  key={slot.kind === 'study' ? slot.row.id : slot.key}
-                  slot={slot}
-                  colorByName={colorByName}
-                  onEditStudy={onEditStudy}
-                />
-              ))}
+            <View style={styles.slotStack}>
+              <DraggableFlatList
+                data={studyRows}
+                keyExtractor={(item) => item.id}
+                scrollEnabled={false}
+                activationDistance={10}
+                animationConfig={{
+                  damping: 22,
+                  mass: 0.28,
+                  stiffness: 220,
+                  overshootClamping: false,
+                }}
+                containerStyle={styles.dragList}
+                onDragBegin={() => haptics.select()}
+                onDragEnd={({ data }) => {
+                  if (!onReorderBand) return;
+                  const ids = data.map((row) => row.id);
+                  const prev = studyRows.map((row) => row.id);
+                  if (ids.length === prev.length && ids.every((id, i) => id === prev[i])) {
+                    return;
+                  }
+                  onReorderBand(band.id, ids);
+                }}
+                renderItem={({
+                  item,
+                  drag,
+                  isActive,
+                }: RenderItemParams<HomeStudyRow>) => (
+                  <ScaleDecorator activeScale={1.02}>
+                    <Animated.View
+                      entering={ENTER}
+                      layout={ROW_LAYOUT}
+                      style={isActive ? styles.dragging : undefined}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${item.subjectName} ${item.content} 수정`}
+                        accessibilityHint="길게 눌러 순서를 바꿀 수 있어요"
+                        delayLongPress={180}
+                        onLongPress={onReorderBand ? drag : undefined}
+                        onPress={() => {
+                          haptics.select();
+                          onEditStudy(item);
+                        }}
+                        style={styles.studyRow}>
+                        <View
+                          style={[
+                            styles.chip,
+                            {
+                              backgroundColor: subjectColor(
+                                item.subjectName,
+                                item.subjectColor ?? colorByName,
+                              ),
+                            },
+                          ]}>
+                          <Text
+                            style={[styles.chipText, { color: colors.onAccent }]}
+                            numberOfLines={1}>
+                            {item.subjectName}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.body,
+                            { backgroundColor: colors.surface },
+                          ]}>
+                          <Text
+                            style={[styles.bodyText, { color: colors.body }]}
+                            numberOfLines={1}>
+                            {item.content}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    </Animated.View>
+                  </ScaleDecorator>
+                )}
+              />
               {drafting ? (
                 <InlineBandAddRow
+                  key={draftKey}
                   subjects={subjects}
                   colorByName={colorByName}
                   onCancel={closeDraft}
@@ -124,7 +211,7 @@ export function StudyDayTimeline({
                   onPress={() => openDraft(band.id)}
                 />
               ) : null}
-            </Animated.View>
+            </View>
             {bandIndex === bands.length - 1 ? (
               <TimelineMark label={band.labelEnd} />
             ) : null}
@@ -283,60 +370,6 @@ function InlineBandAddRow({
   );
 }
 
-function TimelineSlotRow({
-  slot,
-  colorByName,
-  onEditStudy,
-}: {
-  slot: TimelineSlot;
-  colorByName?: Record<string, string>;
-  onEditStudy: (row: HomeStudyRow) => void;
-}) {
-  const colors = useThemeColors();
-
-  if (slot.kind === 'empty') {
-    return null;
-  }
-
-  const { row } = slot;
-  return (
-    <Animated.View entering={ENTER} layout={ROW_LAYOUT}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${row.subjectName} ${row.content} 수정`}
-        onPress={() => {
-          haptics.select();
-          onEditStudy(row);
-        }}
-        style={styles.studyRow}>
-        <View
-          style={[
-            styles.chip,
-            {
-              backgroundColor: subjectColor(
-                row.subjectName,
-                row.subjectColor ?? colorByName,
-              ),
-            },
-          ]}>
-          <Text
-            style={[styles.chipText, { color: colors.onAccent }]}
-            numberOfLines={1}>
-            {row.subjectName}
-          </Text>
-        </View>
-        <View style={[styles.body, { backgroundColor: colors.surface }]}>
-          <Text
-            style={[styles.bodyText, { color: colors.body }]}
-            numberOfLines={1}>
-            {row.content}
-          </Text>
-        </View>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
 const styles = StyleSheet.create({
   root: {
     width: '100%',
@@ -365,6 +398,13 @@ const styles = StyleSheet.create({
   slotStack: {
     gap: 5,
     paddingLeft: 32,
+  },
+  dragList: {
+    flexGrow: 0,
+  },
+  dragging: {
+    opacity: 0.92,
+    zIndex: 2,
   },
   bandAdd: {
     borderRadius: radii.chip,

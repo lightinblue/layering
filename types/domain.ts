@@ -40,6 +40,11 @@ export type StudyRecord = {
    * Legacy records omit this and fall back to createdAt order.
    */
   dayBand?: 'morning' | 'afternoon' | 'evening';
+  /**
+   * Display order within a studiedOn day (ascending). New studies append
+   * at max+1. Legacy records omit this and fall back to createdAt.
+   */
+  dayOrder?: number;
   /** Review intervals in days (always present; default fixed curve). */
   cycle: ReviewIntervalDay[];
   /** Check state keyed by interval days (string keys in JSON). */

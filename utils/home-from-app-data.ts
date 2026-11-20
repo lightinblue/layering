@@ -104,9 +104,21 @@ function reviewsForDay(dateKey: string, data: AppData): HomeReviewCard[] {
   return cards;
 }
 
+function studySortKey(r: {
+  dayOrder?: number;
+  createdAt?: string;
+  id: string;
+}): string {
+  const order =
+    typeof r.dayOrder === 'number' ? r.dayOrder : Number.MAX_SAFE_INTEGER;
+  return `${String(order).padStart(8, '0')}|${r.createdAt ?? ''}|${r.id}`;
+}
+
 function studiesForDay(dateKey: string, data: AppData): HomeStudyRow[] {
   return activeRecords(data.records)
     .filter((r) => r.studiedOn === dateKey)
+    .slice()
+    .sort((a, b) => studySortKey(a).localeCompare(studySortKey(b)))
     .map((r) => ({
       id: r.id,
       subjectName: r.subjectName,
@@ -114,6 +126,8 @@ function studiesForDay(dateKey: string, data: AppData): HomeStudyRow[] {
       ...(r.memo?.trim() ? { memo: r.memo.trim() } : {}),
       ...(r.subjectColor ? { subjectColor: r.subjectColor } : {}),
       ...(r.dayBand ? { dayBand: r.dayBand } : {}),
+      ...(typeof r.dayOrder === 'number' ? { dayOrder: r.dayOrder } : {}),
+      createdAt: r.createdAt,
     }));
 }
 

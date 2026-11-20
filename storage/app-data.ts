@@ -382,6 +382,13 @@ export function appendStudyWithReviews(
 
   const at = nowIso(now);
   const cycle = DEFAULT_CYCLE;
+  const sameDay = activeRecords(data.records).filter(
+    (r) => r.studiedOn === input.studiedOn,
+  );
+  const maxOrder = sameDay.reduce(
+    (max, r) => Math.max(max, typeof r.dayOrder === 'number' ? r.dayOrder : -1),
+    -1,
+  );
   const record: StudyRecord = {
     id: newId('study'),
     subjectId: existing.id,
@@ -393,6 +400,7 @@ export function appendStudyWithReviews(
     ...(fields.memo ? { memo: fields.memo } : {}),
     studiedOn: input.studiedOn,
     ...(input.dayBand ? { dayBand: input.dayBand } : {}),
+    dayOrder: maxOrder + 1,
     cycle,
     checks: emptyChecks(cycle, at),
     createdAt: at,
@@ -402,6 +410,40 @@ export function appendStudyWithReviews(
   return withSchedules({
     subjects: data.subjects,
     records: [...data.records, record],
+  });
+}
+
+/**
+ * Persist a new display order for studies on one day (ascending dayOrder).
+ * `orderedIds` should list every active study id for that day in visual order.
+ */
+export function reorderStudiesOnDay(
+  data: AppData,
+  studiedOn: string,
+  orderedIds: readonly string[],
+  now = new Date(),
+): AppData {
+  const at = nowIso(now);
+  const activeIds = new Set(
+    activeRecords(data.records)
+      .filter((r) => r.studiedOn === studiedOn)
+      .map((r) => r.id),
+  );
+  if (orderedIds.length === 0 || orderedIds.some((id) => !activeIds.has(id))) {
+    return data;
+  }
+  if (orderedIds.length !== activeIds.size) {
+    return data;
+  }
+  const orderById = new Map(orderedIds.map((id, index) => [id, index]));
+  return withSchedules({
+    subjects: data.subjects,
+    records: data.records.map((r) => {
+      const nextOrder = orderById.get(r.id);
+      if (nextOrder === undefined) return r;
+      if (r.dayOrder === nextOrder) return r;
+      return { ...r, dayOrder: nextOrder, updatedAt: at };
+    }),
   });
 }
 

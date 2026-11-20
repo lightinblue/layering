@@ -26,15 +26,26 @@ function isBandId(value: string | undefined): value is TimelineBandId {
   );
 }
 
+function rowSortKey(row: HomeStudyRow): string {
+  const order =
+    typeof row.dayOrder === 'number' ? row.dayOrder : Number.MAX_SAFE_INTEGER;
+  return `${String(order).padStart(8, '0')}|${row.createdAt ?? ''}|${row.id}`;
+}
+
+function sortRows(rows: readonly HomeStudyRow[]): HomeStudyRow[] {
+  return [...rows].sort((a, b) => rowSortKey(a).localeCompare(rowSortKey(b)));
+}
+
 /**
  * Partition studies into morning / afternoon / evening bands.
  * Prefer explicit `dayBand` (from which 투두 was tapped); legacy rows
- * without a band fill remaining capacity in createdAt order.
+ * without a band fill remaining capacity in dayOrder / createdAt order.
+ * Within each band, rows stay sorted ascending (new studies append at bottom).
  */
 export function buildTimelineBands(
   studies: readonly HomeStudyRow[],
 ): TimelineBandView[] {
-  const ordered = [...studies];
+  const ordered = sortRows(studies);
   const assigned: Record<TimelineBandId, HomeStudyRow[]> = {
     morning: [],
     afternoon: [],
@@ -56,11 +67,14 @@ export function buildTimelineBands(
     while (filled.length < band.emptySlots && queue.length > 0) {
       filled.push(queue.shift()!);
     }
-    return filled;
+    return sortRows(filled);
   });
   // Leftover unassigned → evening.
   if (queue.length > 0) {
-    buckets[buckets.length - 1] = [...buckets[buckets.length - 1], ...queue];
+    buckets[buckets.length - 1] = sortRows([
+      ...buckets[buckets.length - 1],
+      ...queue,
+    ]);
   }
 
   return TIMELINE_BANDS.map((band, index) => {
@@ -82,4 +96,17 @@ export function buildTimelineBands(
       addLabel: band.addLabel,
     };
   });
+}
+
+/** Flatten band visual order into a full-day id list for persistence. */
+export function flattenBandStudyIds(
+  bands: readonly TimelineBandView[],
+): string[] {
+  const ids: string[] = [];
+  for (const band of bands) {
+    for (const slot of band.slots) {
+      if (slot.kind === 'study') ids.push(slot.row.id);
+    }
+  }
+  return ids;
 }

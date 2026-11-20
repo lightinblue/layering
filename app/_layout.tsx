@@ -8,6 +8,7 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { LaunchScreen } from '@/components/launch-screen';
@@ -111,14 +112,14 @@ function RootChrome({
 }) {
   const colors = useThemeColors();
   return (
-    <View style={[styles.root, { backgroundColor: colors.mainWhite }]}>
+    <GestureHandlerRootView style={[styles.root, { backgroundColor: colors.mainWhite }]}>
       {tutorialSeen ? (
         <RootLayoutNav />
       ) : (
         <TutorialScreen onFinished={onTutorialFinished} />
       )}
       <LaunchScreen />
-    </View>
+    </GestureHandlerRootView>
   );
 }
 

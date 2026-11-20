@@ -37,6 +37,7 @@ import {
   appendStudyWithReviews,
   deleteStudyWithReviews,
   loadAppData,
+  reorderStudiesOnDay,
   saveAppData,
   subjectColorMap,
   updateStudyWithReviews,
@@ -51,6 +52,10 @@ import type { AppData } from '@/types/domain';
 import { dayMeta, todayKey as deviceTodayKey } from '@/utils/date';
 import { activeRecords, activeSubjects } from '@/utils/icloud-merge';
 import { haptics } from '@/utils/haptics';
+import {
+  buildTimelineBands,
+  flattenBandStudyIds,
+} from '@/utils/study-timeline';
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -66,13 +71,21 @@ function toOptions(data: AppData): SubjectOption[] {
 function studiesForDay(data: AppData, dateKey: string): HomeStudyRow[] {
   return activeRecords(data.records)
     .filter((r) => r.studiedOn === dateKey)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .slice()
+    .sort((a, b) => {
+      const ao = typeof a.dayOrder === 'number' ? a.dayOrder : Number.MAX_SAFE_INTEGER;
+      const bo = typeof b.dayOrder === 'number' ? b.dayOrder : Number.MAX_SAFE_INTEGER;
+      if (ao !== bo) return ao - bo;
+      return a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+    })
     .map((r) => ({
       id: r.id,
       subjectName: r.subjectName,
       content: r.content,
       ...(r.subjectColor ? { subjectColor: r.subjectColor } : {}),
       ...(r.dayBand ? { dayBand: r.dayBand } : {}),
+      ...(typeof r.dayOrder === 'number' ? { dayOrder: r.dayOrder } : {}),
+      createdAt: r.createdAt,
     }));
 }
 
@@ -168,6 +181,32 @@ export default function DayTimelineScreen() {
     [appData, dateKey, persist, studies.length],
   );
 
+  const onReorderBand = useCallback(
+    (bandId: TimelineBandId, orderedBandIds: string[]) => {
+      if (!appData) return;
+      const bands = buildTimelineBands(studies);
+      const nextBands = bands.map((band) => {
+        if (band.id !== bandId) return band;
+        const byId = new Map(
+          band.slots
+            .filter((s) => s.kind === 'study')
+            .map((s) => [s.row.id, s.row] as const),
+        );
+        const slots = orderedBandIds
+          .map((id) => byId.get(id))
+          .filter((row): row is HomeStudyRow => Boolean(row))
+          .map((row) => ({ kind: 'study' as const, row }));
+        return { ...band, slots };
+      });
+      const orderedIds = flattenBandStudyIds(nextBands);
+      const next = reorderStudiesOnDay(appData, dateKey, orderedIds);
+      if (next === appData) return;
+      haptics.select();
+      void persist(next);
+    },
+    [appData, dateKey, persist, studies],
+  );
+
   const onSaveEdit = useCallback(
     (payload: AddStudyPayload) => {
       if (!appData || !editingStudy) return;
@@ -253,6 +292,7 @@ export default function DayTimelineScreen() {
             allowAdd={allowAdd}
             onAddStudy={onAddStudy}
             onEditStudy={openEdit}
+            onReorderBand={onReorderBand}
           />
         </Animated.View>
       </ScrollView>
