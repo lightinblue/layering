@@ -15,10 +15,13 @@ struct HomeView: View {
 
       HStack(alignment: .top, spacing: 16) {
         studySection
-          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+          .frame(minWidth: 260, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+          .layoutPriority(1)
 
+        // Compress first when the window is narrow (chips/check still fit ~200pt).
         reviewSection
-          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+          .frame(minWidth: 200, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+          .layoutPriority(0)
       }
       .padding(.horizontal, 20)
       .padding(.bottom, 16)

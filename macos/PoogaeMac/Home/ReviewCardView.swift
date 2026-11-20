@@ -30,18 +30,21 @@ struct ReviewCardView: View {
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(PoogaeTheme.section(colorScheme))
             .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
         }
+        .layoutPriority(1)
 
-        Spacer(minLength: 8)
+        Spacer(minLength: 4)
 
-        // Full subject chips on the right; wrap to a 2nd line when needed.
+        // Full subject chips on the right; wrap when the review column compresses.
         // colors[i] is aligned with names[i] (from synced subjects, not record index).
         SubjectChipFlow(
           chips: zip(card.subjectNames, card.subjectColors).map {
             SubjectChipFlow.Chip(name: $0.0, color: $0.1)
           }
         )
-          .frame(maxWidth: 168, alignment: .trailing)
+          .frame(minWidth: 64, maxWidth: 168, alignment: .trailing)
+          .layoutPriority(0)
       }
       .padding(.horizontal, 12)
       .padding(.vertical, 10)
