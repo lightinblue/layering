@@ -1,11 +1,14 @@
 import type { ReviewIntervalDay } from '@/constants/review';
 import type {
   HomeReviewCard,
+  HomeReviewCheckTarget,
   HomeScreenData,
   HomeStudyRow,
   HomeWeekDay,
 } from '@/constants/home-types';
-import type { AppData, ReviewSchedule, StudyRecord } from '@/types/domain';
+import type { AppData, StudyRecord } from '@/types/domain';
+import { DEFAULT_CYCLE } from '@/storage/migrate-app-data';
+import { activeRecords } from '@/utils/icloud-merge';
 import {
   addDaysToDate,
   dayMeta,
@@ -13,7 +16,9 @@ import {
   startOfWeek,
   todayKey,
   toKey,
+  type WeekStartsOn,
 } from '@/utils/date';
+import { addDays } from '@/utils/review-schedule';
 
 /** Weeks before the current week available for swipe paging (~3 months). */
 export const WEEKS_BEFORE = 13;
@@ -28,45 +33,71 @@ export type ReviewStudyDetail = {
   subjectColor?: string;
 };
 
-/** Group schedules due on a day by interval (matches Figma multi-subject cards). */
-function reviewsForDay(
-  dateKey: string,
-  data: AppData,
-): HomeReviewCard[] {
-  const due = data.schedules.filter((s) => s.dueOn === dateKey);
+export function checkTargetId(target: HomeReviewCheckTarget): string {
+  return `${target.studyId}#${target.intervalDays}`;
+}
+
+function cycleFor(record: StudyRecord): ReviewIntervalDay[] {
+  return record.cycle?.length ? record.cycle : DEFAULT_CYCLE;
+}
+
+function isCheckDone(record: StudyRecord, intervalDays: number): boolean {
+  return Boolean(record.checks[String(intervalDays)]?.done);
+}
+
+/** Group due reviews on a day by interval (matches Figma multi-subject cards). */
+function reviewsForDay(dateKey: string, data: AppData): HomeReviewCard[] {
+  type Due = { record: StudyRecord; intervalDays: ReviewIntervalDay };
+  const due: Due[] = [];
+
+  for (const record of activeRecords(data.records)) {
+    for (const intervalDays of cycleFor(record)) {
+      if (addDays(record.studiedOn, intervalDays) === dateKey) {
+        due.push({ record, intervalDays });
+      }
+    }
+  }
   if (due.length === 0) return [];
 
-  const byInterval = new Map<ReviewIntervalDay, ReviewSchedule[]>();
-  for (const schedule of due) {
-    const list = byInterval.get(schedule.intervalDays) ?? [];
-    list.push(schedule);
-    byInterval.set(schedule.intervalDays, list);
+  const byInterval = new Map<ReviewIntervalDay, Due[]>();
+  for (const item of due) {
+    const list = byInterval.get(item.intervalDays) ?? [];
+    list.push(item);
+    byInterval.set(item.intervalDays, list);
   }
 
   const cards: HomeReviewCard[] = [];
-  for (const [intervalDays, schedules] of [...byInterval.entries()].sort(
+  for (const [intervalDays, items] of [...byInterval.entries()].sort(
     (a, b) => a[0] - b[0],
   )) {
-    const studies = schedules
-      .map((s) => data.records.find((r) => r.id === s.studyRecordId))
-      .filter((r): r is StudyRecord => r != null);
-
+    const checkTargets: HomeReviewCheckTarget[] = items.map((item) => ({
+      studyId: item.record.id,
+      intervalDays,
+    }));
     const subjectNames = [
-      ...new Set(studies.map((s) => s.subjectName)),
+      ...new Set(items.map((item) => item.record.subjectName)),
     ];
 
     cards.push({
-      id: schedules.map((s) => s.id).join('+'),
-      scheduleIds: schedules.map((s) => s.id),
+      id: checkTargets.map(checkTargetId).join('+'),
+      checkTargets,
+      scheduleIds: checkTargets.map(checkTargetId),
       intervalDays,
       subjectNames,
-      completed: schedules.every((s) => s.completed),
-      studies: studies.map((s) => ({
-        subjectName: s.subjectName,
-        content: s.content,
-        studiedOn: s.studiedOn,
-        ...(s.memo?.trim() ? { memo: s.memo.trim() } : {}),
-        ...(s.subjectColor ? { subjectColor: s.subjectColor } : {}),
+      completed: items.every((item) =>
+        isCheckDone(item.record, item.intervalDays),
+      ),
+      studies: items.map((item) => ({
+        subjectName: item.record.subjectName,
+        content: item.record.content,
+        studiedOn: item.record.studiedOn,
+        studyId: item.record.id,
+        ...(item.record.memo?.trim()
+          ? { memo: item.record.memo.trim() }
+          : {}),
+        ...(item.record.subjectColor
+          ? { subjectColor: item.record.subjectColor }
+          : {}),
       })),
     });
   }
@@ -74,7 +105,7 @@ function reviewsForDay(
 }
 
 function studiesForDay(dateKey: string, data: AppData): HomeStudyRow[] {
-  return data.records
+  return activeRecords(data.records)
     .filter((r) => r.studiedOn === dateKey)
     .map((r) => ({
       id: r.id,
@@ -82,6 +113,7 @@ function studiesForDay(dateKey: string, data: AppData): HomeStudyRow[] {
       content: r.content,
       ...(r.memo?.trim() ? { memo: r.memo.trim() } : {}),
       ...(r.subjectColor ? { subjectColor: r.subjectColor } : {}),
+      ...(r.dayBand ? { dayBand: r.dayBand } : {}),
     }));
 }
 
@@ -103,6 +135,8 @@ export type HomeScreenDataOptions = {
    * Defaults to `now` (device / dummy “today”).
    */
   weekAnchor?: Date;
+  /** First column weekday for the week strip (0 = Sun, 1 = Mon). */
+  weekStartsOn?: WeekStartsOn;
 };
 
 /** Build Home weeks around real (or provided) today from persisted AppData. */
@@ -112,7 +146,11 @@ export function homeScreenDataFromAppData(
   options?: HomeScreenDataOptions,
 ): HomeScreenData {
   const today = todayKey(now);
-  const currentStart = startOfWeek(options?.weekAnchor ?? now);
+  const weekStartsOn = options?.weekStartsOn ?? 0;
+  const currentStart = startOfWeek(
+    options?.weekAnchor ?? now,
+    weekStartsOn,
+  );
   const weeks: HomeWeekDay[][] = [];
   for (let offset = -WEEKS_BEFORE; offset <= WEEKS_AFTER; offset += 1) {
     weeks.push(buildWeek(addDaysToDate(currentStart, offset * 7), data));
@@ -124,7 +162,7 @@ export function homeScreenDataFromAppData(
   };
 }
 
-/** Resolve study details for a review card (by schedule ids). */
+/** Resolve study details for a review card (by check targets or synthetic ids). */
 export function studyDetailsForSchedules(
   data: AppData,
   scheduleIds: string[],
@@ -132,9 +170,10 @@ export function studyDetailsForSchedules(
   const studies: ReviewStudyDetail[] = [];
   const seen = new Set<string>();
   for (const id of scheduleIds) {
-    const schedule = data.schedules.find((s) => s.id === id);
-    if (!schedule) continue;
-    const record = data.records.find((r) => r.id === schedule.studyRecordId);
+    let studyId = id;
+    const hash = id.indexOf('#');
+    if (hash > 0) studyId = id.slice(0, hash);
+    const record = activeRecords(data.records).find((r) => r.id === studyId);
     if (!record || seen.has(record.id)) continue;
     seen.add(record.id);
     studies.push({

@@ -13,9 +13,10 @@ import {
 import { ArrowRightIcon } from '@/components/icons/HomeIcons';
 import { fonts } from '@/constants/fonts';
 import { PAGER_DECELERATION } from '@/constants/motion';
-import { colors, softFromPrimary, spacing } from '@/constants/tokens';
-import { useThemeColors } from '@/theme/ThemeProvider';
-import { DOW } from '@/utils/date';
+import { softFromPrimary, spacing } from '@/constants/tokens';
+import { useThemeColors, type ThemeColors } from '@/theme/ThemeProvider';
+import { useCalendarPrefs } from '@/theme/CalendarPrefsProvider';
+import { dowLabels } from '@/utils/date';
 import type { DayProgress } from '@/utils/day-progress';
 import { emptyDayProgress, progressDotColor } from '@/utils/day-progress';
 import {
@@ -87,6 +88,12 @@ export function MonthCalendar({
   onMonthChange,
 }: MonthCalendarProps) {
   const theme = useThemeColors();
+  const styles = useMonthStyles();
+  const { weekStartsOn } = useCalendarPrefs();
+  const weekdayLabels = useMemo(
+    () => dowLabels(weekStartsOn),
+    [weekStartsOn],
+  );
   const { width: windowWidth } = useWindowDimensions();
   // Slightly wider than prior (margin 20 vs 32) so the grid reads larger.
   const frameWidth = Math.min(windowWidth - 20, spacing.frameWidth + 8);
@@ -165,7 +172,7 @@ export function MonthCalendar({
 
   const renderMonth = useCallback(
     ({ item }: { item: MonthPage }) => {
-      const cells = buildMonthGrid(item.year, item.monthIndex);
+      const cells = buildMonthGrid(item.year, item.monthIndex, weekStartsOn);
       return (
         <View style={[styles.monthPage, { width: frameWidth }]}>
           <View style={styles.grid}>
@@ -197,6 +204,7 @@ export function MonthCalendar({
       progressForDay,
       theme.primary,
       todayKey,
+      weekStartsOn,
     ],
   );
 
@@ -227,8 +235,10 @@ export function MonthCalendar({
       </View>
 
       <View style={styles.weekdayRow}>
-        {DOW.map((label) => (
-          <View key={label} style={[styles.weekdayCell, { width: cellWidth }]}>
+        {weekdayLabels.map((label, index) => (
+          <View
+            key={`${weekStartsOn}-${index}-${label}`}
+            style={[styles.weekdayCell, { width: cellWidth }]}>
             <Text style={styles.weekdayText}>{label}</Text>
           </View>
         ))}
@@ -244,6 +254,7 @@ export function MonthCalendar({
         decelerationRate={PAGER_DECELERATION}
         disableIntervalMomentum
         keyExtractor={(item) => item.key}
+        extraData={weekStartsOn}
         renderItem={renderMonth}
         getItemLayout={getItemLayout}
         initialScrollIndex={MONTH_RADIUS}
@@ -281,10 +292,14 @@ function DayCell({
   primary: string;
   onPress: (dateKey: string) => void;
 }) {
+  const theme = useThemeColors();
+  const styles = useMonthStyles();
   const isToday = cell.dateKey === todayKey;
   const isFocus = focusKey != null && cell.dateKey === focusKey;
-  const dotColor = cell.inMonth ? progressDotColor(primary, progress) : null;
-  const selectedBg = softFromPrimary(primary, 0.88);
+  const dotColor = cell.inMonth
+    ? progressDotColor(primary, progress, theme.softMixTarget)
+    : null;
+  const selectedBg = softFromPrimary(primary, 0.88, theme.softMixTarget);
 
   return (
     <Pressable
@@ -322,7 +337,13 @@ function DayCell({
   );
 }
 
-const styles = StyleSheet.create({
+function useMonthStyles() {
+  const c = useThemeColors();
+  return useMemo(() => createMonthStyles(c), [c]);
+}
+
+function createMonthStyles(c: ThemeColors) {
+  return StyleSheet.create({
   root: {
     alignSelf: 'center',
     gap: 16,
@@ -345,7 +366,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.nexonMedium,
     fontSize: TITLE_SIZE,
-    color: colors.body,
+    color: c.body,
     letterSpacing: -TITLE_SIZE * 0.04,
   },
   weekdayRow: {
@@ -358,7 +379,7 @@ const styles = StyleSheet.create({
   weekdayText: {
     fontFamily: fonts.nexonBold,
     fontSize: 12,
-    color: colors.mutedLight,
+    color: c.mutedLight,
     textAlign: 'center',
   },
   monthPage: {
@@ -389,16 +410,16 @@ const styles = StyleSheet.create({
     fontFamily: fonts.gothamMedium,
     fontSize: 17,
     // Blue-gray (not pure black); lighter than month title (`body`).
-    color: colors.accentText,
+    color: c.accentText,
     textAlign: 'center',
   },
   dayNumOutside: {
-    color: colors.mutedLight,
+    color: c.mutedLight,
     opacity: 0.45,
   },
   dayNumFocus: {
     fontFamily: fonts.gothamBold,
-    color: colors.body,
+    color: c.body,
   },
   dotSlot: {
     height: DOT,
@@ -411,3 +432,4 @@ const styles = StyleSheet.create({
     borderRadius: DOT / 2,
   },
 });
+}

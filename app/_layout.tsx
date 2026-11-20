@@ -15,10 +15,16 @@ import { TutorialScreen } from '@/components/tutorial/TutorialScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fonts } from '@/constants/fonts';
 import {
+  startICloudSync,
+  subscribeICloudMerged,
+} from '@/storage/icloud-sync';
+import {
   loadTutorialSeen,
   runTutorialRetestClearIfNeeded,
   saveTutorialSeen,
 } from '@/storage/tutorial';
+import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
+import { CalendarPrefsProvider } from '@/theme/CalendarPrefsProvider';
 import {
   ThemeProvider,
   useThemeColors,
@@ -66,6 +72,18 @@ export default function RootLayout() {
     };
   }, []);
 
+  // Login-less iCloud KVS: silent local-only when unavailable. No sync UI.
+  useEffect(() => {
+    return startICloudSync();
+  }, []);
+
+  // Widget refresh when a remote merge lands before Home is mounted.
+  useEffect(() => {
+    return subscribeICloudMerged((merged) => {
+      void syncTodayReviewWidgetSnapshot(merged);
+    });
+  }, []);
+
   const finishTutorial = useCallback(() => {
     setTutorialSeen(true);
     void saveTutorialSeen();
@@ -77,15 +95,30 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <View style={styles.root}>
-        {tutorialSeen ? (
-          <RootLayoutNav />
-        ) : (
-          <TutorialScreen onFinished={finishTutorial} />
-        )}
-        <LaunchScreen />
-      </View>
+      <CalendarPrefsProvider>
+        <RootChrome tutorialSeen={tutorialSeen} onTutorialFinished={finishTutorial} />
+      </CalendarPrefsProvider>
     </ThemeProvider>
+  );
+}
+
+function RootChrome({
+  tutorialSeen,
+  onTutorialFinished,
+}: {
+  tutorialSeen: boolean;
+  onTutorialFinished: () => void;
+}) {
+  const colors = useThemeColors();
+  return (
+    <View style={[styles.root, { backgroundColor: colors.mainWhite }]}>
+      {tutorialSeen ? (
+        <RootLayoutNav />
+      ) : (
+        <TutorialScreen onFinished={onTutorialFinished} />
+      )}
+      <LaunchScreen />
+    </View>
   );
 }
 
@@ -110,6 +143,13 @@ function RootLayoutNav() {
           headerTitleStyle: { fontFamily: fonts.nexonMedium },
         }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="day"
+          options={{
+            headerShown: false,
+            animation: 'slide_from_right',
+          }}
+        />
         <Stack.Screen
           name="add"
           options={{

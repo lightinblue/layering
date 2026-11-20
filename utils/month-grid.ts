@@ -1,6 +1,11 @@
-/** Month calendar grid helpers (Sunday-first). */
+/** Month calendar grid helpers. */
 
-import { addDaysToDate, startOfWeek, toKey } from '@/utils/date';
+import {
+  addDaysToDate,
+  startOfWeek,
+  toKey,
+  type WeekStartsOn,
+} from '@/utils/date';
 
 export type MonthCell = {
   dateKey: string;
@@ -9,10 +14,17 @@ export type MonthCell = {
   inMonth: boolean;
 };
 
-/** Build a 6×7 (or trimmed) Sunday-first grid for `year` + `monthIndex` (0–11). */
-export function buildMonthGrid(year: number, monthIndex: number): MonthCell[] {
+/**
+ * Build a 6×7 (or trimmed) grid for `year` + `monthIndex` (0–11).
+ * @param weekStartsOn column-0 weekday (0 = Sun, 1 = Mon)
+ */
+export function buildMonthGrid(
+  year: number,
+  monthIndex: number,
+  weekStartsOn: WeekStartsOn = 0,
+): MonthCell[] {
   const first = new Date(year, monthIndex, 1);
-  const gridStart = startOfWeek(first);
+  const gridStart = startOfWeek(first, weekStartsOn);
   const cells: MonthCell[] = [];
   for (let i = 0; i < 42; i += 1) {
     const date = addDaysToDate(gridStart, i);

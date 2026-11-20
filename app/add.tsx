@@ -4,30 +4,26 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   AddStudyForm,
   type AddStudyPayload,
-  type SubjectAddResult,
   type SubjectOption,
 } from '@/components/home/AddStudyForm';
 import { SheetPanel } from '@/components/ui/BottomSheetModal';
 import { subjectColor } from '@/constants/tokens';
 import {
-  addSubject,
   appendStudyWithReviews,
   countStudiesOn,
   loadAppData,
   MAX_STUDIES_PER_DAY,
-  MAX_SUBJECTS,
-  removeSubject,
-  reorderSubjects,
   saveAppData,
   withSubjectColor,
 } from '@/storage/app-data';
 import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
 import type { AppData } from '@/types/domain';
 import { todayKey } from '@/utils/date';
+import { activeSubjects } from '@/utils/icloud-merge';
 import { haptics } from '@/utils/haptics';
 
 function toOptions(data: AppData): SubjectOption[] {
-  return data.subjects.map((s) => {
+  return activeSubjects(data.subjects).map((s) => {
     const chip = withSubjectColor(s);
     return { name: chip.name, color: chip.color ?? subjectColor(chip.name) };
   });
@@ -35,7 +31,7 @@ function toOptions(data: AppData): SubjectOption[] {
 
 /**
  * Route fallback for 「공부 기록 추가」 (transparentModal + SheetPanel).
- * Home empty-state CTA uses an in-screen BottomSheetModal instead.
+ * Subject add/delete lives in Settings only — chips here are select-only.
  */
 export default function AddRecordSheet() {
   const router = useRouter();
@@ -63,14 +59,12 @@ export default function AddRecordSheet() {
     setAppData(next);
     setSubjects(toOptions(next));
     await saveAppData(next);
-    // 포개 widget: study/subject mutations from the add sheet route.
     await syncTodayReviewWidgetSnapshot(next);
   }, []);
 
   const onSave = useCallback(
     async (payload: AddStudyPayload) => {
       const content = payload.title.trim();
-      const memo = payload.memo.trim();
       const studiedOn = todayKey();
       const data = appData ?? (await loadAppData());
       if (countStudiesOn(data, studiedOn) >= MAX_STUDIES_PER_DAY) {
@@ -82,7 +76,6 @@ export default function AddRecordSheet() {
         subjectName: payload.subject,
         content,
         studiedOn,
-        ...(memo ? { memo } : {}),
       });
       await persist(next);
       haptics.save();
@@ -91,52 +84,9 @@ export default function AddRecordSheet() {
     [appData, persist, onClose],
   );
 
-  const onAddSubject = useCallback(
-    (rawName: string, color: string): SubjectAddResult => {
-      if (!appData) return { ok: false, reason: 'empty' };
-      const result = addSubject(appData, rawName, color);
-      if (!result.ok) {
-        return {
-          ok: false,
-          reason: result.reason === 'missing' ? 'empty' : result.reason,
-        };
-      }
-      void persist(result.data);
-      return { ok: true };
-    },
-    [appData, persist],
-  );
-
-  const onRemoveSubject = useCallback(
-    (name: string) => {
-      if (!appData) return;
-      const result = removeSubject(appData, name);
-      if (!result.ok) return;
-      void persist(result.data);
-    },
-    [appData, persist],
-  );
-
-  const onReorderSubjects = useCallback(
-    (orderedNames: string[]) => {
-      if (!appData) return;
-      const result = reorderSubjects(appData, orderedNames);
-      if (!result.ok) return;
-      void persist(result.data);
-    },
-    [appData, persist],
-  );
-
   return (
     <SheetPanel onClose={onClose}>
-      <AddStudyForm
-        subjects={subjects}
-        onSave={onSave}
-        onAddSubject={onAddSubject}
-        onRemoveSubject={onRemoveSubject}
-        onReorderSubjects={onReorderSubjects}
-        maxSubjects={MAX_SUBJECTS}
-      />
+      <AddStudyForm subjects={subjects} onSave={onSave} />
     </SheetPanel>
   );
 }

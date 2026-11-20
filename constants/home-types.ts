@@ -8,6 +8,8 @@ export type HomeStudyRow = {
   memo?: string;
   /** Optional chip fill snapshot from the study record. */
   subjectColor?: string;
+  /** Optional day-band for study-day UI placement. */
+  dayBand?: 'morning' | 'afternoon' | 'evening';
 };
 
 export type HomeReviewStudy = {
@@ -22,9 +24,23 @@ export type HomeReviewStudy = {
   subjectColor?: string;
 };
 
+/** Toggle target — study check keyed by (studyId, intervalDays). */
+export type HomeReviewCheckTarget = {
+  studyId: string;
+  intervalDays: ReviewIntervalDay;
+};
+
 export type HomeReviewCard = {
   id: string;
-  /** Underlying schedule ids (one card may group same-interval reviews). */
+  /**
+   * Check targets for this card (one card may group same-interval reviews).
+   * Real AppData path always sets this; dummy mocks may omit it.
+   */
+  checkTargets?: HomeReviewCheckTarget[];
+  /**
+   * Synthetic `${studyId}#${intervalDays}` ids (compat with day-progress /
+   * legacy scheduleId paths).
+   */
   scheduleIds: string[];
   intervalDays: ReviewIntervalDay;
   subjectNames: string[];

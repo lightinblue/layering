@@ -23,7 +23,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { durations } from '@/constants/motion';
-import { colors, radii } from '@/constants/tokens';
+import { radii } from '@/constants/tokens';
+import { useThemeColors } from '@/theme/ThemeProvider';
 import { haptics } from '@/utils/haptics';
 
 const OPEN_MS = durations.sheetOpen;
@@ -109,6 +110,7 @@ export function SheetPanel({
   backdropOpacity: backdropOpacityProp,
   sheetTranslateY: sheetTranslateYProp,
 }: SheetPanelProps) {
+  const theme = useThemeColors();
   const insets = useSafeAreaInsets();
   const localBackdrop = useRef(
     new Animated.Value(animateOnMount ? 0 : 1),
@@ -261,7 +263,7 @@ export function SheetPanel({
     <View style={styles.root}>
       <Animated.View
         pointerEvents="none"
-        style={[styles.backdropFill, { opacity: backdropOpacity }]}
+        style={[styles.backdropFill, { backgroundColor: theme.backdrop, opacity: backdropOpacity }]}
       />
       <Pressable
         accessibilityRole="button"
@@ -283,6 +285,7 @@ export function SheetPanel({
             style={[
               styles.sheet,
               {
+                backgroundColor: theme.white,
                 paddingBottom: keyboardOpen
                   ? 16
                   : Math.max(insets.bottom, 16),
@@ -295,7 +298,7 @@ export function SheetPanel({
               accessibilityHint="아래로 끌어서 닫아요"
               style={styles.dismissBand}
               {...dismissPan.panHandlers}>
-              <View style={styles.grabber} />
+              <View style={[styles.grabber, { backgroundColor: theme.mutedLight }]} />
             </View>
             {children}
           </View>
@@ -309,6 +312,7 @@ export function SheetPanel({
             style={[
               styles.keyboardFill,
               {
+                backgroundColor: theme.white,
                 height: animatedFillHeight,
                 marginBottom: Animated.multiply(animatedFillHeight, -1),
               },
@@ -408,7 +412,6 @@ const styles = StyleSheet.create({
   },
   backdropFill: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
   },
   backdropHit: {
     ...StyleSheet.absoluteFill,
@@ -418,14 +421,12 @@ const styles = StyleSheet.create({
     maxHeight: '92%',
   },
   sheet: {
-    backgroundColor: colors.white,
     borderTopLeftRadius: radii.chip + 8,
     borderTopRightRadius: radii.chip + 8,
     paddingTop: 0,
     overflow: 'hidden',
   },
   keyboardFill: {
-    backgroundColor: colors.white,
   },
   /** ~52pt top band — drag anywhere here to dismiss, not only the 5pt pill. */
   dismissBand: {
@@ -437,6 +438,5 @@ const styles = StyleSheet.create({
     width: 36,
     height: 5,
     borderRadius: 3,
-    backgroundColor: colors.mutedLight,
   },
 });

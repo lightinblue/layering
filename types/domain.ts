@@ -1,14 +1,25 @@
 import type { ReviewIntervalDay } from '@/constants/review';
 
-/** 과목 칩 (이용자가 추가·삭제; 삭제해도 기존 기록은 유지). */
+/** Per-interval review check state (synced on the study record). */
+export type ReviewCheck = {
+  done: boolean;
+  updatedAt: string;
+};
+
+/** 과목 칩 (이용자가 추가·삭제; 삭제해도 기존 기록은 유지). Soft-delete via `deleted`. */
 export type SubjectChip = {
   id: string;
   name: string;
   /** Chip fill hex; falls back to name map / gray when missing. */
   color?: string;
+  /** Display order (ascending). */
+  order: number;
+  updatedAt: string;
+  /** Soft-delete tombstone for iCloud merge. */
+  deleted?: boolean;
 };
 
-/** 학습 기록 — 과목, 학습 내용, 학습일. */
+/** 학습 기록 — 과목, 학습 내용, 학습일 + 복습 체크. */
 export type StudyRecord = {
   id: string;
   subjectId: string;
@@ -19,12 +30,30 @@ export type StudyRecord = {
   content: string;
   /** Optional short memo (may be empty). */
   memo?: string;
-  /** YYYY-MM-DD (로컬 날짜). */
+  /**
+   * YYYY-MM-DD (로컬 날짜). Product/sync “studyDate” — kept as `studiedOn`
+   * for existing code paths.
+   */
   studiedOn: string;
+  /**
+   * Optional day-band for study-day UI (morning / afternoon / evening).
+   * Legacy records omit this and fall back to createdAt order.
+   */
+  dayBand?: 'morning' | 'afternoon' | 'evening';
+  /** Review intervals in days (always present; default fixed curve). */
+  cycle: ReviewIntervalDay[];
+  /** Check state keyed by interval days (string keys in JSON). */
+  checks: Record<string, ReviewCheck>;
   createdAt: string;
+  updatedAt: string;
+  /** Soft-delete tombstone for iCloud merge. */
+  deleted?: boolean;
 };
 
-/** 복습 일정 — 예정일 + 완료 여부. 미완료는 원래 날짜에 고정. */
+/**
+ * Local derived review row (not synced). Kept for migration / seed helpers;
+ * home UI derives due dates from `studiedOn` + `cycle` + `checks`.
+ */
 export type ReviewSchedule = {
   id: string;
   studyRecordId: string;
@@ -40,5 +69,6 @@ export type ReviewSchedule = {
 export type AppData = {
   subjects: SubjectChip[];
   records: StudyRecord[];
+  /** Legacy / local cache — regenerated from records; not pushed to iCloud. */
   schedules: ReviewSchedule[];
 };

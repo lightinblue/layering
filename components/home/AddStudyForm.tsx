@@ -39,7 +39,6 @@ import { EASE_OUT_MS, durations } from '@/constants/motion';
 import {
   SUBJECT_COLOR_OPTIONS,
   SUBJECT_COLORS,
-  colors as tokenColors,
   radii,
   subjectBorderColor,
   subjectColor,
@@ -52,7 +51,6 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 import {
-  MAX_STUDY_MEMO_LENGTH,
   MAX_STUDY_TITLE_LENGTH,
   MAX_SUBJECT_NAME_LENGTH,
   MAX_SUBJECTS,
@@ -64,6 +62,7 @@ import { haptics } from '@/utils/haptics';
 export type AddStudyPayload = {
   subject: string;
   title: string;
+  /** Always empty — memo field removed from add/edit UX. */
   memo: string;
 };
 
@@ -87,6 +86,7 @@ export type AddStudyFormMode = 'create' | 'edit';
 export type AddStudyFormInitial = {
   subject: string;
   title: string;
+  /** Ignored — memo no longer collected in the form. */
   memo?: string;
   /** Optional chip fill when editing a study whose subject chip is gone. */
   subjectColor?: string;
@@ -110,6 +110,11 @@ type AddStudyFormProps = {
   initial?: AddStudyFormInitial;
   /** Shown in edit mode; caller confirms before calling. */
   onDelete?: () => void;
+  /**
+   * Settings-only: subject add/delete/reorder UI without study title/save.
+   * Study add/edit flows should omit manage callbacks (select-only chips).
+   */
+  subjectsOnly?: boolean;
 };
 
 type ChipLayout = { x: number; y: number; width: number; height: number };
@@ -356,8 +361,9 @@ function namesSignature(names: readonly string[]): string {
 }
 
 /**
- * 「공부 기록 추가 / 수정」 form body (subject · title · optional memo).
- * Subject chips: tap select · re-tap for delete X · long-press drag reorder · soft + add.
+ * 「공부 기록 추가 / 수정」 form body (subject · title). Memo UX removed.
+ * Subject chips: tap select. Add/delete/reorder only when manage callbacks
+ * are passed (Settings `subjectsOnly`). Study flows stay select-only.
  * Mounted inside BottomSheetModal so Expo Go always lays out content.
  */
 export function AddStudyForm({
@@ -370,6 +376,7 @@ export function AddStudyForm({
   mode = 'create',
   initial,
   onDelete,
+  subjectsOnly = false,
 }: AddStudyFormProps) {
   const colors = useThemeColors();
   const isEdit = mode === 'edit';
@@ -379,7 +386,6 @@ export function AddStudyForm({
   );
   // Legacy over-long text: show full on open; clamp only on save.
   const [title, setTitle] = useState(() => initial?.title ?? '');
-  const [memo, setMemo] = useState(() => initial?.memo ?? '');
   const [adding, setAdding] = useState(false);
   const addingRef = useRef(false);
   const [draftName, setDraftName] = useState('');
@@ -387,6 +393,7 @@ export function AddStudyForm({
   const draftInputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [chipHint, setChipHint] = useState<string | null>(null);
   const [deleteArmed, setDeleteArmed] = useState<string | null>(null);
+  const deleteArmedRef = useRef<string | null>(null);
   const [draggingName, setDraggingName] = useState<string | null>(null);
   /** Floating chip top-left in row-local coords while dragging. */
   const [dragLocal, setDragLocal] = useState({ x: 0, y: 0 });
@@ -422,6 +429,10 @@ export function AddStudyForm({
   useEffect(() => {
     orderedNamesRef.current = orderedNames;
   }, [orderedNames]);
+
+  useEffect(() => {
+    deleteArmedRef.current = deleteArmed;
+  }, [deleteArmed]);
 
   useEffect(() => {
     if (draggingRef.current) return;
@@ -486,9 +497,13 @@ export function AddStudyForm({
     return true;
   }, [isEdit, noSubjects, subject, title]);
 
-  const emptySubjectHint = '과목을 먼저 추가해 주세요';
+  const emptySubjectHint = subjectsOnly
+    ? '과목을 추가해 주세요'
+    : '설정에서 과목을 추가해 주세요';
   const titleMaxLength = Math.max(MAX_STUDY_TITLE_LENGTH, title.length);
-  const memoMaxLength = Math.max(MAX_STUDY_MEMO_LENGTH, memo.length);
+  const canManageSubjects = Boolean(
+    onAddSubject || onRemoveSubject || onReorderSubjects,
+  );
 
   const rowRef = useRef<ComponentRef<typeof View>>(null);
 
@@ -537,21 +552,6 @@ export function AddStudyForm({
     onReorderSubjects(next);
   }, [clearLongPressTimer, onReorderSubjects]);
 
-  const handleChipTap = useCallback(
-    (name: string) => {
-      setChipHint(null);
-      if (subjectPick !== name) {
-        haptics.select();
-        setSubjectPick(name);
-        setDeleteArmed(null);
-        return;
-      }
-      if (!onRemoveSubject) return;
-      setDeleteArmed((prev) => (prev === name ? null : name));
-    },
-    [subjectPick, onRemoveSubject],
-  );
-
   const requestRemove = useCallback(
     (name: string) => {
       if (!onRemoveSubject) return;
@@ -578,7 +578,27 @@ export function AddStudyForm({
         ],
       );
     },
-    [onRemoveSubject],
+    [onRemoveSubject, subjects],
+  );
+
+  const handleChipTap = useCallback(
+    (name: string) => {
+      setChipHint(null);
+      if (subjectPick !== name) {
+        haptics.select();
+        setSubjectPick(name);
+        setDeleteArmed(null);
+        return;
+      }
+      if (!onRemoveSubject) return;
+      // Armed + re-tap → confirm (× can lose the touch to the chip pan).
+      if (deleteArmed === name) {
+        requestRemove(name);
+        return;
+      }
+      setDeleteArmed(name);
+    },
+    [subjectPick, onRemoveSubject, deleteArmed, requestRemove],
   );
 
   const beginDrag = useCallback(
@@ -639,7 +659,8 @@ export function AddStudyForm({
     > = {};
     for (const { name } of orderedChips) {
       map[name] = PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
+        // When × is armed, yield start so the badge Pressable can fire.
+        onStartShouldSetPanResponder: () => deleteArmedRef.current !== name,
         onStartShouldSetPanResponderCapture: () => false,
         onMoveShouldSetPanResponder: () => dragActivatedRef.current,
         onMoveShouldSetPanResponderCapture: () => dragActivatedRef.current,
@@ -736,9 +757,9 @@ export function AddStudyForm({
     onSave({
       subject,
       title: nextTitle,
-      memo: memo.trim(),
+      memo: '',
     });
-  }, [canSave, subject, title, memo, onSave]);
+  }, [canSave, subject, title, onSave]);
 
   const requestDelete = useCallback(() => {
     if (!onDelete) return;
@@ -828,12 +849,16 @@ export function AddStudyForm({
       scrollEnabled={draggingName == null}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { backgroundColor: colors.white }]}>
-      <Text style={[styles.title, { color: colors.black }]}>
-        {isEdit ? '공부 기록 수정' : '공부 기록 추가'}
-      </Text>
+      {subjectsOnly ? null : (
+        <Text style={[styles.title, { color: colors.black }]}>
+          {isEdit ? '공부 기록 수정' : '공부 기록 추가'}
+        </Text>
+      )}
 
       <View style={styles.field}>
-        <Text style={[styles.label, { color: colors.sectionLabel }]}>과목</Text>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>
+          {subjectsOnly ? '과목' : '과목'}
+        </Text>
         <View
           ref={rowRef}
           style={styles.chipRow}
@@ -858,7 +883,9 @@ export function AddStudyForm({
                   accessibilityHint={
                     onRemoveSubject
                       ? '선택한 뒤 다시 누르면 삭제 버튼이 나타나요.'
-                      : undefined
+                      : canManageSubjects
+                        ? undefined
+                        : '선택만 할 수 있어요. 과목 추가는 설정에서 해요.'
                   }
                   style={[
                     styles.subjectChip,
@@ -880,13 +907,19 @@ export function AddStudyForm({
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`${name} 과목 삭제`}
-                    hitSlop={8}
+                    hitSlop={12}
                     onPress={() => requestRemove(name)}
                     style={[
                       styles.deleteBadge,
-                      { backgroundColor: colors.white },
+                      {
+                        backgroundColor: colors.white,
+                        borderColor: colors.muted,
+                      },
                     ]}>
-                    <Text style={styles.deleteBadgeText}>×</Text>
+                    <Text
+                      style={[styles.deleteBadgeText, { color: colors.muted }]}>
+                      ×
+                    </Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -1020,17 +1053,18 @@ export function AddStudyForm({
           <Text style={[styles.chipHint, { color: colors.muted }]}>
             {chipHint}
           </Text>
-        ) : !isEdit && noSubjects ? (
+        ) : noSubjects ? (
           <Text style={[styles.chipHint, { color: colors.muted }]}>
             {emptySubjectHint}
           </Text>
-        ) : atLimit ? (
+        ) : canManageSubjects && atLimit ? (
           <Text style={[styles.chipHint, { color: colors.mutedLight }]}>
             {LIMIT_HINT}
           </Text>
         ) : null}
       </View>
 
+      {subjectsOnly ? null : (
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>
           학습 내용
@@ -1050,27 +1084,9 @@ export function AddStudyForm({
           accessibilityLabel="학습 내용"
         />
       </View>
+      )}
 
-      <View style={styles.field}>
-        <Text style={[styles.label, { color: colors.sectionLabel }]}>메모</Text>
-        <TextInput
-          value={memo}
-          onChangeText={setMemo}
-          placeholder="추가로 기록하고 싶은 내용"
-          placeholderTextColor={colors.mutedLight}
-          maxLength={memoMaxLength}
-          style={[
-            styles.input,
-            styles.memoInput,
-            { backgroundColor: colors.surface, color: colors.body },
-          ]}
-          multiline
-          textAlignVertical="top"
-          accessibilityLabel="메모"
-        />
-      </View>
-
-      {isEdit && onDelete ? (
+      {subjectsOnly ? null : isEdit && onDelete ? (
         <View style={styles.actionRow}>
           <Pressable
             accessibilityRole="button"
@@ -1188,14 +1204,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: tokenColors.muted,
     zIndex: 30,
   },
   deleteBadgeText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 16,
     lineHeight: 18,
-    color: tokenColors.muted,
     marginTop: -1,
   },
   addChip: {
@@ -1269,10 +1283,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 15,
     minHeight: 49,
-  },
-  memoInput: {
-    minHeight: 96,
-    paddingTop: 14,
   },
   actionRow: {
     marginTop: 4,

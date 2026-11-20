@@ -2,7 +2,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { HomeReviewStudy } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
-import { colors, radii, subjectColor } from '@/constants/tokens';
+import { radii, subjectColor } from '@/constants/tokens';
+import { useThemeColors } from '@/theme/ThemeProvider';
 
 export type ReviewDetailContentProps = {
   studies: HomeReviewStudy[];
@@ -18,19 +19,22 @@ export function ReviewDetailContent({
   colorByName,
   onStudyPress,
 }: ReviewDetailContentProps) {
+  const colors = useThemeColors();
+
   return (
     <ScrollView
       bounces={false}
       style={styles.scroll}
-      contentContainerStyle={styles.body}
+      contentContainerStyle={[styles.body, { backgroundColor: colors.white }]}
       keyboardShouldPersistTaps="handled">
       {studies.length === 0 ? (
-        <View style={styles.card}>
-          <Text style={styles.bodyText}>연결된 공부 기록이 없어요</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.bodyText, { color: colors.body }]}>
+            연결된 공부 기록이 없어요
+          </Text>
         </View>
       ) : (
         studies.map((study, index) => {
-          const memo = study.memo?.trim();
           const canJump = Boolean(onStudyPress && study.studiedOn);
           const card = (
             <>
@@ -40,21 +44,26 @@ export function ReviewDetailContent({
                   {
                     backgroundColor: subjectColor(
                       study.subjectName,
-                      colorByName,
+                      study.subjectColor ?? colorByName,
                     ),
                   },
                 ]}>
-                <Text style={styles.subjectChipText} numberOfLines={1}>
+                <Text
+                  style={[styles.subjectChipText, { color: colors.onAccent }]}
+                  numberOfLines={1}>
                   {study.subjectName}
                 </Text>
               </View>
               {study.studiedOn ? (
-                <Text style={styles.studiedOn} numberOfLines={1}>
+                <Text
+                  style={[styles.studiedOn, { color: colors.accentText }]}
+                  numberOfLines={1}>
                   학습일 {study.studiedOn}
                 </Text>
               ) : null}
-              <Text style={styles.bodyText}>{study.content}</Text>
-              {memo ? <Text style={styles.memo}>{memo}</Text> : null}
+              <Text style={[styles.bodyText, { color: colors.body }]}>
+                {study.content}
+              </Text>
             </>
           );
 
@@ -68,6 +77,7 @@ export function ReviewDetailContent({
                 onPress={() => onStudyPress?.(study.studiedOn)}
                 style={({ pressed }) => [
                   styles.card,
+                  { backgroundColor: colors.surface },
                   pressed && styles.cardPressed,
                 ]}>
                 {card}
@@ -78,7 +88,7 @@ export function ReviewDetailContent({
           return (
             <View
               key={`${study.subjectName}-${study.studiedOn}-${index}`}
-              style={styles.card}>
+              style={[styles.card, { backgroundColor: colors.surface }]}>
               {card}
             </View>
           );
@@ -93,7 +103,6 @@ const styles = StyleSheet.create({
     maxHeight: '100%',
   },
   body: {
-    backgroundColor: colors.white,
     paddingHorizontal: 24,
     paddingBottom: 8,
     gap: 14,
@@ -112,10 +121,8 @@ const styles = StyleSheet.create({
   subjectChipText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 13,
-    color: colors.white,
   },
   card: {
-    backgroundColor: colors.surface,
     borderRadius: radii.chip,
     padding: 16,
     gap: 8,
@@ -126,18 +133,10 @@ const styles = StyleSheet.create({
   studiedOn: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
-    color: colors.accentText,
   },
   bodyText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 15,
-    color: colors.body,
     lineHeight: 22,
-  },
-  memo: {
-    fontFamily: fonts.nexonRegular,
-    fontSize: 13,
-    color: colors.muted,
-    lineHeight: 19,
   },
 });

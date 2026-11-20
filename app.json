@@ -2,15 +2,15 @@
   "expo": {
     "name": "포개",
     "slug": "layering",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "layering",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.lightinblue.layering",
       "appleTeamId": "R39JVZ3ZNL",
-      "buildNumber": "12",
+      "buildNumber": "16",
       "supportsTablet": true,
       "infoPlist": {
         "CFBundleDisplayName": "포개",
@@ -19,7 +19,8 @@
       "entitlements": {
         "com.apple.security.application-groups": [
           "group.com.lightinblue.layering.poogae"
-        ]
+        ],
+        "com.apple.developer.ubiquity-kvstore-identifier": "$(TeamIdentifierPrefix)com.lightinblue.layering"
       }
     },
     "android": {
@@ -43,7 +44,11 @@
           "image": "./assets/images/icon.png",
           "imageWidth": 140,
           "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF"
+          "backgroundColor": "#FFFFFF",
+          "dark": {
+            "image": "./assets/images/splash-logo-dark.png",
+            "backgroundColor": "#0B0F14"
+          }
         }
       ],
       "@bacons/apple-targets"

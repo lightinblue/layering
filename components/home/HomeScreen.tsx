@@ -37,11 +37,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  AddStudyForm,
-  type AddStudyPayload,
-  type SubjectAddResult,
-  type SubjectOption,
+import type {
+  SubjectAddResult,
+  SubjectOption,
 } from '@/components/home/AddStudyForm';
 import { ReviewDetailContent } from '@/components/home/ReviewDetailContent';
 import {
@@ -49,12 +47,12 @@ import {
   ReviewCompleteToast,
 } from '@/components/home/ReviewCompleteToast';
 import { SettingsSheet } from '@/components/home/SettingsSheet';
+import { StudyDaySummary } from '@/components/home/StudyDaySummary';
 import {
   ArrowRightIcon,
   CalendarIcon,
   CheckIcon,
   EllipseIcon,
-  PlusIcon,
   SettingsIcon,
 } from '@/components/icons/HomeIcons';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
@@ -65,7 +63,6 @@ import {
   type HomeReviewCard,
   type HomeReviewStudy,
   type HomeScreenData,
-  type HomeStudyRow,
   type HomeWeekDay,
 } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
@@ -88,27 +85,30 @@ import {
 } from '@/constants/tokens';
 import {
   addSubject,
-  appendStudyWithReviews,
-  deleteStudyWithReviews,
   EMPTY_APP_DATA,
   loadAppData,
-  MAX_STUDIES_PER_DAY,
-  MAX_SUBJECTS,
   removeSubject,
   reorderSubjects,
   saveAppData,
   subjectColorMap,
+  toggleReviewCheck,
   toggleReviewCompleted,
-  updateStudyWithReviews,
   withSubjectColor,
 } from '@/storage/app-data';
+import { subscribeICloudMerged } from '@/storage/icloud-sync';
 import {
   buildDefaultAppData,
   buildScreenshotAppData,
 } from '@/storage/screenshot-seed';
 import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
-import { useThemeColors } from '@/theme/ThemeProvider';
+import { useCalendarPrefs } from '@/theme/CalendarPrefsProvider';
+import {
+  useColorScheme,
+  useThemeColors,
+  type ThemeColors,
+} from '@/theme/ThemeProvider';
 import type { AppData } from '@/types/domain';
+import { activeSubjects } from '@/utils/icloud-merge';
 import { parseKey, todayKey as deviceTodayKey } from '@/utils/date';
 import {
   homeScreenDataFromAppData,
@@ -117,6 +117,11 @@ import {
 import { haptics } from '@/utils/haptics';
 
 const REVIEW_COLS = 3;
+
+function useHomeStyles() {
+  const c = useThemeColors();
+  return useMemo(() => createHomeStyles(c), [c]);
+}
 
 type HomeScreenProps = {
   /** Override data (skips AsyncStorage load — tests / previews). */
@@ -172,6 +177,7 @@ function AnimatedDayNumber({
   dateKey: string;
   dayNumber: string;
 }) {
+  const styles = useHomeStyles();
   const [incoming, setIncoming] = useState(dayNumber);
   const [outgoing, setOutgoing] = useState<string | null>(null);
   const dateKeyRef = useRef(dateKey);
@@ -247,6 +253,7 @@ function AnimatedDateMeta({
   weekdayLabel: string;
   dateLabel: string;
 }) {
+  const styles = useHomeStyles();
   const [incomingWeekday, setIncomingWeekday] = useState(weekdayLabel);
   const [outgoingWeekday, setOutgoingWeekday] = useState<string | null>(null);
   const [incomingLabel, setIncomingLabel] = useState(dateLabel);
@@ -401,6 +408,7 @@ function SoftFab({
   style: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
+  const styles = useHomeStyles();
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -454,6 +462,8 @@ function CalendarTodayFabIcon({ showCalendar }: { showCalendar: boolean }) {
   const arrowStyle = useAnimatedStyle(() => ({
     opacity: arrowOpacity.value,
   }));
+  const styles = useHomeStyles();
+  const theme = useThemeColors();
 
   return (
     <View style={styles.fabIconStack}>
@@ -465,7 +475,7 @@ function CalendarTodayFabIcon({ showCalendar }: { showCalendar: boolean }) {
       <Animated.View
         pointerEvents="none"
         style={[styles.fabIconLayer, styles.fabArrowPrev, arrowStyle]}>
-        <ArrowRightIcon size={sizes.fabIcon} color={colors.accentText} />
+        <ArrowRightIcon size={sizes.fabIcon} color={theme.accentText} />
       </Animated.View>
     </View>
   );
@@ -478,9 +488,14 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const theme = useThemeColors();
+  const colorScheme = useColorScheme();
+  const styles = useHomeStyles();
+  const { weekStartsOn } = useCalendarPrefs();
 
   const [hydrated, setHydrated] = useState(dataProp != null);
   const [appData, setAppData] = useState<AppData | null>(null);
+  const appDataRef = useRef<AppData | null>(null);
+  appDataRef.current = appData;
   /** When set, week strip is recentered on this date (calendar jump). */
   const [weekAnchorKey, setWeekAnchorKey] = useState<string | null>(null);
   const appliedDayRef = useRef<string | null>(null);
@@ -489,10 +504,6 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   const [selectedKey, setSelectedKey] = useState(deviceTodayKey);
   const [weekIndex, setWeekIndex] = useState(WEEKS_BEFORE);
-  const [addOpen, setAddOpen] = useState(false);
-  const [addKey, setAddKey] = useState(0);
-  /** When set, the add sheet opens in edit mode for this study. */
-  const [editingStudy, setEditingStudy] = useState<HomeStudyRow | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState<{
     intervalDays: number;
@@ -515,7 +526,9 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       if (cancelled) return;
       setAppData(storedApp);
       setWeekAnchorKey(null);
-      const screen = homeScreenDataFromAppData(storedApp);
+      const screen = homeScreenDataFromAppData(storedApp, new Date(), {
+        weekStartsOn,
+      });
       setSelectedKey(screen.todayKey);
       setWeekIndex(screen.currentWeekIndex);
       setHydrated(true);
@@ -525,6 +538,15 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     return () => {
       cancelled = true;
     };
+  }, [dataProp, weekStartsOn]);
+
+  // Apply iCloud remote merges into home state + widget (no sync status UI).
+  useEffect(() => {
+    if (dataProp) return;
+    return subscribeICloudMerged((merged) => {
+      setAppData(merged);
+      void syncTodayReviewWidgetSnapshot(merged);
+    });
   }, [dataProp]);
 
   useEffect(() => {
@@ -539,12 +561,22 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     return () => sub.remove();
   }, [dataProp, appData]);
 
-  // 포개 widget: rewrite whenever home regains focus.
+  // Reload after /day (or calendar) edits — home stays mounted so local
+  // appData would otherwise stay stale while AsyncStorage already moved on.
   useFocusEffect(
     useCallback(() => {
-      if (dataProp || !appData) return;
-      void syncTodayReviewWidgetSnapshot(appData);
-    }, [dataProp, appData]),
+      if (dataProp) return;
+      let cancelled = false;
+      void (async () => {
+        const stored = await loadAppData();
+        if (cancelled) return;
+        setAppData(stored);
+        void syncTodayReviewWidgetSnapshot(stored);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [dataProp]),
   );
 
   const base: HomeScreenData = useMemo(() => {
@@ -552,11 +584,14 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     return homeScreenDataFromAppData(
       appData ?? EMPTY_APP_DATA,
       new Date(),
-      weekAnchorKey ? { weekAnchor: parseKey(weekAnchorKey) } : undefined,
+      {
+        weekStartsOn,
+        ...(weekAnchorKey ? { weekAnchor: parseKey(weekAnchorKey) } : {}),
+      },
     );
     // clockNonce: recompute local todayKey on foreground
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataProp, appData, weekAnchorKey, clockNonce]);
+  }, [dataProp, appData, weekAnchorKey, weekStartsOn, clockNonce]);
 
   const todayKey = base.todayKey;
   const allDays = useMemo(() => flattenWeeks(base.weeks), [base.weeks]);
@@ -569,12 +604,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     );
   }, [allDays, selectedKey, todayKey]);
 
-  const studies = selected?.studies ?? [];
-
   const isToday = selected != null && selected.dateKey === todayKey;
-  const atStudyCap = studies.length >= MAX_STUDIES_PER_DAY;
-  // Future days may add studies; reviews stay on dueOn only (not “오늘 할 복습”).
-  const allowAdd = !atStudyCap;
 
   const frameWidth = Math.min(windowWidth - 16, spacing.frameWidth);
   const contentWidth = Math.min(frameWidth, spacing.contentWidth);
@@ -585,15 +615,16 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   const subjectOptions = useMemo((): SubjectOption[] => {
     if (!appData) return [];
-    return appData.subjects.map((s) => {
+    return activeSubjects(appData.subjects).map((s) => {
       const chip = withSubjectColor(s);
       return { name: chip.name, color: chip.color ?? subjectColor(chip.name) };
     });
   }, [appData]);
 
+  /** Include soft-deleted chips so study rows keep their color after remove. */
   const colorByName = useMemo(
-    () => subjectColorMap(subjectOptions),
-    [subjectOptions],
+    () => (appData ? subjectColorMap(appData.subjects) : {}),
+    [appData],
   );
 
   const persistApp = useCallback(async (next: AppData) => {
@@ -631,147 +662,30 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
       }
       if (dataProp || !appData) return;
       let next = appData;
-      for (const id of card.scheduleIds) {
-        next = toggleReviewCompleted(next, id);
+      if (card.checkTargets && card.checkTargets.length > 0) {
+        for (const target of card.checkTargets) {
+          next = toggleReviewCheck(
+            next,
+            target.studyId,
+            target.intervalDays,
+          );
+        }
+      } else {
+        for (const id of card.scheduleIds) {
+          next = toggleReviewCompleted(next, id);
+        }
       }
       void persistApp(next);
     },
     [dataProp, appData, persistApp, showCompleteToast],
   );
 
-  const goAdd = useCallback(() => {
-    if (atStudyCap) {
-      haptics.reject();
-      return;
-    }
-    setEditingStudy(null);
-    setAddKey((k) => k + 1);
-    setAddOpen(true);
-  }, [atStudyCap]);
-
-  const goEditStudy = useCallback(
-    (row: HomeStudyRow) => {
-      let next = row;
-      if (appData) {
-        const record = appData.records.find((r) => r.id === row.id);
-        if (record) {
-          const memo = record.memo?.trim();
-          next = {
-            id: record.id,
-            subjectName: record.subjectName,
-            content: record.content,
-            ...(memo ? { memo } : {}),
-            ...(record.subjectColor
-              ? { subjectColor: record.subjectColor }
-              : {}),
-          };
-        }
-      }
-      setEditingStudy(next);
-      setAddKey((k) => k + 1);
-      setAddOpen(true);
+  const goOpenDay = useCallback(
+    (dateKey: string) => {
+      haptics.select();
+      router.push({ pathname: '/day', params: { date: dateKey } });
     },
-    [appData],
-  );
-
-  const closeAdd = useCallback(() => {
-    // Keep editingStudy until dismiss finishes so edit UI does not flip mid-close.
-    setAddOpen(false);
-  }, []);
-
-  const onAddDismissed = useCallback(() => {
-    setEditingStudy(null);
-  }, []);
-
-  const onSaveAdd = useCallback(
-    (payload: AddStudyPayload) => {
-      const content = payload.title.trim();
-      const memo = payload.memo.trim();
-      const studiedOn = selectedDateKey;
-      if (dataProp || !appData) return;
-      if (!content) {
-        haptics.reject();
-        return;
-      }
-
-      if (editingStudy) {
-        const next = updateStudyWithReviews(appData, editingStudy.id, {
-          subjectName: payload.subject,
-          content,
-          studiedOn,
-          ...(memo ? { memo } : {}),
-        });
-        void persistApp(next);
-        haptics.save();
-        setAddOpen(false);
-        return;
-      }
-
-      if (appData.subjects.length === 0) {
-        haptics.reject();
-        return;
-      }
-
-      if (studies.length >= MAX_STUDIES_PER_DAY) {
-        haptics.reject();
-        setAddOpen(false);
-        return;
-      }
-
-      const next = appendStudyWithReviews(appData, {
-        subjectName: payload.subject,
-        content,
-        studiedOn,
-        ...(memo ? { memo } : {}),
-      });
-      void persistApp(next);
-      haptics.save();
-      setAddOpen(false);
-    },
-    [dataProp, selectedDateKey, appData, persistApp, studies.length, editingStudy],
-  );
-
-  const onDeleteStudy = useCallback(() => {
-    if (!editingStudy || dataProp || !appData) return;
-    void persistApp(deleteStudyWithReviews(appData, editingStudy.id));
-    haptics.delete();
-    setAddOpen(false);
-  }, [editingStudy, dataProp, appData, persistApp]);
-
-  const onAddSubject = useCallback(
-    (rawName: string, color: string): SubjectAddResult => {
-      if (dataProp || !appData) return { ok: false, reason: 'empty' };
-      const result = addSubject(appData, rawName, color);
-      if (!result.ok) {
-        return {
-          ok: false,
-          reason: result.reason === 'missing' ? 'empty' : result.reason,
-        };
-      }
-      void persistApp(result.data);
-      return { ok: true };
-    },
-    [dataProp, appData, persistApp],
-  );
-
-  const onRemoveSubject = useCallback(
-    (name: string) => {
-      if (dataProp || !appData) return;
-      const result = removeSubject(appData, name);
-      if (!result.ok) return;
-      void persistApp(result.data);
-    },
-    [dataProp, appData, persistApp],
-  );
-
-  const onReorderSubjects = useCallback(
-    (orderedNames: string[]) => {
-      if (dataProp || !appData) return;
-      const result = reorderSubjects(appData, orderedNames);
-      if (!result.ok) return;
-      void persistApp(result.data);
-    },
-    [dataProp, appData, persistApp],
+    [router],
   );
 
   const goCalendar = useCallback(() => {
@@ -790,20 +704,68 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     setSettingsOpen(false);
   }, []);
 
+  const onAddSubject = useCallback(
+    (rawName: string, color: string): SubjectAddResult => {
+      if (dataProp) return { ok: false, reason: 'empty' };
+      const current = appDataRef.current;
+      if (!current) return { ok: false, reason: 'empty' };
+      const result = addSubject(current, rawName, color);
+      if (!result.ok) {
+        return {
+          ok: false,
+          reason: result.reason === 'missing' ? 'empty' : result.reason,
+        };
+      }
+      void persistApp(result.data);
+      return { ok: true };
+    },
+    [dataProp, persistApp],
+  );
+
+  const onRemoveSubject = useCallback(
+    (name: string) => {
+      if (dataProp) return;
+      const current = appDataRef.current;
+      if (!current) return;
+      const result = removeSubject(current, name);
+      if (!result.ok) return;
+      void persistApp(result.data);
+    },
+    [dataProp, persistApp],
+  );
+
+  const onReorderSubjects = useCallback(
+    (orderedNames: string[]) => {
+      if (dataProp) return;
+      const current = appDataRef.current;
+      if (!current) return;
+      const result = reorderSubjects(current, orderedNames);
+      if (!result.ok) return;
+      void persistApp(result.data);
+    },
+    [dataProp, persistApp],
+  );
+
   const applySeededAppData = useCallback(
     async (next: AppData) => {
       await persistApp(next);
       setWeekAnchorKey(null);
-      const screen = homeScreenDataFromAppData(next);
+      const screen = homeScreenDataFromAppData(next, new Date(), {
+        weekStartsOn,
+      });
       setSelectedKey(screen.todayKey);
       setWeekIndex(screen.currentWeekIndex);
       setReviewOpen(null);
-      setAddOpen(false);
-      setEditingStudy(null);
       closeSettings();
     },
-    [closeSettings, persistApp],
+    [closeSettings, persistApp, weekStartsOn],
   );
+
+  // Keep the selected day in view when week-start preference changes.
+  useEffect(() => {
+    if (dataProp) return;
+    setWeekIndex(weekIndexForDate(base, selectedKey));
+  }, [weekStartsOn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleScreenshotSeed = useCallback(async () => {
     if (!__DEV__ || dataProp) return;
@@ -937,7 +899,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <View
         style={[
           styles.body,
@@ -984,8 +946,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
             accentSoft={theme.primarySoft}
             colorByName={colorByName}
             onDayChange={onDayPagerChange}
-            onAdd={goAdd}
-            onEditStudy={goEditStudy}
+            onOpenDay={goOpenDay}
             onToggle={toggleReview}
             onDetail={onDetail}
           />
@@ -1027,37 +988,12 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
         />
       ) : null}
 
-      <BottomSheetModal
-        visible={addOpen}
-        onClose={closeAdd}
-        onDismissed={onAddDismissed}>
-        <AddStudyForm
-          key={addKey}
-          mode={editingStudy ? 'edit' : 'create'}
-          initial={
-            editingStudy
-              ? {
-                  subject: editingStudy.subjectName,
-                  title: editingStudy.content,
-                  ...(editingStudy.memo ? { memo: editingStudy.memo } : {}),
-                  ...(editingStudy.subjectColor
-                    ? { subjectColor: editingStudy.subjectColor }
-                    : {}),
-                }
-              : undefined
-          }
-          subjects={subjectOptions}
-          onSave={onSaveAdd}
-          onDelete={editingStudy ? onDeleteStudy : undefined}
-          onAddSubject={onAddSubject}
-          onRemoveSubject={onRemoveSubject}
-          onReorderSubjects={onReorderSubjects}
-          maxSubjects={MAX_SUBJECTS}
-        />
-      </BottomSheetModal>
-
       <BottomSheetModal visible={settingsOpen} onClose={closeSettings}>
         <SettingsSheet
+          subjects={dataProp ? undefined : subjectOptions}
+          onAddSubject={dataProp ? undefined : onAddSubject}
+          onRemoveSubject={dataProp ? undefined : onRemoveSubject}
+          onReorderSubjects={dataProp ? undefined : onReorderSubjects}
           onScreenshotSeed={
             __DEV__ && !dataProp ? handleScreenshotSeed : undefined
           }
@@ -1102,6 +1038,7 @@ function WeekStripPager({
   onSelectDay: (dateKey: string) => void;
   onWeekChange: (weekIndex: number, weekdayIndex: number) => void;
 }) {
+  const styles = useHomeStyles();
   const listRef = useRef<FlatList<HomeWeekDay[]>>(null);
   const settledIndexRef = useRef(weekIndex);
   const draggingRef = useRef(false);
@@ -1200,6 +1137,7 @@ function WeekStripPage({
   accentColor: string;
   onSelectDay: (dateKey: string) => void;
 }) {
+  const styles = useHomeStyles();
   const selectedIndex = days.findIndex((d) => d.dateKey === selectedKey);
   const pillX = useSharedValue(
     selectedIndex >= 0 ? selectedIndex * cellWidth : 0,
@@ -1278,6 +1216,8 @@ function WeekDayCell({
   accentColor: string;
   onSelectDay: (dateKey: string) => void;
 }) {
+  const theme = useThemeColors();
+  const styles = useHomeStyles();
   const selectedProgress = useSharedValue(selected ? 1 : 0);
 
   useEffect(() => {
@@ -1289,7 +1229,7 @@ function WeekDayCell({
     color: interpolateColor(
       selectedProgress.value,
       [0, 1],
-      [colors.muted, colors.black],
+      [theme.muted, theme.black],
     ),
   }));
 
@@ -1297,7 +1237,7 @@ function WeekDayCell({
     color: interpolateColor(
       selectedProgress.value,
       [0, 1],
-      [colors.mutedLight, accentColor],
+      [theme.mutedLight, accentColor],
     ),
   }));
 
@@ -1331,8 +1271,7 @@ function DayContentPager({
   accentSoft,
   colorByName,
   onDayChange,
-  onAdd,
-  onEditStudy,
+  onOpenDay,
   onToggle,
   onDetail,
 }: {
@@ -1346,11 +1285,11 @@ function DayContentPager({
   accentSoft: string;
   colorByName: Record<string, string>;
   onDayChange: (dayIndex: number) => void;
-  onAdd: () => void;
-  onEditStudy: (row: HomeStudyRow) => void;
+  onOpenDay: (dateKey: string) => void;
   onToggle: (dateKey: string, card: HomeReviewCard) => void;
   onDetail: (card: HomeReviewCard) => void;
 }) {
+  const styles = useHomeStyles();
   const listRef = useRef<FlatList<HomeWeekDay>>(null);
   const settledIndexRef = useRef(dayIndex);
   const draggingRef = useRef(false);
@@ -1394,7 +1333,6 @@ function DayContentPager({
   const renderDay = useCallback(
     ({ item: day }: { item: HomeWeekDay }) => {
       const dayIsToday = day.dateKey === todayKey;
-      const dayAtCap = day.studies.length >= MAX_STUDIES_PER_DAY;
       return (
         <View
           style={[
@@ -1403,14 +1341,11 @@ function DayContentPager({
             pageHeight > 0 ? { height: pageHeight } : null,
           ]}>
           <View style={[styles.sections, { maxWidth: contentWidth }]}>
-            <StudySection
+            <StudyDaySummary
               studies={day.studies}
-              allowAdd={!dayAtCap}
-              atCap={dayAtCap}
               isToday={dayIsToday}
               colorByName={colorByName}
-              onAdd={onAdd}
-              onEditStudy={onEditStudy}
+              onOpenDay={() => onOpenDay(day.dateKey)}
             />
             <ReviewSection
               reviews={day.reviews}
@@ -1431,12 +1366,12 @@ function DayContentPager({
       accentSoft,
       colorByName,
       contentWidth,
-      onAdd,
+      onOpenDay,
       onDetail,
-      onEditStudy,
       onToggle,
       pageHeight,
       reviewCardWidth,
+      styles,
       todayKey,
       width,
     ],
@@ -1475,148 +1410,6 @@ function DayContentPager({
   );
 }
 
-function StudySection({
-  studies,
-  allowAdd,
-  atCap,
-  isToday,
-  colorByName,
-  onAdd,
-  onEditStudy,
-}: {
-  studies: HomeStudyRow[];
-  allowAdd: boolean;
-  atCap: boolean;
-  isToday: boolean;
-  colorByName: Record<string, string>;
-  onAdd: () => void;
-  onEditStudy: (row: HomeStudyRow) => void;
-}) {
-  const [capHint, setCapHint] = useState<string | null>(null);
-  const capMessage = `하루 ${MAX_STUDIES_PER_DAY}개까지`;
-
-  const handleAdd = () => {
-    if (atCap) {
-      haptics.reject();
-      setCapHint(capMessage);
-      return;
-    }
-    setCapHint(null);
-    onAdd();
-  };
-
-  return (
-    <View style={styles.section}>
-      <View style={styles.sectionLabelWrap}>
-        <Text style={styles.sectionLabel}>
-          {isToday ? '오늘 한 공부' : '이 날 한 공부'}
-        </Text>
-      </View>
-      <Animated.View style={styles.studyList} layout={ROW_LAYOUT}>
-        {studies.length === 0 ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="공부 기록 추가"
-            accessibilityState={{ disabled: !allowAdd }}
-            onPress={handleAdd}
-            style={styles.addStudyBtn}>
-            {allowAdd ? (
-              <>
-                <PlusIcon size={16} />
-                <Text style={styles.addStudyText}>공부 기록 추가</Text>
-              </>
-            ) : (
-              <Text style={styles.addStudyText}>{capMessage}</Text>
-            )}
-          </Pressable>
-        ) : (
-          <>
-            {studies.map((row) => (
-              <StudyRow
-                key={row.id}
-                row={row}
-                colorByName={colorByName}
-                onPress={() => onEditStudy(row)}
-              />
-            ))}
-            {allowAdd ? (
-              <Animated.View layout={ROW_LAYOUT}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="공부 기록 추가"
-                  onPress={handleAdd}
-                  style={styles.addStudyMoreBtn}>
-                  <PlusIcon size={16} />
-                  <Text style={styles.addStudyMoreText}>공부 기록 추가</Text>
-                </Pressable>
-              </Animated.View>
-            ) : (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={capMessage}
-                onPress={handleAdd}
-                style={styles.addStudyMoreBtn}>
-                <Text style={[styles.addStudyMoreText, { opacity: 0.7 }]}>
-                  {capMessage}
-                </Text>
-              </Pressable>
-            )}
-          </>
-        )}
-      </Animated.View>
-      {capHint || atCap ? (
-        <Text style={styles.studyCapHint}>{capHint ?? capMessage}</Text>
-      ) : null}
-    </View>
-  );
-}
-
-function StudyRow({
-  row,
-  colorByName,
-  onPress,
-}: {
-  row: HomeStudyRow;
-  colorByName: Record<string, string>;
-  onPress: () => void;
-}) {
-  return (
-    <Animated.View
-      entering={ROW_ENTER}
-      exiting={ROW_EXIT}
-      layout={ROW_LAYOUT}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${row.subjectName} ${row.content} 수정`}
-        accessibilityHint="탭하거나 길게 누르면 수정 시트가 열려요"
-        onPress={onPress}
-        // Same edit sheet as tap. delayLongPress stays above scroll cancel so
-        // week/day swipes do not open the sheet mid-gesture.
-        delayLongPress={380}
-        onLongPress={() => {
-          haptics.sheetOpen();
-          onPress();
-        }}
-        style={styles.studyRow}>
-        <View
-          style={[
-            styles.studyChip,
-            { backgroundColor: subjectColor(row.subjectName, colorByName) },
-          ]}>
-          <Text style={styles.studyChipText} numberOfLines={1} ellipsizeMode="tail">
-            {row.subjectName}
-          </Text>
-        </View>
-        <View style={styles.studyBody}>
-          <Text style={styles.studyBodyText} numberOfLines={1} ellipsizeMode="tail">
-            {row.content}
-          </Text>
-        </View>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
 function ReviewSection({
   reviews,
   cardWidth,
@@ -1636,6 +1429,7 @@ function ReviewSection({
   onToggle: (card: HomeReviewCard) => void;
   onDetail: (card: HomeReviewCard) => void;
 }) {
+  const styles = useHomeStyles();
   const byInterval = useMemo(() => {
     const map = new Map<ReviewIntervalDay, HomeReviewCard>();
     for (const card of reviews) {
@@ -1685,6 +1479,7 @@ function EmptyReviewSlot({
   days: ReviewIntervalDay;
   width: number;
 }) {
+  const styles = useHomeStyles();
   const label = intervalLabel(days);
   return (
     <View
@@ -1709,6 +1504,8 @@ function ReviewCheck({
   accent: string;
   onToggle: () => void;
 }) {
+  const theme = useThemeColors();
+  const styles = useHomeStyles();
   const progress = useSharedValue(completed ? 1 : 0);
   const primed = useRef(false);
 
@@ -1727,7 +1524,7 @@ function ReviewCheck({
       backgroundColor: interpolateColor(
         progress.value,
         [0, 1],
-        [colors.mutedLight, accent],
+        [theme.mutedLight, accent],
       ),
     }),
     [accent],
@@ -1764,6 +1561,8 @@ function ReviewCard({
   onToggle: () => void;
   onDetail: () => void;
 }) {
+  const theme = useThemeColors();
+  const styles = useHomeStyles();
   const progress = useSharedValue(card.completed ? 1 : 0);
   const primed = useRef(false);
 
@@ -1782,7 +1581,7 @@ function ReviewCard({
       backgroundColor: interpolateColor(
         progress.value,
         [0, 1],
-        [colors.surface, accentSoft],
+        [theme.surface, accentSoft],
       ),
       borderColor: interpolateColor(
         progress.value,
@@ -1790,7 +1589,7 @@ function ReviewCard({
         ['#00000000', accent],
       ),
     }),
-    [accent, accentSoft],
+    [accent, accentSoft, theme.surface],
   );
 
   return (
@@ -1812,17 +1611,25 @@ function ReviewCard({
               </Text>
             </View>
             <View style={styles.reviewChips}>
-              {card.subjectNames.map((name) => (
-                <View
-                  key={name}
-                  accessibilityLabel={name}
-                  style={[
-                    styles.reviewChip,
-                    { backgroundColor: subjectColor(name, colorByName) },
-                  ]}>
-                  <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
-                </View>
-              ))}
+              {card.subjectNames.map((name) => {
+                const study = card.studies.find((s) => s.subjectName === name);
+                return (
+                  <View
+                    key={name}
+                    accessibilityLabel={name}
+                    style={[
+                      styles.reviewChip,
+                      {
+                        backgroundColor: subjectColor(
+                          name,
+                          study?.subjectColor ?? colorByName,
+                        ),
+                      },
+                    ]}>
+                    <Text style={styles.reviewChipText}>{name.charAt(0)}</Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
           <View style={styles.detailRow}>
@@ -1835,10 +1642,11 @@ function ReviewCard({
   );
 }
 
-const styles = StyleSheet.create({
+function createHomeStyles(c: ThemeColors) {
+  return StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.mainWhite,
+    backgroundColor: c.mainWhite,
   },
   loading: {
     alignItems: 'center',
@@ -1888,7 +1696,7 @@ const styles = StyleSheet.create({
   dayNumber: {
     fontFamily: fonts.gothamBold,
     fontSize: sizes.dayNumber,
-    color: colors.black,
+    color: c.black,
     lineHeight: DAY_NUMBER_TRAVEL,
     letterSpacing: -2,
     flexShrink: 0,
@@ -1925,14 +1733,14 @@ const styles = StyleSheet.create({
   weekday: {
     fontFamily: fonts.nexonMedium,
     fontSize: 22,
-    color: colors.muted,
+    color: c.muted,
     textAlign: 'right',
     width: '100%',
   },
   dateLabel: {
     fontFamily: fonts.nexonMedium,
     fontSize: 20,
-    color: colors.mutedLight,
+    color: c.mutedLight,
     textAlign: 'right',
     width: '100%',
   },
@@ -1951,7 +1759,7 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     borderRadius: radii.weekDay,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     zIndex: 0,
   },
   dayPager: {
@@ -1974,14 +1782,14 @@ const styles = StyleSheet.create({
   weekDayNum: {
     fontFamily: fonts.gothamBold,
     fontSize: 22,
-    color: colors.muted,
+    color: c.muted,
     textAlign: 'center',
     width: 26,
   },
   weekDow: {
     fontFamily: fonts.nexonBold,
     fontSize: 12,
-    color: colors.mutedLight,
+    color: c.mutedLight,
     textAlign: 'center',
     width: 26,
   },
@@ -2007,7 +1815,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontFamily: fonts.nexonMedium,
     fontSize: 16,
-    color: colors.sectionLabel,
+    color: c.sectionLabel,
   },
   studyList: {
     width: '100%',
@@ -2033,14 +1841,14 @@ const styles = StyleSheet.create({
   studyChipText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 15,
-    color: colors.white,
+    color: c.onAccent,
     textAlign: 'center',
   },
   studyBody: {
     flex: 1,
     minWidth: 0,
     height: sizes.studyBodyHeight,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radii.chip,
     justifyContent: 'center',
     paddingLeft: 14,
@@ -2049,13 +1857,13 @@ const styles = StyleSheet.create({
   studyBodyText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
-    color: colors.body,
+    color: c.body,
   },
   addStudyBtn: {
     height: sizes.addStudyHeight,
     borderRadius: radii.chip,
-    // Empty / future shell fill (`colors.surface` = #F2F6FA).
-    backgroundColor: colors.surface,
+    // Empty / future shell fill (`c.surface` = #F2F6FA).
+    backgroundColor: c.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2065,7 +1873,7 @@ const styles = StyleSheet.create({
   addStudyText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
-    color: colors.accentText,
+    color: c.accentText,
   },
   addStudyMoreBtn: {
     height: sizes.studyBodyHeight,
@@ -2081,12 +1889,12 @@ const styles = StyleSheet.create({
   addStudyMoreText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
-    color: colors.accentText,
+    color: c.accentText,
   },
   studyCapHint: {
     fontFamily: fonts.nexonMedium,
     fontSize: 13,
-    color: colors.muted,
+    color: c.muted,
     paddingHorizontal: spacing.labelPad,
   },
   reviewGrid: {
@@ -2096,7 +1904,7 @@ const styles = StyleSheet.create({
     gap: spacing.reviewGap,
   },
   reviewCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radii.reviewCard,
     paddingTop: 12,
     paddingBottom: 11,
@@ -2108,10 +1916,10 @@ const styles = StyleSheet.create({
   },
   reviewCardEmpty: {
     // No checkbox / detail — white shell + hairline border (not gray fill).
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderWidth: 1,
     // One step lighter than mutedLight (#ced7e0).
-    borderColor: '#e4eaef',
+    borderColor: c.hairline,
     justifyContent: 'flex-start',
   },
   reviewCardInner: {
@@ -2138,12 +1946,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxOff: {
-    backgroundColor: colors.mutedLight,
+    backgroundColor: c.mutedLight,
   },
   intervalText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 11,
-    color: colors.accentText,
+    color: c.accentText,
     letterSpacing: -0.44,
     flexShrink: 1,
   },
@@ -2151,7 +1959,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.nexonMedium,
     fontSize: 11,
     // Noticeably lighter than filled 「N일 전」 (accentText).
-    color: colors.mutedLight,
+    color: c.mutedLight,
     letterSpacing: -0.44,
   },
   reviewChips: {
@@ -2169,7 +1977,7 @@ const styles = StyleSheet.create({
   reviewChipText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 12,
-    color: colors.white,
+    color: c.onAccent,
     textAlign: 'center',
     lineHeight: 16,
   },
@@ -2184,7 +1992,7 @@ const styles = StyleSheet.create({
   detailText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 10,
-    color: colors.muted,
+    color: c.muted,
     letterSpacing: -0.4,
     textAlign: 'right',
     lineHeight: 12,
@@ -2195,12 +2003,12 @@ const styles = StyleSheet.create({
     width: sizes.fab,
     height: sizes.fab,
     borderRadius: radii.fab,
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#343D4B',
+    shadowColor: c.fabShadowColor,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
+    shadowOpacity: c.fabShadowOpacity,
     shadowRadius: 32,
     elevation: 4,
     zIndex: 10,
@@ -2226,3 +2034,4 @@ const styles = StyleSheet.create({
     transform: [{ scaleX: -1 }],
   },
 });
+}
