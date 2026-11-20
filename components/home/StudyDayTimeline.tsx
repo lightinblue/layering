@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -6,7 +6,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import DraggableFlatList, {
+import {
+  NestableDraggableFlatList,
   type RenderItemParams,
   ScaleDecorator,
 } from 'react-native-draggable-flatlist';
@@ -123,81 +124,12 @@ export function StudyDayTimeline({
           <View key={band.id} style={styles.bandBlock}>
             <TimelineMark label={band.labelStart} />
             <View style={styles.slotStack}>
-              <DraggableFlatList
-                data={studyRows}
-                keyExtractor={(item) => item.id}
-                scrollEnabled={false}
-                activationDistance={10}
-                animationConfig={{
-                  damping: 22,
-                  mass: 0.28,
-                  stiffness: 220,
-                  overshootClamping: false,
-                }}
-                containerStyle={styles.dragList}
-                ItemSeparatorComponent={StudyRowSeparator}
-                onDragBegin={() => haptics.select()}
-                onDragEnd={({ data }) => {
-                  if (!onReorderBand) return;
-                  const ids = data.map((row) => row.id);
-                  const prev = studyRows.map((row) => row.id);
-                  if (ids.length === prev.length && ids.every((id, i) => id === prev[i])) {
-                    return;
-                  }
-                  onReorderBand(band.id, ids);
-                }}
-                renderItem={({
-                  item,
-                  drag,
-                  isActive,
-                }: RenderItemParams<HomeStudyRow>) => (
-                  <ScaleDecorator activeScale={1.02}>
-                    <Animated.View
-                      entering={ENTER}
-                      layout={ROW_LAYOUT}
-                      style={isActive ? styles.dragging : undefined}>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`${item.subjectName} ${item.content} 수정`}
-                        accessibilityHint="길게 눌러 순서를 바꿀 수 있어요"
-                        delayLongPress={180}
-                        onLongPress={onReorderBand ? drag : undefined}
-                        onPress={() => {
-                          haptics.select();
-                          onEditStudy(item);
-                        }}
-                        style={styles.studyRow}>
-                        <View
-                          style={[
-                            styles.chip,
-                            {
-                              backgroundColor: subjectColor(
-                                item.subjectName,
-                                item.subjectColor ?? colorByName,
-                              ),
-                            },
-                          ]}>
-                          <Text
-                            style={[styles.chipText, { color: colors.onAccent }]}
-                            numberOfLines={1}>
-                            {item.subjectName}
-                          </Text>
-                        </View>
-                        <View
-                          style={[
-                            styles.body,
-                            { backgroundColor: colors.surface },
-                          ]}>
-                          <Text
-                            style={[styles.bodyText, { color: colors.body }]}
-                            numberOfLines={1}>
-                            {item.content}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    </Animated.View>
-                  </ScaleDecorator>
-                )}
+              <BandStudyList
+                rows={studyRows}
+                colorByName={colorByName}
+                canReorder={Boolean(onReorderBand)}
+                onEditStudy={onEditStudy}
+                onReorder={(orderedIds) => onReorderBand?.(band.id, orderedIds)}
               />
               {drafting ? (
                 <InlineBandAddRow
@@ -231,8 +163,120 @@ export function StudyDayTimeline({
   );
 }
 
-function StudyRowSeparator() {
-  return <View style={styles.rowSeparator} />;
+/**
+ * Per-band nestable drag list. Keeps local data during drag so rows never
+ * flash empty when the parent re-renders mid-gesture.
+ */
+function BandStudyList({
+  rows,
+  colorByName,
+  canReorder,
+  onEditStudy,
+  onReorder,
+}: {
+  rows: HomeStudyRow[];
+  colorByName?: Record<string, string>;
+  canReorder: boolean;
+  onEditStudy: (row: HomeStudyRow) => void;
+  onReorder: (orderedIds: string[]) => void;
+}) {
+  const colors = useThemeColors();
+  const [data, setData] = useState(rows);
+  const rowKey = rows.map((r) => `${r.id}:${r.dayOrder ?? ''}`).join('|');
+
+  useEffect(() => {
+    setData(rows);
+  }, [rowKey, rows]);
+
+  if (data.length === 0) return null;
+
+  const listHeight =
+    data.length * SLOT_HEIGHT + Math.max(0, data.length - 1) * ROW_GAP;
+
+  return (
+    <NestableDraggableFlatList
+      data={data}
+      keyExtractor={(item) => item.id}
+      scrollEnabled={false}
+      activationDistance={10}
+      animationConfig={{
+        damping: 22,
+        mass: 0.28,
+        stiffness: 220,
+        overshootClamping: false,
+      }}
+      containerStyle={[styles.dragList, { height: listHeight }]}
+      // Avoid ItemSeparator — it collapses height after drag in nested lists.
+      onDragBegin={() => haptics.select()}
+      onDragEnd={({ data: next }) => {
+        setData(next);
+        const ids = next.map((row) => row.id);
+        const prev = rows.map((row) => row.id);
+        if (ids.length !== prev.length) {
+          // Never persist a partial list (would drop rows).
+          setData(rows);
+          return;
+        }
+        if (ids.every((id, i) => id === prev[i])) return;
+        onReorder(ids);
+      }}
+      renderItem={({
+        item,
+        drag,
+        isActive,
+        getIndex,
+      }: RenderItemParams<HomeStudyRow>) => {
+        const index = getIndex() ?? 0;
+        const isLast = index >= data.length - 1;
+        return (
+          <ScaleDecorator activeScale={1.02}>
+            <View
+              style={[
+                !isLast ? styles.studyItemGap : null,
+                isActive ? styles.dragging : undefined,
+              ]}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${item.subjectName} ${item.content} 수정`}
+                accessibilityHint="길게 눌러 순서를 바꿀 수 있어요"
+                delayLongPress={180}
+                onLongPress={canReorder ? drag : undefined}
+                onPress={() => {
+                  haptics.select();
+                  onEditStudy(item);
+                }}
+                style={styles.studyRow}>
+                <View
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: subjectColor(
+                        item.subjectName,
+                        item.subjectColor ?? colorByName,
+                      ),
+                    },
+                  ]}>
+                  <Text
+                    style={[styles.chipText, { color: colors.onAccent }]}
+                    numberOfLines={1}>
+                    {item.subjectName}
+                  </Text>
+                </View>
+                <View
+                  style={[styles.body, { backgroundColor: colors.surface }]}>
+                  <Text
+                    style={[styles.bodyText, { color: colors.body }]}
+                    numberOfLines={1}>
+                    {item.content}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+          </ScaleDecorator>
+        );
+      }}
+    />
+  );
 }
 
 function TimelineMark({ label }: { label: string }) {
@@ -419,9 +463,10 @@ const styles = StyleSheet.create({
   },
   dragList: {
     flexGrow: 0,
+    overflow: 'visible',
   },
-  rowSeparator: {
-    height: ROW_GAP,
+  studyItemGap: {
+    marginBottom: ROW_GAP,
   },
   dragging: {
     opacity: 0.92,

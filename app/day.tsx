@@ -6,11 +6,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { NestableScrollContainer } from 'react-native-draggable-flatlist';
 import Animated, {
   Easing,
   FadeIn,
@@ -52,10 +52,7 @@ import type { AppData } from '@/types/domain';
 import { dayMeta, todayKey as deviceTodayKey } from '@/utils/date';
 import { activeRecords, activeSubjects } from '@/utils/icloud-merge';
 import { haptics } from '@/utils/haptics';
-import {
-  buildTimelineBands,
-  flattenBandStudyIds,
-} from '@/utils/study-timeline';
+import { buildTimelineBands } from '@/utils/study-timeline';
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -184,21 +181,32 @@ export default function DayTimelineScreen() {
   const onReorderBand = useCallback(
     (bandId: TimelineBandId, orderedBandIds: string[]) => {
       if (!appData) return;
+      if (orderedBandIds.length === 0) return;
+
       const bands = buildTimelineBands(studies);
-      const nextBands = bands.map((band) => {
-        if (band.id !== bandId) return band;
-        const byId = new Map(
-          band.slots
-            .filter((s) => s.kind === 'study')
-            .map((s) => [s.row.id, s.row] as const),
-        );
-        const slots = orderedBandIds
-          .map((id) => byId.get(id))
-          .filter((row): row is HomeStudyRow => Boolean(row))
-          .map((row) => ({ kind: 'study' as const, row }));
-        return { ...band, slots };
-      });
-      const orderedIds = flattenBandStudyIds(nextBands);
+      const band = bands.find((b) => b.id === bandId);
+      if (!band) return;
+
+      const bandPrevIds = band.slots
+        .filter((s) => s.kind === 'study')
+        .map((s) => s.row.id);
+      // Require a permutation of the same band ids — never drop rows.
+      if (
+        orderedBandIds.length !== bandPrevIds.length ||
+        !orderedBandIds.every((id) => bandPrevIds.includes(id)) ||
+        !bandPrevIds.every((id) => orderedBandIds.includes(id))
+      ) {
+        return;
+      }
+
+      const orderedIds = bands.flatMap((b) =>
+        b.id === bandId
+          ? orderedBandIds
+          : b.slots
+              .filter((s) => s.kind === 'study')
+              .map((s) => s.row.id),
+      );
+
       const next = reorderStudiesOnDay(appData, dateKey, orderedIds);
       if (next === appData) return;
       haptics.select();
@@ -275,7 +283,7 @@ export default function DayTimelineScreen() {
         </View>
       </Animated.View>
 
-      <ScrollView
+      <NestableScrollContainer
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -295,7 +303,7 @@ export default function DayTimelineScreen() {
             onReorderBand={onReorderBand}
           />
         </Animated.View>
-      </ScrollView>
+      </NestableScrollContainer>
 
       <BottomSheetModal
         visible={editOpen}

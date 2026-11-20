@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   appendStudyWithReviews,
   removeSubject,
+  reorderStudiesOnDay,
   subjectColorMap,
 } from '@/storage/app-data';
 import type { AppData } from '@/types/domain';
@@ -70,5 +71,50 @@ describe('removeSubject', () => {
 
     const colors = subjectColorMap(result.data.subjects);
     expect(colors['교육학']).toBe('#5DCB85');
+  });
+});
+
+describe('reorderStudiesOnDay', () => {
+  it('rewrites dayOrder for a full-day permutation and keeps all records', () => {
+    let data = baseData();
+    data = appendStudyWithReviews(data, {
+      subjectName: '전공',
+      content: 'A',
+      studiedOn: '2026-11-20',
+      dayBand: 'morning',
+    });
+    data = appendStudyWithReviews(data, {
+      subjectName: '교육학',
+      content: 'B',
+      studiedOn: '2026-11-20',
+      dayBand: 'morning',
+    });
+    const ids = data.records.map((r) => r.id);
+    expect(ids).toHaveLength(2);
+
+    const reversed = [...ids].reverse();
+    const next = reorderStudiesOnDay(data, '2026-11-20', reversed);
+    expect(next.records).toHaveLength(2);
+    expect(next.records.find((r) => r.id === reversed[0])?.dayOrder).toBe(0);
+    expect(next.records.find((r) => r.id === reversed[1])?.dayOrder).toBe(1);
+    expect(next.records.every((r) => !r.deleted)).toBe(true);
+  });
+
+  it('no-ops when the id list is incomplete (never drops rows)', () => {
+    let data = baseData();
+    data = appendStudyWithReviews(data, {
+      subjectName: '전공',
+      content: 'A',
+      studiedOn: '2026-11-20',
+    });
+    data = appendStudyWithReviews(data, {
+      subjectName: '교육학',
+      content: 'B',
+      studiedOn: '2026-11-20',
+    });
+    const onlyFirst = [data.records[0]!.id];
+    const next = reorderStudiesOnDay(data, '2026-11-20', onlyFirst);
+    expect(next).toBe(data);
+    expect(next.records).toHaveLength(2);
   });
 });
