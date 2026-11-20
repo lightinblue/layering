@@ -6,9 +6,10 @@ struct StudyDayTimeline: View {
   @ObservedObject var model: AppModel
   @Environment(\.colorScheme) private var colorScheme
 
-  private let slotHeight: CGFloat = 36
-  /// Slight gap between study rows (REV-76 — tightened, not flush).
-  private let slotGap: CGFloat = 3
+  /// Match chip/content height so minHeight does not invent extra gap.
+  private let slotHeight: CGFloat = SubjectChipStyle.minHeight
+  /// Hairline gap between study rows (not flush).
+  private let slotGap: CGFloat = 1
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
@@ -36,6 +37,7 @@ struct StudyDayTimeline: View {
         BandStudyRows(
           rows: band.studyRows,
           slotHeight: slotHeight,
+          slotGap: slotGap,
           onEdit: { model.openEditStudy($0) },
           onDelete: { model.deleteStudy(id: $0) },
           onMove: { from, to in
@@ -96,6 +98,7 @@ struct StudyDayTimeline: View {
 private struct BandStudyRows: View {
   let rows: [HomeStudyRow]
   let slotHeight: CGFloat
+  let slotGap: CGFloat
   var onEdit: (HomeStudyRow) -> Void
   var onDelete: (String) -> Void
   var onMove: (IndexSet, Int) -> Void
@@ -103,7 +106,7 @@ private struct BandStudyRows: View {
   @State private var draggingId: String?
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 5) {
+    VStack(alignment: .leading, spacing: slotGap) {
       ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
         StudyRecordRow(
           row: row,
@@ -134,7 +137,7 @@ private struct BandStudyRows: View {
             draggingId = nil
           }
         }
-        .frame(minHeight: slotHeight)
+        .frame(height: slotHeight)
       }
     }
     .animation(PoogaeMotion.settle, value: rows.map(\.id))
