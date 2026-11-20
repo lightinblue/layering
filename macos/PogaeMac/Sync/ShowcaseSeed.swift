@@ -3,6 +3,32 @@ import Foundation
 /// In-memory ASC / screenshot demo (`POGAE_SHOT_SEED=1` only).
 /// Never push to iCloud; never write UserDefaults — see `ICloudKvsStore.enterShotIsolation`.
 enum ShowcaseSeed {
+  /// All demo rows/subjects use this id prefix — recovery soft-deletes anything marked.
+  static let idPrefix = "shot-"
+
+  /// Mac ShowcaseSeed + iOS `screenshot-seed.ts` subject ids (defensive; prefix covers them).
+  static let knownSubjectIds: Set<String> = [
+    "shot-sub-korean", "shot-sub-class", "shot-sub-edu",
+    "shot-sub-list", "shot-sub-path", "shot-sub-media",
+  ]
+
+  /// Demo study titles from Mac ShowcaseSeed + phone screenshot seed (folded match).
+  /// Used only together with seed subject / prefix heuristics — never alone on 교육학/점검/기타.
+  static let knownDemoContents: Set<String> = Set(
+    [
+      "1단원 문학 필기", "DDC 000대 정리", "1단원 교육과정", "DDC 연습 문제",
+      "문법 핵심 정리", "교육심리 용어", "KDC 표 암기", "현대시 기출 요약",
+      "1단원 핵심 정리", "교육과정 개론", "DDC 600대 연습", "생활지도 사례",
+      "고전 산문 요약", "분류 기출 20문항",
+      "목록규칙 필기", "사서직 기출 요약", "시청각 자료 정리", "MARC 필드 복습",
+      "분류 체계 총정리", "목록 평가 정리", "핵심 도식 암기", "도서관법 요약", "모의고사 해설",
+    ].map { ICloudMerge.foldedText($0) }
+  )
+
+  static func isSeedId(_ id: String) -> Bool {
+    id.hasPrefix(idPrefix) || knownSubjectIds.contains(id)
+  }
+
   static func make(today: String = DateKeys.todayKey(), now: Date = Date()) -> AppData {
     let at = ISO8601DateFormatter.fractional.string(from: now)
     // First-run style chips (≤4 chars), aligned with iOS home-mock / screenshot flavor.

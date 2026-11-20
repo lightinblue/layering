@@ -29,27 +29,33 @@ struct HomeReviewCard: Identifiable, Hashable {
 enum TodayHomeData {
   static func studies(for dateKey: String, data: AppData) -> [HomeStudyRow] {
     let day = DateKeys.normalizeDateKey(dateKey)
-    return ICloudMerge.activeRecords(data.records)
+    // Belt-and-suspenders: collapse visual twins even if store dedupe lagged.
+    var seenKeys = Set<String>()
+    let unique = ICloudMerge.activeRecords(data.records)
       .filter { DateKeys.normalizeDateKey($0.studiedOn) == day }
       .sorted(by: studySort)
-      .map {
-        HomeStudyRow(
-          id: $0.id,
-          subjectId: $0.subjectId,
-          subjectName: $0.subjectName,
-          subjectColor: AppMutations.resolveSubjectColor(
-            name: $0.subjectName,
-            subjectId: $0.subjectId,
-            recordColor: $0.subjectColor,
-            subjects: data.subjects
-          ),
-          content: $0.content,
-          memo: $0.memo,
-          dayBand: $0.dayBand,
-          dayOrder: $0.dayOrder,
-          createdAt: $0.createdAt
-        )
+      .filter { record in
+        let key = ICloudMerge.studyContentKey(record)
+        return seenKeys.insert(key).inserted
       }
+    return unique.map {
+      HomeStudyRow(
+        id: $0.id,
+        subjectId: $0.subjectId,
+        subjectName: $0.subjectName,
+        subjectColor: AppMutations.resolveSubjectColor(
+          name: $0.subjectName,
+          subjectId: $0.subjectId,
+          recordColor: $0.subjectColor,
+          subjects: data.subjects
+        ),
+        content: $0.content,
+        memo: $0.memo,
+        dayBand: $0.dayBand,
+        dayOrder: $0.dayOrder,
+        createdAt: $0.createdAt
+      )
+    }
   }
 
   private static func studySort(_ a: StudyRecord, _ b: StudyRecord) -> Bool {

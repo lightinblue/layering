@@ -117,27 +117,39 @@ final class ICloudKvsStore: ObservableObject {
       kvsLog.info("local seed applied (no cloud push)")
     }
 
-    // One-shot content-twin cleanup (soft-delete extras → KVS).
-    dedupeLocalAndPushIfNeeded()
+    // Recover pre-ShowcaseSeed: tombstone shot-* junk + content twins → KVS.
+    recoverContaminationAndPushIfNeeded()
 
     scheduleBootstrapRetries()
   }
 
-  /// Soft-delete active studies that share day+subject+content (different ids).
-  /// Pushes tombstones so phone/Mac both converge. Never deletes the kept row.
+  /// Soft-delete Showcase/screenshot seed rows and identical content twins.
+  /// Pushes tombstones so phone stays clean. Never wipes genuine unique studies.
+  @discardableResult
+  func recoverContaminationAndPushIfNeeded() -> Bool {
+    guard !shotIsolation else { return false }
+    let cleanup = ICloudMerge.recoverFromShowcaseContamination(data)
+    guard cleanup.didChange else {
+      let active = ICloudMerge.activeRecords(data.records).count
+      kvsLog.info("contamination cleanup: clean (active=\(active))")
+      return false
+    }
+    data = cleanup.data
+    persistLocalCache(cleanup.data)
+    pushToCloud(cleanup.data)
+    let active = ICloudMerge.activeRecords(cleanup.data.records).count
+    kvsLog.info(
+      "contamination cleanup seedSub=\(cleanup.seedSubjectsTombstoned) seedRec=\(cleanup.seedRecordsTombstoned) twins=\(cleanup.twinsTombstoned) active=\(active)"
+    )
+    statusMessage =
+      "시드/중복 정리 · seed=\(cleanup.seedRecordsTombstoned) twin=\(cleanup.twinsTombstoned) · active=\(active)"
+    return true
+  }
+
+  /// Soft-delete active studies that share day+subjectName+content (different ids).
   @discardableResult
   func dedupeLocalAndPushIfNeeded() -> Bool {
-    guard !shotIsolation else { return false }
-    let result = ICloudMerge.dedupeStudyRecords(data.records)
-    guard result.didChange else { return false }
-    let next = AppData(subjects: data.subjects, records: result.records)
-    data = next
-    persistLocalCache(next)
-    pushToCloud(next)
-    let active = ICloudMerge.activeRecords(next.records).count
-    kvsLog.info("dedupeStudyRecords applied; active=\(active) pushed tombstones")
-    statusMessage = "중복 공부 정리됨 · active=\(active)"
-    return true
+    recoverContaminationAndPushIfNeeded()
   }
 
   /// Replace in-memory app data for screenshots. Does not persist or push.
@@ -216,13 +228,13 @@ final class ICloudKvsStore: ObservableObject {
     )
 
     var normalized = Self.normalizedAppData(merged)
-    let contentDedupe = ICloudMerge.dedupeStudyRecords(normalized.records)
-    normalized = AppData(subjects: normalized.subjects, records: contentDedupe.records)
-    let shouldPushDedupe = contentDedupe.didChange
+    let cleanup = ICloudMerge.recoverFromShowcaseContamination(normalized)
+    normalized = cleanup.data
+    let shouldPushCleanup = cleanup.didChange
 
     if hadRemote {
       // Adopt cloud into AppModel. Do NOT push — Mac pull used to re-write tombstones
-      // and could win LWW over newer phone actives. Exception: content-dedupe tombstones.
+      // and could win LWW over newer phone actives. Exception: seed/twin cleanup tombstones.
       data = normalized
       persistLocalCache(data)
     } else if ICloudMerge.activeSubjects(normalized.subjects).isEmpty {
@@ -239,10 +251,14 @@ final class ICloudKvsStore: ObservableObject {
       persistLocalCache(data)
     }
 
-    if shouldPushDedupe {
+    if shouldPushCleanup {
       // pushToCloud ignores applyingRemote — intentional so phone receives tombstones.
       pushToCloud(data)
-      kvsLog.info("pushed content-dedupe tombstones after pull")
+      kvsLog.info(
+        "pushed seed/twin cleanup after pull seedRec=\(cleanup.seedRecordsTombstoned) twins=\(cleanup.twinsTombstoned)"
+      )
+      statusMessage =
+        "시드/중복 정리 · seed=\(cleanup.seedRecordsTombstoned) twin=\(cleanup.twinsTombstoned) · active=\(ICloudMerge.activeRecords(data.records).count)"
     }
 
     lastReadAt = Date()

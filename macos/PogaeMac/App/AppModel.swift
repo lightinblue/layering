@@ -88,6 +88,8 @@ final class AppModel: ObservableObject {
     }
     didBootstrap = true
     await kvs.bootstrap()
+    // Force mirror sync in case $data subscription raced bootstrap writes.
+    appData = kvs.data
     selectedDateKey = todayKey
     // Calendar ASC shot (optional; seed isolation is handled inside KVS bootstrap).
     if ProcessInfo.processInfo.environment["POGAE_SHOT_CALENDAR"] == "1" {

@@ -186,12 +186,94 @@ enum ICloudMerge {
     records.filter { !($0.deleted ?? false) }
   }
 
-  /// Fingerprint for content twins (different ids, same day/subject/title).
+  /// Fold user-visible text for twin detection (NFC + collapse whitespace).
+  /// Mac often stores NFD Hangul while phone stores NFC — looks identical, bytes differ.
+  static func foldedText(_ raw: String) -> String {
+    raw
+      .precomposedStringWithCanonicalMapping
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+  }
+
+  /**
+   Fingerprint for content twins (different ids, same day + subject chip + title).
+   Uses **subjectName** (what home shows), not subjectId — seed/cloud subject-id
+   drift used to leave identical-looking rows alive under a subjectId-only key.
+   */
   static func studyContentKey(_ record: StudyRecord) -> String {
     let day = DateKeys.normalizeDateKey(record.studiedOn)
-    let subject = record.subjectId.trimmingCharacters(in: .whitespacesAndNewlines)
-    let content = record.content.trimmingCharacters(in: .whitespacesAndNewlines)
+    let subject = foldedText(record.subjectName)
+    let content = foldedText(record.content)
     return "\(day)|\(subject)|\(content)"
+  }
+
+  struct ContaminationCleanup {
+    var data: AppData
+    var seedSubjectsTombstoned: Int
+    var seedRecordsTombstoned: Int
+    var twinsTombstoned: Int
+    var didChange: Bool { seedSubjectsTombstoned + seedRecordsTombstoned + twinsTombstoned > 0 }
+  }
+
+  /// True when a row looks like Showcase / screenshot demo junk (not Y's real studies).
+  static func isShowcaseRecord(_ record: StudyRecord) -> Bool {
+    if ShowcaseSeed.isSeedId(record.id) { return true }
+    if ShowcaseSeed.isSeedId(record.subjectId) { return true }
+    // Demo title + ASC-only subject names — never strip 교육학/점검/기타/분류 by title alone.
+    let ascOnlyNames: Set<String> = ["국어", "목록", "학도", "매체"]
+    let name = foldedText(record.subjectName)
+    let content = foldedText(record.content)
+    if ascOnlyNames.contains(name), ShowcaseSeed.knownDemoContents.contains(content) {
+      return true
+    }
+    return false
+  }
+
+  static func isShowcaseSubject(_ subject: SubjectChip) -> Bool {
+    ShowcaseSeed.isSeedId(subject.id)
+  }
+
+  /**
+   Soft-delete Showcase/screenshot seed rows + content twins.
+   Keeps genuine pre-seed studies (e.g. 교육학/점검/기타). Idempotent; pushes via caller.
+   */
+  static func recoverFromShowcaseContamination(
+    _ data: AppData,
+    now: Date = Date()
+  ) -> ContaminationCleanup {
+    let stamp = ISO8601DateFormatter.fractional.string(from: now)
+    var seedSubjects = 0
+    var seedRecords = 0
+
+    let subjects: [SubjectChip] = data.subjects.map { subject in
+      guard !(subject.deleted ?? false), isShowcaseSubject(subject) else { return subject }
+      seedSubjects += 1
+      var next = subject
+      next.deleted = true
+      next.updatedAt = stamp
+      return next
+    }
+
+    let records: [StudyRecord] = data.records.map { record in
+      guard !(record.deleted == true), isShowcaseRecord(record) else { return record }
+      seedRecords += 1
+      var next = record
+      next.deleted = true
+      next.updatedAt = stamp
+      return next
+    }
+
+    let deduped = dedupeStudyRecords(records, now: now)
+    let beforeActive = records.filter { !($0.deleted == true) }.count
+    let afterActive = deduped.records.filter { !($0.deleted == true) }.count
+    let twins = max(0, beforeActive - afterActive)
+
+    return ContaminationCleanup(
+      data: AppData(subjects: subjects, records: deduped.records),
+      seedSubjectsTombstoned: seedSubjects,
+      seedRecordsTombstoned: seedRecords,
+      twinsTombstoned: twins
+    )
   }
 
   /**
