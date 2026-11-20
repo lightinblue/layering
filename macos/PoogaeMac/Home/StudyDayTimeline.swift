@@ -9,7 +9,7 @@ struct StudyDayTimeline: View {
   /// Match chip/content height so minHeight does not invent extra gap.
   private let slotHeight: CGFloat = SubjectChipStyle.minHeight
   /// Gap between study rows (not flush).
-  private let slotGap: CGFloat = 3
+  private let slotGap: CGFloat = 4
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
