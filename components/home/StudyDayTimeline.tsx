@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -6,17 +6,17 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {
-  NestableDraggableFlatList,
-  type RenderItemParams,
-  ScaleDecorator,
-} from 'react-native-draggable-flatlist';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
   FadeIn,
   FadeInDown,
   FadeOut,
   LinearTransition,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from 'react-native-reanimated';
 
 import type { SubjectOption } from '@/components/home/AddStudyForm';
@@ -40,6 +40,7 @@ import { matchSubjectPrefix } from '@/utils/parse-subject-prefix';
 const SLOT_HEIGHT = 44;
 /** Vertical space between study rows inside a band (matches slotStack gap). */
 const ROW_GAP = 5;
+const ROW_STRIDE = SLOT_HEIGHT + ROW_GAP;
 const ROW_LAYOUT = LinearTransition.duration(durations.listRow);
 const ENTER = FadeInDown.duration(durations.fadeIn).easing(
   Easing.out(Easing.cubic),
@@ -63,9 +64,8 @@ type StudyDayTimelineProps = {
 
 /**
  * Day study bands: faint 8/12/18/24 marks + one 공부 add per band.
- * Tap → full-width inline input; subject from live prefix parse on save.
- * After save, keeps an empty inline input open for continuous entry.
- * Long-press drag reorders studies within the band.
+ * Long-press drag reorders studies within the band (no FlatList — rows
+ * stay mounted so they never vanish on drop).
  */
 export function StudyDayTimeline({
   studies,
@@ -81,7 +81,6 @@ export function StudyDayTimeline({
   const atCap = studies.length >= TIMELINE_MAX_STUDIES_PER_DAY;
   const canAdd = allowAdd && !atCap;
   const [draftBandId, setDraftBandId] = useState<TimelineBandId | null>(null);
-  /** Remount key so a fresh empty input appears after each save. */
   const [draftKey, setDraftKey] = useState(0);
 
   const openDraft = (bandId: TimelineBandId) => {
@@ -104,7 +103,6 @@ export function StudyDayTimeline({
     if (!draftBandId) return;
     const bandId = draftBandId;
     onAddStudy({ bandId, subject, title });
-    // Continuous entry: reopen empty inline add under the new row when under cap.
     if (studies.length + 1 >= TIMELINE_MAX_STUDIES_PER_DAY) {
       setDraftBandId(null);
       return;
@@ -164,8 +162,8 @@ export function StudyDayTimeline({
 }
 
 /**
- * Per-band nestable drag list. Keeps local data during drag so rows never
- * flash empty when the parent re-renders mid-gesture.
+ * Plain View list + long-press pan reorder. Avoids DraggableFlatList, which
+ * collapsed nested list height to 0 on drop (rows looked like they vanished).
  */
 function BandStudyList({
   rows,
@@ -180,102 +178,171 @@ function BandStudyList({
   onEditStudy: (row: HomeStudyRow) => void;
   onReorder: (orderedIds: string[]) => void;
 }) {
-  const colors = useThemeColors();
-  const [data, setData] = useState(rows);
+  const [items, setItems] = useState(rows);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
   const rowKey = rows.map((r) => `${r.id}:${r.dayOrder ?? ''}`).join('|');
 
   useEffect(() => {
-    setData(rows);
+    setItems(rows);
   }, [rowKey, rows]);
 
-  if (data.length === 0) return null;
+  if (items.length === 0) return null;
+
+  const commitReorder = (from: number, translationY: number) => {
+    const list = itemsRef.current;
+    if (from < 0 || from >= list.length) return;
+    const delta = Math.round(translationY / ROW_STRIDE);
+    const to = Math.max(0, Math.min(list.length - 1, from + delta));
+    if (to === from) return;
+    const next = [...list];
+    const [moved] = next.splice(from, 1);
+    if (!moved) return;
+    next.splice(to, 0, moved);
+    // Optimistic UI — rows stay mounted with stable keys.
+    setItems(next);
+    onReorder(next.map((row) => row.id));
+  };
+  const commitRef = useRef(commitReorder);
+  commitRef.current = commitReorder;
 
   const listHeight =
-    data.length * SLOT_HEIGHT + Math.max(0, data.length - 1) * ROW_GAP;
+    items.length * SLOT_HEIGHT + Math.max(0, items.length - 1) * ROW_GAP;
 
   return (
-    <NestableDraggableFlatList
-      data={data}
-      keyExtractor={(item) => item.id}
-      scrollEnabled={false}
-      activationDistance={10}
-      animationConfig={{
-        damping: 22,
-        mass: 0.28,
-        stiffness: 220,
-        overshootClamping: false,
-      }}
-      containerStyle={[styles.dragList, { height: listHeight }]}
-      // Avoid ItemSeparator — it collapses height after drag in nested lists.
-      onDragBegin={() => haptics.select()}
-      onDragEnd={({ data: next }) => {
-        setData(next);
-        const ids = next.map((row) => row.id);
-        const prev = rows.map((row) => row.id);
-        if (ids.length !== prev.length) {
-          // Never persist a partial list (would drop rows).
-          setData(rows);
-          return;
+    <View style={[styles.bandList, { height: listHeight }]}>
+      {items.map((item, index) => (
+        <DraggableStudyRow
+          key={item.id}
+          item={item}
+          index={index}
+          colorByName={colorByName}
+          canReorder={canReorder && items.length > 1}
+          onEditStudy={onEditStudy}
+          onCommitDrag={(from, ty) => commitRef.current(from, ty)}
+        />
+      ))}
+    </View>
+  );
+}
+
+function DraggableStudyRow({
+  item,
+  index,
+  colorByName,
+  canReorder,
+  onEditStudy,
+  onCommitDrag,
+}: {
+  item: HomeStudyRow;
+  index: number;
+  colorByName?: Record<string, string>;
+  canReorder: boolean;
+  onEditStudy: (row: HomeStudyRow) => void;
+  onCommitDrag: (from: number, translationY: number) => void;
+}) {
+  const colors = useThemeColors();
+  const translateY = useSharedValue(0);
+  const isActive = useSharedValue(false);
+  const startIndex = useSharedValue(index);
+  const commitRef = useRef(onCommitDrag);
+  commitRef.current = onCommitDrag;
+
+  useEffect(() => {
+    startIndex.value = index;
+  }, [index, startIndex]);
+
+  const finishDrag = (from: number, translationY: number) => {
+    commitRef.current(from, translationY);
+  };
+
+  const pan = useMemo(() => {
+    if (!canReorder) {
+      return Gesture.Pan().enabled(false);
+    }
+    return Gesture.Pan()
+      .activateAfterLongPress(180)
+      .maxPointers(1)
+      .onStart(() => {
+        isActive.value = true;
+        startIndex.value = index;
+        runOnJS(haptics.select)();
+      })
+      .onUpdate((e) => {
+        translateY.value = e.translationY;
+      })
+      .onEnd((e) => {
+        const from = startIndex.value;
+        const ty = e.translationY;
+        translateY.value = withSpring(0, { damping: 22, stiffness: 220 });
+        isActive.value = false;
+        runOnJS(finishDrag)(from, ty);
+      })
+      .onFinalize(() => {
+        if (isActive.value) {
+          translateY.value = withSpring(0, { damping: 22, stiffness: 220 });
+          isActive.value = false;
         }
-        if (ids.every((id, i) => id === prev[i])) return;
-        onReorder(ids);
-      }}
-      renderItem={({
-        item,
-        drag,
-        isActive,
-        getIndex,
-      }: RenderItemParams<HomeStudyRow>) => {
-        const index = getIndex() ?? 0;
-        const isLast = index >= data.length - 1;
-        return (
-          <ScaleDecorator activeScale={1.02}>
-            <View
-              style={[
-                !isLast ? styles.studyItemGap : null,
-                isActive ? styles.dragging : undefined,
-              ]}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${item.subjectName} ${item.content} 수정`}
-                accessibilityHint="길게 눌러 순서를 바꿀 수 있어요"
-                delayLongPress={180}
-                onLongPress={canReorder ? drag : undefined}
-                onPress={() => {
-                  haptics.select();
-                  onEditStudy(item);
-                }}
-                style={styles.studyRow}>
-                <View
-                  style={[
-                    styles.chip,
-                    {
-                      backgroundColor: subjectColor(
-                        item.subjectName,
-                        item.subjectColor ?? colorByName,
-                      ),
-                    },
-                  ]}>
-                  <Text
-                    style={[styles.chipText, { color: colors.onAccent }]}
-                    numberOfLines={1}>
-                    {item.subjectName}
-                  </Text>
-                </View>
-                <View
-                  style={[styles.body, { backgroundColor: colors.surface }]}>
-                  <Text
-                    style={[styles.bodyText, { color: colors.body }]}
-                    numberOfLines={1}>
-                    {item.content}
-                  </Text>
-                </View>
-              </Pressable>
-            </View>
-          </ScaleDecorator>
-        );
-      }}
-    />
+      });
+    // finishDrag reads commitRef — stable across renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canReorder, index, isActive, startIndex, translateY]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+    zIndex: isActive.value ? 20 : 1,
+    opacity: isActive.value ? 0.96 : 1,
+    shadowOpacity: isActive.value ? 0.18 : 0,
+    elevation: isActive.value ? 4 : 0,
+  }));
+
+  const top = index * ROW_STRIDE;
+
+  return (
+    <GestureDetector gesture={pan}>
+      <Animated.View
+        style={[
+          styles.absoluteRow,
+          { top, height: SLOT_HEIGHT },
+          animatedStyle,
+        ]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${item.subjectName} ${item.content} 수정`}
+          accessibilityHint={
+            canReorder ? '길게 눌러 순서를 바꿀 수 있어요' : undefined
+          }
+          onPress={() => {
+            haptics.select();
+            onEditStudy(item);
+          }}
+          style={styles.studyRow}>
+          <View
+            style={[
+              styles.chip,
+              {
+                backgroundColor: subjectColor(
+                  item.subjectName,
+                  item.subjectColor ?? colorByName,
+                ),
+              },
+            ]}>
+            <Text
+              style={[styles.chipText, { color: colors.onAccent }]}
+              numberOfLines={1}>
+              {item.subjectName}
+            </Text>
+          </View>
+          <View style={[styles.body, { backgroundColor: colors.surface }]}>
+            <Text
+              style={[styles.bodyText, { color: colors.body }]}
+              numberOfLines={1}>
+              {item.content}
+            </Text>
+          </View>
+        </Pressable>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -299,7 +366,6 @@ function BandAddControl({
 }: {
   label: string;
   span: number;
-  /** When the band already has ≥1 study, drop the gray surface fill. */
   filled: boolean;
   onPress: () => void;
 }) {
@@ -339,14 +405,12 @@ function InlineBandAddRow({
 }) {
   const colors = useThemeColors();
   const [raw, setRaw] = useState('');
-  /** Shown only after save without a live-matched subject prefix. */
   const [showSubjectPrompt, setShowSubjectPrompt] = useState(false);
   const names = subjects.map((s) => s.name);
 
   const submit = () => {
     const match = matchSubjectPrefix(raw, names);
     const title = match.title.trim();
-    // Empty content (blank or subject-only): dismiss, never create a record.
     if (!title) {
       haptics.select();
       onCancel();
@@ -386,7 +450,6 @@ function InlineBandAddRow({
         </Pressable>
       ) : null}
 
-      {/* Full-width gray content — no subject chip UI; live-parse on save. */}
       <View style={styles.inlineInputRow}>
         <TextInput
           value={raw}
@@ -461,16 +524,15 @@ const styles = StyleSheet.create({
     gap: ROW_GAP,
     paddingLeft: 32,
   },
-  dragList: {
-    flexGrow: 0,
+  bandList: {
+    width: '100%',
+    position: 'relative',
     overflow: 'visible',
   },
-  studyItemGap: {
-    marginBottom: ROW_GAP,
-  },
-  dragging: {
-    opacity: 0.92,
-    zIndex: 2,
+  absoluteRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
   },
   bandAdd: {
     borderRadius: radii.chip,
@@ -536,6 +598,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    height: SLOT_HEIGHT,
   },
   chip: {
     minWidth: 64,

@@ -6,11 +6,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { NestableScrollContainer } from 'react-native-draggable-flatlist';
 import Animated, {
   Easing,
   FadeIn,
@@ -283,7 +283,7 @@ export default function DayTimelineScreen() {
         </View>
       </Animated.View>
 
-      <NestableScrollContainer
+      <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -303,7 +303,7 @@ export default function DayTimelineScreen() {
             onReorderBand={onReorderBand}
           />
         </Animated.View>
-      </NestableScrollContainer>
+      </ScrollView>
 
       <BottomSheetModal
         visible={editOpen}
