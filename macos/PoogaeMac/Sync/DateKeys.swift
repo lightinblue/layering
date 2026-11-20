@@ -50,16 +50,6 @@ enum DateKeys {
     return prefix
   }
 
-  /// Prefer today when it has studies; otherwise the latest studiedOn day.
-  static func preferredHomeDateKey(today: String = todayKey(), records: [StudyRecord]) -> String {
-    let active = ICloudMerge.activeRecords(records)
-    let todayNorm = normalizeDateKey(today)
-    if active.contains(where: { normalizeDateKey($0.studiedOn) == todayNorm }) {
-      return todayNorm
-    }
-    return active.map { normalizeDateKey($0.studiedOn) }.sorted().last ?? todayNorm
-  }
-
   static func yearMonth(from dateKey: String) -> String {
     String(dateKey.prefix(7))
   }

@@ -5,6 +5,17 @@ import Foundation
 struct ReviewCheck: Codable, Hashable, Sendable {
   var done: Bool
   var updatedAt: String
+
+  init(done: Bool, updatedAt: String) {
+    self.done = done
+    self.updatedAt = updatedAt
+  }
+
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    done = try c.decodeIfPresent(Bool.self, forKey: .done) ?? false
+    updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt) ?? ""
+  }
 }
 
 struct SubjectChip: Codable, Identifiable, Hashable, Sendable {
@@ -14,6 +25,32 @@ struct SubjectChip: Codable, Identifiable, Hashable, Sendable {
   var order: Int
   var updatedAt: String
   var deleted: Bool?
+
+  init(
+    id: String,
+    name: String,
+    color: String? = nil,
+    order: Int,
+    updatedAt: String,
+    deleted: Bool? = nil
+  ) {
+    self.id = id
+    self.name = name
+    self.color = color
+    self.order = order
+    self.updatedAt = updatedAt
+    self.deleted = deleted
+  }
+
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    id = try c.decode(String.self, forKey: .id)
+    name = try c.decode(String.self, forKey: .name)
+    color = try c.decodeIfPresent(String.self, forKey: .color)
+    order = try c.decodeIfPresent(Int.self, forKey: .order) ?? 0
+    updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt) ?? ""
+    deleted = try c.decodeIfPresent(Bool.self, forKey: .deleted)
+  }
 }
 
 struct StudyRecord: Codable, Identifiable, Hashable, Sendable {
@@ -31,6 +68,61 @@ struct StudyRecord: Codable, Identifiable, Hashable, Sendable {
   var createdAt: String
   var updatedAt: String
   var deleted: Bool?
+
+  init(
+    id: String,
+    subjectId: String,
+    subjectName: String,
+    subjectColor: String? = nil,
+    content: String,
+    memo: String? = nil,
+    studiedOn: String,
+    dayBand: DayBandId? = nil,
+    cycle: [Int],
+    checks: [String: ReviewCheck],
+    createdAt: String,
+    updatedAt: String,
+    deleted: Bool? = nil
+  ) {
+    self.id = id
+    self.subjectId = subjectId
+    self.subjectName = subjectName
+    self.subjectColor = subjectColor
+    self.content = content
+    self.memo = memo
+    self.studiedOn = DateKeys.normalizeDateKey(studiedOn)
+    self.dayBand = dayBand
+    self.cycle = cycle
+    self.checks = checks
+    self.createdAt = createdAt
+    self.updatedAt = updatedAt
+    self.deleted = deleted
+  }
+
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    id = try c.decode(String.self, forKey: .id)
+    subjectId = try c.decodeIfPresent(String.self, forKey: .subjectId) ?? ""
+    subjectName = try c.decodeIfPresent(String.self, forKey: .subjectName) ?? ""
+    subjectColor = try c.decodeIfPresent(String.self, forKey: .subjectColor)
+    content = try c.decodeIfPresent(String.self, forKey: .content) ?? ""
+    memo = try c.decodeIfPresent(String.self, forKey: .memo)
+    let rawStudiedOn: String
+    if let value = try c.decodeIfPresent(String.self, forKey: .studiedOn) {
+      rawStudiedOn = value
+    } else if let created = try c.decodeIfPresent(String.self, forKey: .createdAt) {
+      rawStudiedOn = String(created.prefix(10))
+    } else {
+      rawStudiedOn = ""
+    }
+    studiedOn = DateKeys.normalizeDateKey(rawStudiedOn)
+    dayBand = try c.decodeIfPresent(DayBandId.self, forKey: .dayBand)
+    cycle = try c.decodeIfPresent([Int].self, forKey: .cycle) ?? ReviewIntervals.days
+    checks = try c.decodeIfPresent([String: ReviewCheck].self, forKey: .checks) ?? [:]
+    createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt) ?? ""
+    updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt) ?? createdAt
+    deleted = try c.decodeIfPresent(Bool.self, forKey: .deleted)
+  }
 }
 
 enum DayBandId: String, Codable, Hashable, Sendable, CaseIterable {
@@ -65,7 +157,7 @@ enum KVSKeys {
   }
 
   static func yearMonth(from dateKey: String) -> String {
-    String(dateKey.prefix(7))
+    String(DateKeys.normalizeDateKey(dateKey).prefix(7))
   }
 }
 

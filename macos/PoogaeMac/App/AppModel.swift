@@ -10,30 +10,33 @@ final class AppModel: ObservableObject {
   @Published var subjectEditor: SubjectEditorPresentation?
 
   let kvs = ICloudKvsStore()
+  /// Mirror of `kvs.data` updated via `$data` (after change) so home never reads stale KVS.
+  @Published private(set) var appData: AppData = .empty
   private var cancellables = Set<AnyCancellable>()
+  private var didBootstrap = false
 
   var todayKey: String { DateKeys.todayKey() }
 
   var isViewingToday: Bool { selectedDateKey == todayKey }
 
   var studies: [HomeStudyRow] {
-    TodayHomeData.studies(for: selectedDateKey, data: kvs.data)
+    TodayHomeData.studies(for: selectedDateKey, data: appData)
   }
 
   var reviews: [HomeReviewCard] {
-    TodayHomeData.reviews(for: selectedDateKey, data: kvs.data)
+    TodayHomeData.reviews(for: selectedDateKey, data: appData)
   }
 
   var todayReviews: [HomeReviewCard] {
-    TodayHomeData.reviews(for: todayKey, data: kvs.data)
+    TodayHomeData.reviews(for: todayKey, data: appData)
   }
 
   var subjects: [SubjectChip] {
-    ICloudMerge.activeSubjects(kvs.data.subjects)
+    ICloudMerge.activeSubjects(appData.subjects)
   }
 
   var canAddStudy: Bool {
-    AppMutations.countStudies(on: selectedDateKey, in: kvs.data) < AppMutations.maxStudiesPerDay
+    AppMutations.countStudies(on: selectedDateKey, in: appData) < AppMutations.maxStudiesPerDay
   }
 
   var canAddSubject: Bool {
@@ -41,7 +44,7 @@ final class AppModel: ObservableObject {
   }
 
   var studyDateKeys: Set<String> {
-    AppMutations.dateKeysWithStudies(kvs.data)
+    AppMutations.dateKeysWithStudies(appData)
   }
 
   var timelineBands: [StudyTimeline.BandView] {
@@ -49,29 +52,32 @@ final class AppModel: ObservableObject {
   }
 
   init() {
-    kvs.objectWillChange
+    // Use `$data` (post-change), not `objectWillChange` (pre-change) — forwarding willChange
+    // made HomeView render with an empty store right before records landed.
+    kvs.$data
       .receive(on: RunLoop.main)
-      .sink { [weak self] _ in
-        self?.objectWillChange.send()
+      .sink { [weak self] data in
+        self?.appData = data
       }
+      .store(in: &cancellables)
+    kvs.$statusMessage
+      .receive(on: RunLoop.main)
+      .sink { [weak self] _ in self?.objectWillChange.send() }
+      .store(in: &cancellables)
+    kvs.$debugSummary
+      .receive(on: RunLoop.main)
+      .sink { [weak self] _ in self?.objectWillChange.send() }
       .store(in: &cancellables)
   }
 
   func bootstrap() async {
-    await kvs.bootstrap()
-    // KVS may have Nov records that are not "today" — land on a day with data.
-    selectedDateKey = DateKeys.preferredHomeDateKey(today: todayKey, records: kvs.data.records)
-  }
-
-  /// After pull/reset: if the open day has no studies, jump to latest studiedOn.
-  func adoptDateWithDataIfNeeded() {
-    let preferred = DateKeys.preferredHomeDateKey(today: todayKey, records: kvs.data.records)
-    let dayStudies = TodayHomeData.studies(for: selectedDateKey, data: kvs.data)
-    if dayStudies.isEmpty, preferred != selectedDateKey {
-      withAnimation(PoogaeMotion.settle) {
-        selectedDateKey = preferred
-      }
+    if didBootstrap {
+      await kvs.refreshFromCloud()
+      return
     }
+    didBootstrap = true
+    await kvs.bootstrap()
+    selectedDateKey = todayKey
   }
 
   func openCalendar() {
@@ -97,25 +103,11 @@ final class AppModel: ObservableObject {
   }
 
   func forcePullFromICloud() {
-    Task {
-      await kvs.refreshFromCloud()
-      adoptDateWithDataIfNeeded()
-    }
+    Task { await kvs.refreshFromCloud() }
   }
 
   func resetLocalStoreAndPull() {
-    Task {
-      await kvs.resetLocalStoreAndPull()
-      adoptDateWithDataIfNeeded()
-    }
-  }
-
-  func jumpToLatestStudyDay() {
-    let preferred = DateKeys.preferredHomeDateKey(today: todayKey, records: kvs.data.records)
-    guard preferred != selectedDateKey else { return }
-    withAnimation(PoogaeMotion.settle) {
-      selectedDateKey = preferred
-    }
+    Task { await kvs.resetLocalStoreAndPull() }
   }
 
   func openAddStudy(band: DayBandId? = nil) {

@@ -20,9 +20,6 @@ struct PoogaeMacApp: App {
     // Menu bar: today-check popover + open window
     MenuBarExtra("포개", systemImage: "checkmark.circle.fill") {
       MenuBarPopover(model: model)
-        .task {
-          await model.bootstrap()
-        }
     }
     .menuBarExtraStyle(.window)
   }

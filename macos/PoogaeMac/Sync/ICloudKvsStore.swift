@@ -125,17 +125,18 @@ final class ICloudKvsStore: ObservableObject {
       remoteDeviceId: remoteDeviceId
     )
 
+    let normalized = Self.normalizedAppData(merged)
     if hadRemote {
-      data = merged
+      data = normalized
       persistLocalCache(data)
       // Reconcile union to cloud after remote merge (same as iOS pullAndMerge).
       pushToCloud(data)
-    } else if ICloudMerge.activeSubjects(merged.subjects).isEmpty {
+    } else if ICloudMerge.activeSubjects(normalized.subjects).isEmpty {
       // Still empty after pull — seed locally only (epoch timestamps; never push here).
-      data = AppMutations.ensureSeedSubjects(merged)
+      data = AppMutations.ensureSeedSubjects(normalized)
       persistLocalCache(data)
     } else {
-      data = merged
+      data = normalized
       persistLocalCache(data)
     }
 
@@ -163,8 +164,13 @@ final class ICloudKvsStore: ObservableObject {
       otherKeys: otherKeys,
       dict: dict,
       subjectsBytes: subjectsRead.rawByteCount,
-      remoteRecords: remoteRecords.count
+      records: data.records
     )
+    for record in data.records {
+      kvsLog.info(
+        "record id=\(record.id, privacy: .public) studiedOn=\(record.studiedOn, privacy: .public) deleted=\(record.deleted ?? false) content=\(record.content.prefix(24), privacy: .public)"
+      )
+    }
     kvsLog.info("\(self.statusMessage, privacy: .public) localSubjects=\(self.data.subjects.count) localRecords=\(self.data.records.count)")
     kvsLog.info("debug \(self.debugSummary, privacy: .public)")
   }
@@ -312,6 +318,13 @@ final class ICloudKvsStore: ObservableObject {
     return next
   }
 
+  private static func normalizedAppData(_ data: AppData) -> AppData {
+    AppData(
+      subjects: data.subjects,
+      records: data.records.map(normalizedRecord)
+    )
+  }
+
   private func makeStatus(
     iCloud: Bool,
     subjectKeyPresent: Bool,
@@ -348,12 +361,17 @@ final class ICloudKvsStore: ObservableObject {
     otherKeys: [String],
     dict: [AnyHashable: Any],
     subjectsBytes: Int,
-    remoteRecords: Int
+    records: [StudyRecord]
   ) -> String {
     let keyPreview = allKeys.isEmpty ? "(none)" : allKeys.prefix(12).joined(separator: ", ")
     let more = allKeys.count > 12 ? "…" : ""
     let other = otherKeys.isEmpty ? "" : " other=[\(otherKeys.joined(separator: ","))]"
-    return "dict=\(dict.count) keys=[\(keyPreview)\(more)] subjectsBytes=\(subjectsBytes) months=\(monthKeys.count) records=\(remoteRecords)\(other)"
+    let active = ICloudMerge.activeRecords(records)
+    let rows = active.prefix(6).map { r in
+      "\(r.studiedOn)\(r.deleted == true ? "!" : ""):\(r.content.prefix(10))"
+    }.joined(separator: " | ")
+    let rowPart = rows.isEmpty ? "rows=-" : "rows=[\(rows)]"
+    return "dict=\(dict.count) keys=[\(keyPreview)\(more)] subjectsBytes=\(subjectsBytes) months=\(monthKeys.count) \(rowPart)\(other)"
   }
 
   private func persistLocalCache(_ next: AppData) {
@@ -366,7 +384,7 @@ final class ICloudKvsStore: ObservableObject {
     guard let raw = UserDefaults.standard.data(forKey: localCacheKey),
           let payload = try? JSONDecoder().decode(LocalAppDataCache.self, from: raw)
     else { return nil }
-    return AppData(subjects: payload.subjects, records: payload.records)
+    return Self.normalizedAppData(AppData(subjects: payload.subjects, records: payload.records))
   }
 }
 
