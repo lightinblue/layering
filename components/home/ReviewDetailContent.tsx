@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { HomeReviewStudy } from '@/constants/home-types';
@@ -7,19 +8,63 @@ import { useThemeColors } from '@/theme/ThemeProvider';
 
 export type ReviewDetailContentProps = {
   studies: HomeReviewStudy[];
+  /** Card interval — shown as 「n일 전」 beside each study item. */
+  intervalDays: number;
   /** Optional chip fills from current subject list. */
   colorByName?: Record<string, string>;
-  /** Tap a study card → jump home week strip to that 학습일. */
+  /** Tap a study row → jump home week strip to that 학습일. */
   onStudyPress?: (studiedOn: string) => void;
 };
 
-/** 「복습 내용」 sheet — that day’s study content for the selected reviews. */
+type SubjectGroup = {
+  subjectName: string;
+  subjectColor?: string;
+  items: HomeReviewStudy[];
+};
+
+function groupBySubject(
+  studies: readonly HomeReviewStudy[],
+): SubjectGroup[] {
+  const order: string[] = [];
+  const map = new Map<
+    string,
+    { subjectColor?: string; items: HomeReviewStudy[] }
+  >();
+
+  for (const study of studies) {
+    const key = study.subjectName;
+    const existing = map.get(key);
+    if (!existing) {
+      order.push(key);
+      map.set(key, {
+        ...(study.subjectColor ? { subjectColor: study.subjectColor } : {}),
+        items: [study],
+      });
+      continue;
+    }
+    existing.items.push(study);
+  }
+
+  return order.map((name) => {
+    const g = map.get(name)!;
+    return {
+      subjectName: name,
+      ...(g.subjectColor ? { subjectColor: g.subjectColor } : {}),
+      items: g.items,
+    };
+  });
+}
+
+/** 「복습 내용」 sheet — studies grouped by subject; 「n일 전」 per item. */
 export function ReviewDetailContent({
   studies,
+  intervalDays,
   colorByName,
   onStudyPress,
 }: ReviewDetailContentProps) {
   const colors = useThemeColors();
+  const groups = useMemo(() => groupBySubject(studies), [studies]);
+  const agoLabel = `${intervalDays}일 전`;
 
   return (
     <ScrollView
@@ -27,72 +72,85 @@ export function ReviewDetailContent({
       style={styles.scroll}
       contentContainerStyle={[styles.body, { backgroundColor: colors.white }]}
       keyboardShouldPersistTaps="handled">
-      {studies.length === 0 ? (
+      {groups.length === 0 ? (
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <Text style={[styles.bodyText, { color: colors.body }]}>
             연결된 공부 기록이 없어요
           </Text>
         </View>
       ) : (
-        studies.map((study, index) => {
-          const canJump = Boolean(onStudyPress && study.studiedOn);
-          const card = (
-            <>
-              <View
-                style={[
-                  styles.subjectChip,
-                  {
-                    backgroundColor: subjectColor(
-                      study.subjectName,
-                      study.subjectColor ?? colorByName,
-                    ),
-                  },
-                ]}>
-                <Text
-                  style={[styles.subjectChipText, { color: colors.onAccent }]}
-                  numberOfLines={1}>
-                  {study.subjectName}
-                </Text>
-              </View>
-              {study.studiedOn ? (
-                <Text
-                  style={[styles.studiedOn, { color: colors.accentText }]}
-                  numberOfLines={1}>
-                  학습일 {study.studiedOn}
-                </Text>
-              ) : null}
-              <Text style={[styles.bodyText, { color: colors.body }]}>
-                {study.content}
-              </Text>
-            </>
-          );
-
-          if (canJump) {
-            return (
-              <Pressable
-                key={`${study.subjectName}-${study.studiedOn}-${index}`}
-                accessibilityRole="button"
-                accessibilityLabel={`${study.subjectName} 학습일로 이동`}
-                accessibilityHint="시트를 닫고 홈 주간 날짜로 이동합니다"
-                onPress={() => onStudyPress?.(study.studiedOn)}
-                style={({ pressed }) => [
-                  styles.card,
-                  { backgroundColor: colors.surface },
-                  pressed && styles.cardPressed,
-                ]}>
-                {card}
-              </Pressable>
-            );
-          }
-
-          return (
+        groups.map((group) => (
+          <View
+            key={group.subjectName}
+            style={[styles.card, { backgroundColor: colors.surface }]}>
             <View
-              key={`${study.subjectName}-${study.studiedOn}-${index}`}
-              style={[styles.card, { backgroundColor: colors.surface }]}>
-              {card}
+              style={[
+                styles.subjectChip,
+                {
+                  backgroundColor: subjectColor(
+                    group.subjectName,
+                    group.subjectColor ?? colorByName,
+                  ),
+                },
+              ]}>
+              <Text
+                style={[styles.subjectChipText, { color: colors.onAccent }]}
+                numberOfLines={1}>
+                {group.subjectName}
+              </Text>
             </View>
-          );
-        })
+
+            <View style={styles.itemList}>
+              {group.items.map((study, index) => {
+                const canJump = Boolean(onStudyPress && study.studiedOn);
+                const row = (
+                  <View style={styles.itemRow}>
+                    <Text
+                      style={[styles.bullet, { color: colors.body }]}
+                      accessible={false}>
+                      •
+                    </Text>
+                    <Text
+                      style={[styles.itemContent, { color: colors.body }]}
+                      numberOfLines={3}>
+                      {study.content}
+                    </Text>
+                    <Text
+                      style={[styles.ago, { color: colors.muted }]}
+                      numberOfLines={1}>
+                      {agoLabel}
+                    </Text>
+                  </View>
+                );
+
+                if (canJump) {
+                  return (
+                    <Pressable
+                      key={`${study.studyId ?? study.content}-${study.studiedOn}-${index}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${study.subjectName} ${study.content}, ${agoLabel}`}
+                      accessibilityHint="시트를 닫고 홈 주간 날짜로 이동합니다"
+                      onPress={() => onStudyPress?.(study.studiedOn)}
+                      style={({ pressed }) => [
+                        styles.itemPress,
+                        pressed && styles.itemPressed,
+                      ]}>
+                      {row}
+                    </Pressable>
+                  );
+                }
+
+                return (
+                  <View
+                    key={`${study.studyId ?? study.content}-${study.studiedOn}-${index}`}
+                    style={styles.itemPress}>
+                    {row}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ))
       )}
     </ScrollView>
   );
@@ -107,8 +165,6 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     gap: 14,
   },
-  // Width follows label; padding tuned for a 3-char Hangul baseline.
-  // Sheet-local radius (not radii.chip) so home study chips stay at 12.
   subjectChip: {
     alignSelf: 'flex-start',
     maxWidth: '100%',
@@ -125,14 +181,40 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: radii.chip,
     padding: 16,
+    gap: 12,
+  },
+  itemList: {
     gap: 8,
   },
-  cardPressed: {
+  itemPress: {
+    borderRadius: 8,
+  },
+  itemPressed: {
     opacity: 0.88,
   },
-  studiedOn: {
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  bullet: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 14,
+    fontSize: 15,
+    lineHeight: 22,
+    width: 12,
+  },
+  itemContent: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: fonts.nexonMedium,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  ago: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 12,
+    lineHeight: 22,
+    flexShrink: 0,
   },
   bodyText: {
     fontFamily: fonts.nexonMedium,

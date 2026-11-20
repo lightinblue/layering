@@ -39,7 +39,7 @@ import { matchSubjectPrefix } from '@/utils/parse-subject-prefix';
 /** Match home study chip/body height (not the cramped 36). */
 const SLOT_HEIGHT = 44;
 /** Vertical space between study rows inside a band (matches slotStack gap). */
-const ROW_GAP = 8;
+const ROW_GAP = 5;
 const ROW_LAYOUT = LinearTransition.duration(durations.listRow);
 const ENTER = FadeInDown.duration(durations.fadeIn).easing(
   Easing.out(Easing.cubic),

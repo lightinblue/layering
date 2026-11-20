@@ -1010,6 +1010,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
         {reviewOpen ? (
           <ReviewDetailContent
             studies={reviewOpen.studies}
+            intervalDays={reviewOpen.intervalDays}
             colorByName={colorByName}
             onStudyPress={onReviewStudyPress}
           />

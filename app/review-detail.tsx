@@ -16,6 +16,7 @@ export default function ReviewDetailSheet() {
     content?: string;
     studiedOn?: string;
     memo?: string;
+    intervalDays?: string;
   }>();
 
   const studies = useMemo((): HomeReviewStudy[] => {
@@ -35,13 +36,18 @@ export default function ReviewDetailSheet() {
     }));
   }, [params.subjects, params.content, params.studiedOn, params.memo]);
 
+  const intervalDays = useMemo(() => {
+    const n = Number(params.intervalDays);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  }, [params.intervalDays]);
+
   const onClose = useCallback(() => {
     if (router.canGoBack()) router.back();
   }, [router]);
 
   return (
     <SheetPanel onClose={onClose}>
-      <ReviewDetailContent studies={studies} />
+      <ReviewDetailContent studies={studies} intervalDays={intervalDays} />
     </SheetPanel>
   );
 }
