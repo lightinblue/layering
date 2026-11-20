@@ -15,6 +15,10 @@ import {
   type CalendarPrefs,
   type WeekdayStart,
 } from '@/storage/calendar-prefs';
+import {
+  pushSyncedPrefsToICloud,
+  subscribeSyncedPrefs,
+} from '@/storage/icloud-sync';
 
 type CalendarPrefsContextValue = {
   prefs: CalendarPrefs;
@@ -44,10 +48,17 @@ export function CalendarPrefsProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    return subscribeSyncedPrefs((next) => {
+      setPrefs({ weekStartsOn: next.weekStartsOn });
+    });
+  }, []);
+
   const setWeekStartsOn = useCallback((weekStartsOn: WeekdayStart) => {
     const next = { weekStartsOn };
     setPrefs(next);
     void saveCalendarPrefs(next);
+    void pushSyncedPrefsToICloud({ weekStartsOn });
   }, []);
 
   const value = useMemo<CalendarPrefsContextValue>(
