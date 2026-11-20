@@ -19,7 +19,11 @@ import {
   normalizeAppData,
   rebuildSchedulesFromRecords,
 } from '@/storage/migrate-app-data';
-import { activeRecords, activeSubjects } from '@/utils/icloud-merge';
+import {
+  activeRecords,
+  activeSubjects,
+  recoverFromShowcaseContamination,
+} from '@/utils/icloud-merge';
 import { buildReviewDueDates } from '@/utils/review-schedule';
 
 export const EMPTY_APP_DATA: AppData = {
@@ -29,7 +33,7 @@ export const EMPTY_APP_DATA: AppData = {
 };
 
 /** Max study records allowed for a single studiedOn date. */
-export const MAX_STUDIES_PER_DAY = 3;
+export const MAX_STUDIES_PER_DAY = 14;
 
 /** Max user-managed subject chips (FR-A3). */
 export const MAX_SUBJECTS = 10;
@@ -197,7 +201,9 @@ export function addSubject(
 
 /**
  * Soft-delete a subject chip by name. Records that used it stay
- * (subjectName snapshot on StudyRecord keeps display).
+ * (subjectName + subjectColor snapshots keep display colors).
+ * Backfills missing record.subjectColor from the chip before tombstoning
+ * so home/day chips do not fall through to gray.
  */
 export function removeSubject(
   data: AppData,
@@ -206,10 +212,12 @@ export function removeSubject(
 ): SubjectMutationResult {
   const name = normalizeSubjectName(rawName);
   if (!name) return { ok: false, reason: 'empty' };
-  if (!activeSubjects(data.subjects).some((s) => s.name === name)) {
+  const live = activeSubjects(data.subjects).find((s) => s.name === name);
+  if (!live) {
     return { ok: false, reason: 'missing' };
   }
   const at = nowIso(now);
+  const snapColor = withSubjectColor(live).color;
   return {
     ok: true,
     data: withSchedules({
@@ -219,6 +227,15 @@ export function removeSubject(
           ? { ...s, deleted: true, updatedAt: at }
           : s,
       ),
+      records: data.records.map((r) => {
+        if (r.deleted || r.subjectName !== name) return r;
+        if (r.subjectColor?.trim()) return r;
+        return {
+          ...r,
+          ...(snapColor ? { subjectColor: snapColor } : {}),
+          updatedAt: at,
+        };
+      }),
     }),
   };
 }
@@ -272,14 +289,27 @@ export function reorderSubjects(
   };
 }
 
+async function finalizeLoadedAppData(data: AppData): Promise<AppData> {
+  const colored: AppData = {
+    subjects: data.subjects.map(withSubjectColor),
+    records: data.records,
+    schedules: data.schedules,
+  };
+  const cleanup = recoverFromShowcaseContamination(colored);
+  if (!cleanup.didChange) return colored;
+  // Persist + push tombstones so Mac/KVS drop seed junk + content twins.
+  await saveAppData(cleanup.data);
+  return cleanup.data;
+}
+
 export async function loadAppData(): Promise<AppData> {
   const { data: migrated } = await migrateAppDataIfNeeded();
   if (migrated) {
-    return {
-      subjects: migrated.subjects.map(withSubjectColor),
+    return finalizeLoadedAppData({
+      subjects: migrated.subjects,
       records: migrated.records,
       schedules: migrated.schedules,
-    };
+    });
   }
 
   const raw = await AsyncStorage.getItem(STORAGE_KEYS.appData);
@@ -293,11 +323,7 @@ export async function loadAppData(): Promise<AppData> {
   }
   try {
     const normalized = normalizeAppData(JSON.parse(raw));
-    return {
-      subjects: normalized.subjects.map(withSubjectColor),
-      records: normalized.records,
-      schedules: normalized.schedules,
-    };
+    return finalizeLoadedAppData(normalized);
   } catch {
     const at = nowIso();
     return {
@@ -345,6 +371,8 @@ export type CreateStudyInput = {
   content: string;
   studiedOn: string;
   memo?: string;
+  /** Optional study-day band (morning / afternoon / evening). */
+  dayBand?: 'morning' | 'afternoon' | 'evening';
 };
 
 /** Append one study + checks for cycle intervals. No-op at daily max. */
@@ -367,6 +395,13 @@ export function appendStudyWithReviews(
 
   const at = nowIso(now);
   const cycle = DEFAULT_CYCLE;
+  const sameDay = activeRecords(data.records).filter(
+    (r) => r.studiedOn === input.studiedOn,
+  );
+  const maxOrder = sameDay.reduce(
+    (max, r) => Math.max(max, typeof r.dayOrder === 'number' ? r.dayOrder : -1),
+    -1,
+  );
   const record: StudyRecord = {
     id: newId('study'),
     subjectId: existing.id,
@@ -377,6 +412,8 @@ export function appendStudyWithReviews(
     content: fields.content,
     ...(fields.memo ? { memo: fields.memo } : {}),
     studiedOn: input.studiedOn,
+    ...(input.dayBand ? { dayBand: input.dayBand } : {}),
+    dayOrder: maxOrder + 1,
     cycle,
     checks: emptyChecks(cycle, at),
     createdAt: at,
@@ -386,6 +423,40 @@ export function appendStudyWithReviews(
   return withSchedules({
     subjects: data.subjects,
     records: [...data.records, record],
+  });
+}
+
+/**
+ * Persist a new display order for studies on one day (ascending dayOrder).
+ * `orderedIds` should list every active study id for that day in visual order.
+ */
+export function reorderStudiesOnDay(
+  data: AppData,
+  studiedOn: string,
+  orderedIds: readonly string[],
+  now = new Date(),
+): AppData {
+  const at = nowIso(now);
+  const activeIds = new Set(
+    activeRecords(data.records)
+      .filter((r) => r.studiedOn === studiedOn)
+      .map((r) => r.id),
+  );
+  if (orderedIds.length === 0 || orderedIds.some((id) => !activeIds.has(id))) {
+    return data;
+  }
+  if (orderedIds.length !== activeIds.size) {
+    return data;
+  }
+  const orderById = new Map(orderedIds.map((id, index) => [id, index]));
+  return withSchedules({
+    subjects: data.subjects,
+    records: data.records.map((r) => {
+      const nextOrder = orderById.get(r.id);
+      if (nextOrder === undefined) return r;
+      if (r.dayOrder === nextOrder) return r;
+      return { ...r, dayOrder: nextOrder, updatedAt: at };
+    }),
   });
 }
 
@@ -506,6 +577,10 @@ export function updateStudyWithReviews(
   // Ensure checks cover cycle intervals.
   const checks = { ...emptyChecks(cycle, at), ...existing.checks };
 
+  // Memo UX removed — preserve existing when callers omit memo (ignore-OK migrate).
+  const nextMemo =
+    input.memo !== undefined ? fields.memo : existing.memo?.trim();
+
   const nextRecord: StudyRecord = {
     id: existing.id,
     subjectId: chip?.id ?? existing.subjectId,
@@ -517,7 +592,7 @@ export function updateStudyWithReviews(
     checks,
     createdAt: existing.createdAt,
     updatedAt: at,
-    ...(fields.memo ? { memo: fields.memo } : {}),
+    ...(nextMemo ? { memo: nextMemo } : {}),
   };
 
   return withSchedules({

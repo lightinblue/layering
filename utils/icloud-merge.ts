@@ -168,14 +168,12 @@ export function mergeAppData(input: MergeAppDataInput): AppData {
     mergeStudy,
   );
 
-  return purgeExpiredTombstones(
-    {
-      subjects,
-      records,
-      schedules: local.schedules,
-    },
+  const cleaned = recoverFromShowcaseContamination(
+    { subjects, records, schedules: local.schedules },
     now,
   );
+
+  return purgeExpiredTombstones(cleaned.data, now);
 }
 
 /** Active (non-deleted) subjects sorted by order. */
@@ -188,4 +186,176 @@ export function activeSubjects(subjects: readonly SubjectChip[]): SubjectChip[] 
 /** Active (non-deleted) study records. */
 export function activeRecords(records: readonly StudyRecord[]): StudyRecord[] {
   return records.filter((r) => !r.deleted);
+}
+
+/** NFC + collapse whitespace — Mac NFD Hangul must match phone NFC. */
+export function foldedText(raw: string): string {
+  return raw
+    .normalize('NFC')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * Fingerprint for content twins (different ids, same day + subject chip + title).
+ * Uses subjectName (home label), not subjectId — id drift left visual twins alive.
+ */
+export function studyContentKey(record: StudyRecord): string {
+  const day = record.studiedOn.trim();
+  const subject = foldedText(record.subjectName);
+  const content = foldedText(record.content);
+  return `${day}|${subject}|${content}`;
+}
+
+/**
+ * Collapse same-id rows (LWW), then soft-delete active content twins.
+ * Keeps the newest `updatedAt` (tie → greater id). Preserves existing tombstones.
+ */
+export function dedupeStudyRecords(
+  records: readonly StudyRecord[],
+  now = new Date(),
+): { records: StudyRecord[]; didChange: boolean } {
+  const byId = new Map<string, StudyRecord>();
+  let idCollapsed = false;
+  for (const record of records) {
+    const existing = byId.get(record.id);
+    if (existing) {
+      idCollapsed = true;
+      byId.set(
+        record.id,
+        pickWinner(existing, record, existing.id, record.id),
+      );
+    } else {
+      byId.set(record.id, record);
+    }
+  }
+
+  const stamp = now.toISOString();
+  const keptActive = new Map<string, StudyRecord>();
+  const out: StudyRecord[] = [];
+  let tombstoned = false;
+
+  const ordered = [...byId.values()].sort((a, b) => {
+    const at = parseIso(a.updatedAt);
+    const bt = parseIso(b.updatedAt);
+    if (at !== bt) return bt - at;
+    return a.id < b.id ? 1 : -1;
+  });
+
+  for (const record of ordered) {
+    if (record.deleted) {
+      out.push(record);
+      continue;
+    }
+    const key = studyContentKey(record);
+    if (keptActive.has(key)) {
+      out.push({ ...record, deleted: true, updatedAt: stamp });
+      tombstoned = true;
+    } else {
+      keptActive.set(key, record);
+      out.push(record);
+    }
+  }
+
+  return { records: out, didChange: idCollapsed || tombstoned };
+}
+
+const SHOWCASE_ID_PREFIX = 'shot-';
+const SHOWCASE_SUBJECT_IDS = new Set([
+  'shot-sub-korean',
+  'shot-sub-class',
+  'shot-sub-edu',
+  'shot-sub-list',
+  'shot-sub-path',
+  'shot-sub-media',
+]);
+const SHOWCASE_DEMO_CONTENTS = new Set(
+  [
+    '1단원 문학 필기',
+    'DDC 000대 정리',
+    '1단원 교육과정',
+    'DDC 연습 문제',
+    '문법 핵심 정리',
+    '교육심리 용어',
+    'KDC 표 암기',
+    '현대시 기출 요약',
+    '1단원 핵심 정리',
+    '교육과정 개론',
+    'DDC 600대 연습',
+    '생활지도 사례',
+    '고전 산문 요약',
+    '분류 기출 20문항',
+    '목록규칙 필기',
+    '사서직 기출 요약',
+    '시청각 자료 정리',
+    'MARC 필드 복습',
+    '분류 체계 총정리',
+    '목록 평가 정리',
+    '핵심 도식 암기',
+    '도서관법 요약',
+    '모의고사 해설',
+  ].map(foldedText),
+);
+const ASC_ONLY_SUBJECT_NAMES = new Set(['국어', '목록', '학도', '매체']);
+
+export function isShowcaseSubjectId(id: string): boolean {
+  return id.startsWith(SHOWCASE_ID_PREFIX) || SHOWCASE_SUBJECT_IDS.has(id);
+}
+
+export function isShowcaseRecord(record: StudyRecord): boolean {
+  if (isShowcaseSubjectId(record.id) || isShowcaseSubjectId(record.subjectId)) {
+    return true;
+  }
+  const name = foldedText(record.subjectName);
+  const content = foldedText(record.content);
+  return ASC_ONLY_SUBJECT_NAMES.has(name) && SHOWCASE_DEMO_CONTENTS.has(content);
+}
+
+export type ContaminationCleanup = {
+  data: AppData;
+  seedSubjectsTombstoned: number;
+  seedRecordsTombstoned: number;
+  twinsTombstoned: number;
+  didChange: boolean;
+};
+
+/** Soft-delete Showcase/screenshot seed rows, then content twins. Keeps real unique studies. */
+export function recoverFromShowcaseContamination(
+  data: AppData,
+  now = new Date(),
+): ContaminationCleanup {
+  const stamp = now.toISOString();
+  let seedSubjectsTombstoned = 0;
+  let seedRecordsTombstoned = 0;
+
+  const subjects = data.subjects.map((subject) => {
+    if (subject.deleted || !isShowcaseSubjectId(subject.id)) return subject;
+    seedSubjectsTombstoned += 1;
+    return { ...subject, deleted: true, updatedAt: stamp };
+  });
+
+  const records = data.records.map((record) => {
+    if (record.deleted || !isShowcaseRecord(record)) return record;
+    seedRecordsTombstoned += 1;
+    return { ...record, deleted: true, updatedAt: stamp };
+  });
+
+  const beforeActive = records.filter((r) => !r.deleted).length;
+  const deduped = dedupeStudyRecords(records, now);
+  const afterActive = deduped.records.filter((r) => !r.deleted).length;
+  const twinsTombstoned = Math.max(0, beforeActive - afterActive);
+
+  return {
+    data: {
+      subjects,
+      records: deduped.records,
+      schedules: data.schedules,
+    },
+    seedSubjectsTombstoned,
+    seedRecordsTombstoned,
+    twinsTombstoned,
+    didChange:
+      seedSubjectsTombstoned + seedRecordsTombstoned + twinsTombstoned > 0 ||
+      deduped.didChange,
+  };
 }

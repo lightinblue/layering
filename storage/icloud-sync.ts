@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 import ICloudKvs, {
@@ -9,12 +10,22 @@ import {
   registerAppDataICloudPush,
   saveAppData,
 } from '@/storage/app-data';
+import { loadCalendarPrefs, saveCalendarPrefs } from '@/storage/calendar-prefs';
 import { getDeviceId } from '@/storage/device-id';
 import {
   KVS_KEYS,
+  STORAGE_KEYS,
   kvsMonthKey,
   yearMonthFromDateKey,
 } from '@/storage/keys';
+import {
+  buildSyncedPrefsPayload,
+  mergeSyncedPrefsPayload,
+  parseSyncedPrefsPayload,
+  type SyncedPrefsBody,
+  type SyncedPrefsPayload,
+} from '@/storage/synced-prefs';
+import { loadThemePrimary, saveThemePrimary } from '@/storage/theme';
 import type { AppData, StudyRecord, SubjectChip } from '@/types/domain';
 import { mergeAppData } from '@/utils/icloud-merge';
 
@@ -92,7 +103,11 @@ async function measureExistingQuotaBytes(
   let total = 0;
   for (const key of keys) {
     if (excludeKeys.has(key)) continue;
-    if (key !== KVS_KEYS.subjects && !key.startsWith(KVS_KEYS.monthPrefix)) {
+    if (
+      key !== KVS_KEYS.subjects &&
+      key !== KVS_KEYS.prefs &&
+      !key.startsWith(KVS_KEYS.monthPrefix)
+    ) {
       continue;
     }
     const value = await ICloudKvs.get(key);
@@ -224,8 +239,11 @@ export async function pullAndMergeFromICloud(
 }
 
 export type ICloudSyncListener = (data: AppData) => void;
+export type SyncedPrefsListener = (prefs: SyncedPrefsBody) => void;
 
 const mergedListeners = new Set<ICloudSyncListener>();
+const prefsListeners = new Set<SyncedPrefsListener>();
+let applyingPrefsRemote = false;
 
 function emitMerged(data: AppData): void {
   for (const listener of mergedListeners) {
@@ -237,12 +255,166 @@ function emitMerged(data: AppData): void {
   }
 }
 
+function emitSyncedPrefs(prefs: SyncedPrefsBody): void {
+  for (const listener of prefsListeners) {
+    try {
+      listener(prefs);
+    } catch (err) {
+      console.warn('[icloud-kvs] prefs listener error', err);
+    }
+  }
+}
+
 /** UI screens subscribe to apply remote merges into React state. */
 export function subscribeICloudMerged(listener: ICloudSyncListener): () => void {
   mergedListeners.add(listener);
   return () => {
     mergedListeners.delete(listener);
   };
+}
+
+/** Calendar / theme providers subscribe for cross-device prefs. */
+export function subscribeSyncedPrefs(
+  listener: SyncedPrefsListener,
+): () => void {
+  prefsListeners.add(listener);
+  return () => {
+    prefsListeners.delete(listener);
+  };
+}
+
+async function readLocalSyncedPrefsBody(): Promise<SyncedPrefsBody> {
+  const [cal, themePrimary] = await Promise.all([
+    loadCalendarPrefs(),
+    loadThemePrimary(),
+  ]);
+  return {
+    weekStartsOn: cal.weekStartsOn,
+    themePrimary,
+  };
+}
+
+async function applySyncedPrefsLocally(
+  payload: SyncedPrefsPayload,
+): Promise<void> {
+  applyingPrefsRemote = true;
+  try {
+    await saveCalendarPrefs({ weekStartsOn: payload.prefs.weekStartsOn });
+    await saveThemePrimary(payload.prefs.themePrimary);
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.syncedPrefsUpdatedAt,
+      payload.updatedAt,
+    );
+    emitSyncedPrefs(payload.prefs);
+  } finally {
+    applyingPrefsRemote = false;
+  }
+}
+
+async function readRemotePrefsPayload(): Promise<SyncedPrefsPayload | null> {
+  const raw = await ICloudKvs.get(KVS_KEYS.prefs);
+  return parseSyncedPrefsPayload(raw);
+}
+
+async function readLocalPrefsPayload(
+  deviceId: string,
+): Promise<SyncedPrefsPayload> {
+  const body = await readLocalSyncedPrefsBody();
+  const stamp =
+    (await AsyncStorage.getItem(STORAGE_KEYS.syncedPrefsUpdatedAt)) ||
+    '1970-01-01T00:00:00.000Z';
+  return {
+    deviceId,
+    updatedAt: stamp,
+    prefs: body,
+  };
+}
+
+/**
+ * Push current local calendar/theme prefs to KVS `prefs` (LWW stamp = now).
+ */
+export async function pushSyncedPrefsToICloud(
+  partial?: Partial<SyncedPrefsBody>,
+): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+  if (applyingPrefsRemote) return;
+  if (!ICloudKvs.isICloudAvailable()) return;
+
+  const deviceId = await getDeviceId();
+  const current = await readLocalSyncedPrefsBody();
+  const nextBody: SyncedPrefsBody = {
+    weekStartsOn: partial?.weekStartsOn ?? current.weekStartsOn,
+    themePrimary: partial?.themePrimary ?? current.themePrimary,
+  };
+  // Persist mirrors first so local stamp + body stay consistent.
+  await saveCalendarPrefs({ weekStartsOn: nextBody.weekStartsOn });
+  await saveThemePrimary(nextBody.themePrimary);
+
+  const payload = buildSyncedPrefsPayload(deviceId, nextBody);
+  const json = JSON.stringify(payload);
+
+  const existingOther = await measureExistingQuotaBytes(
+    new Set([KVS_KEYS.prefs]),
+  );
+  if (existingOther + utf8ByteLength(json) >= KVS_WARN_BYTES) {
+    console.warn('[icloud-kvs] prefs push skipped — quota ≥80%');
+    return;
+  }
+
+  await ICloudKvs.set(KVS_KEYS.prefs, json);
+  await ICloudKvs.synchronize();
+  await AsyncStorage.setItem(
+    STORAGE_KEYS.syncedPrefsUpdatedAt,
+    payload.updatedAt,
+  );
+}
+
+/**
+ * Pull KVS `prefs`, LWW-merge with local mirrors, apply winner, push if needed.
+ * First empty-cloud run uploads local AsyncStorage calendar/theme once.
+ */
+export async function pullAndMergeSyncedPrefs(): Promise<SyncedPrefsBody | null> {
+  if (Platform.OS !== 'ios') return null;
+  if (!ICloudKvs.isICloudAvailable()) return null;
+
+  const deviceId = await getDeviceId();
+  const local = await readLocalPrefsPayload(deviceId);
+  const remote = await readRemotePrefsPayload();
+
+  if (!remote) {
+    // Migrate local-only prefs into KVS.
+    const seed = buildSyncedPrefsPayload(deviceId, local.prefs);
+    await ICloudKvs.set(KVS_KEYS.prefs, JSON.stringify(seed));
+    await ICloudKvs.synchronize();
+    await applySyncedPrefsLocally(seed);
+    return seed.prefs;
+  }
+
+  // First contact with an existing remote: if local stamp is epoch, treat
+  // current AsyncStorage as a "now" candidate so pre-sync user choices can win.
+  const localStampIsEpoch = local.updatedAt.startsWith('1970-');
+  const localForMerge = localStampIsEpoch
+    ? buildSyncedPrefsPayload(deviceId, local.prefs)
+    : local;
+
+  const winner = mergeSyncedPrefsPayload(localForMerge, remote) ?? remote;
+  await applySyncedPrefsLocally(winner);
+
+  if (
+    winner.deviceId !== remote.deviceId ||
+    winner.updatedAt !== remote.updatedAt ||
+    JSON.stringify(winner.prefs) !== JSON.stringify(remote.prefs)
+  ) {
+    applyingPrefsRemote = true;
+    try {
+      await ICloudKvs.set(KVS_KEYS.prefs, JSON.stringify(winner));
+      await ICloudKvs.synchronize();
+    } finally {
+      applyingPrefsRemote = false;
+    }
+  }
+
+  return winner.prefs;
 }
 
 /**
@@ -262,6 +434,7 @@ export function startICloudSync(): () => void {
       await ICloudKvs.synchronize();
       const merged = await pullAndMergeFromICloud();
       if (merged) emitMerged(merged);
+      await pullAndMergeSyncedPrefs();
     } catch (err) {
       console.warn('[icloud-kvs] initial sync failed', err);
     }
@@ -276,8 +449,22 @@ export function startICloudSync(): () => void {
       }
       void (async () => {
         try {
-          const merged = await pullAndMergeFromICloud(event.keys);
-          if (merged) emitMerged(merged);
+          const keys = event.keys ?? [];
+          const prefsTouched =
+            keys.length === 0 || keys.includes(KVS_KEYS.prefs);
+          const dataTouched =
+            keys.length === 0 ||
+            keys.some(
+              (k) =>
+                k === KVS_KEYS.subjects || k.startsWith(KVS_KEYS.monthPrefix),
+            );
+          if (dataTouched) {
+            const merged = await pullAndMergeFromICloud(event.keys);
+            if (merged) emitMerged(merged);
+          }
+          if (prefsTouched) {
+            await pullAndMergeSyncedPrefs();
+          }
         } catch (err) {
           console.warn('[icloud-kvs] external merge failed', err);
         }

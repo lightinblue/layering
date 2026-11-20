@@ -27,6 +27,10 @@ import {
   softFromPrimary,
   type PrimaryOption,
 } from '@/constants/tokens';
+import {
+  pushSyncedPrefsToICloud,
+  subscribeSyncedPrefs,
+} from '@/storage/icloud-sync';
 import { loadThemePrimary, saveThemePrimary } from '@/storage/theme';
 
 export type ThemeColors = ChromePalette;
@@ -107,9 +111,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    return subscribeSyncedPrefs((next) => {
+      setPrimaryState(next.themePrimary);
+    });
+  }, []);
+
   const setPrimary = useCallback((next: PrimaryOption) => {
     setPrimaryState(next);
     void saveThemePrimary(next);
+    void pushSyncedPrefsToICloud({ themePrimary: next });
   }, []);
 
   useEffect(() => {

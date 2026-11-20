@@ -14,9 +14,11 @@ export const STORAGE_KEYS = {
   themePrimary: '@bokbok/theme-primary/v1',
   /**
    * Calendar week start (`{ weekStartsOn }`) for home strip + month grid.
-   * Device-local — not iCloud-synced. Legacy two-field blobs are migrated on load.
+   * Local mirror; also synced via KVS `prefs` (see storage/synced-prefs.ts).
    */
   calendarPrefs: '@bokbok/calendar-prefs/v1',
+  /** Last applied/pushed `SyncedPrefsPayload.updatedAt` (LWW stamp mirror). */
+  syncedPrefsUpdatedAt: '@bokbok/synced-prefs-updated-at/v1',
   /** First-launch tutorial / forgetting-curve intro seen (`'1'`). */
   tutorialSeen: '@bokbok/tutorial-seen/v1',
   /**
@@ -31,6 +33,11 @@ export const KVS_KEYS = {
   subjects: 'subjects',
   /** `rec/YYYY-MM` for studies whose studiedOn falls in that month. */
   monthPrefix: 'rec/',
+  /**
+   * Device settings JSON (`SyncedPrefsPayload`): weekStartsOn, themePrimary.
+   * Subject chip colors stay on `subjects`.
+   */
+  prefs: 'prefs',
 } as const;
 
 export function kvsMonthKey(yearMonth: string): string {

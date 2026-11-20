@@ -136,6 +136,14 @@ export function normalizeAppData(raw: unknown, now = new Date()): AppData {
       content: r.content ?? '',
       ...(r.memo ? { memo: r.memo } : {}),
       studiedOn: r.studiedOn ?? createdAt.slice(0, 10),
+      ...(r.dayBand === 'morning' ||
+      r.dayBand === 'afternoon' ||
+      r.dayBand === 'evening'
+        ? { dayBand: r.dayBand }
+        : {}),
+      ...(typeof r.dayOrder === 'number' && Number.isFinite(r.dayOrder)
+        ? { dayOrder: r.dayOrder }
+        : {}),
       cycle,
       checks,
       createdAt,
@@ -144,11 +152,47 @@ export function normalizeAppData(raw: unknown, now = new Date()): AppData {
     };
   });
 
+  const withOrder = ensureDayOrders(records);
   return {
     subjects,
-    records,
-    schedules: rebuildSchedules(records),
+    records: withOrder,
+    schedules: rebuildSchedules(withOrder),
   };
+}
+
+/** Fill missing dayOrder by createdAt within each studiedOn (stable, ascending). */
+export function ensureDayOrders(records: StudyRecord[]): StudyRecord[] {
+  const byDay = new Map<string, StudyRecord[]>();
+  for (const record of records) {
+    const key = record.studiedOn || record.createdAt.slice(0, 10);
+    const list = byDay.get(key) ?? [];
+    list.push(record);
+    byDay.set(key, list);
+  }
+
+  const nextById = new Map<string, StudyRecord>();
+  for (const [, list] of byDay) {
+    const sorted = [...list].sort((a, b) => {
+      const ao = typeof a.dayOrder === 'number' ? a.dayOrder : Number.POSITIVE_INFINITY;
+      const bo = typeof b.dayOrder === 'number' ? b.dayOrder : Number.POSITIVE_INFINITY;
+      if (ao !== bo) return ao - bo;
+      return a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+    });
+    sorted.forEach((record, index) => {
+      nextById.set(record.id, {
+        ...record,
+        dayOrder: typeof record.dayOrder === 'number' ? record.dayOrder : index,
+      });
+    });
+    // Re-pack dense 0..n-1 when any were missing (keeps relative createdAt order).
+    if (list.some((r) => typeof r.dayOrder !== 'number')) {
+      sorted.forEach((record, index) => {
+        nextById.set(record.id, { ...record, dayOrder: index });
+      });
+    }
+  }
+
+  return records.map((r) => nextById.get(r.id) ?? r);
 }
 
 export function rebuildSchedulesFromRecords(records: readonly StudyRecord[]): ReviewSchedule[] {

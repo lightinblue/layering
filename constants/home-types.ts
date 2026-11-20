@@ -8,6 +8,11 @@ export type HomeStudyRow = {
   memo?: string;
   /** Optional chip fill snapshot from the study record. */
   subjectColor?: string;
+  /** Optional day-band for study-day UI placement. */
+  dayBand?: 'morning' | 'afternoon' | 'evening';
+  /** Display order within the day (ascending). */
+  dayOrder?: number;
+  createdAt?: string;
 };
 
 export type HomeReviewStudy = {

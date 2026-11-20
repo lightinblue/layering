@@ -5,7 +5,7 @@ import { STORAGE_KEYS } from '@/storage/keys';
 /**
  * Weekday index matching `Date#getDay()`:
  * 0 = Sunday, 1 = Monday.
- * Device-local only (not iCloud-synced).
+ * Local AsyncStorage mirror; synced across devices via KVS `prefs`.
  * Applies to both home week strip and month calendar grid.
  */
 export type WeekdayStart = 0 | 1;
