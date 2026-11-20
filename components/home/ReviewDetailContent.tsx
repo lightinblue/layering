@@ -12,7 +12,7 @@ export type ReviewDetailContentProps = {
   intervalDays: number;
   /** Optional chip fills from current subject list. */
   colorByName?: Record<string, string>;
-  /** Tap a study row → jump home week strip to that 학습일. */
+  /** Tap a study row / gray surface → jump home week strip to that studiedOn. */
   onStudyPress?: (studiedOn: string) => void;
 };
 
@@ -55,7 +55,7 @@ function groupBySubject(
   });
 }
 
-/** 「복습 내용」 sheet — header meta + subject-grouped bullets. */
+/** 「복습 내용」 sheet — header meta + subject-grouped bullets (Mac-parity). */
 export function ReviewDetailContent({
   studies,
   intervalDays,
@@ -68,7 +68,9 @@ export function ReviewDetailContent({
   const studiedOn = useMemo(() => {
     const dates = [
       ...new Set(
-        studies.map((s) => s.studiedOn?.trim()).filter((d): d is string => Boolean(d)),
+        studies
+          .map((s) => s.studiedOn?.trim())
+          .filter((d): d is string => Boolean(d)),
       ),
     ];
     return dates[0] ?? '';
@@ -86,7 +88,7 @@ export function ReviewDetailContent({
           <Text style={[styles.ago, { color: colors.muted }]}>{agoLabel}</Text>
           {studiedOn ? (
             <Text style={[styles.studiedOn, { color: colors.accentText }]}>
-              학습일 {studiedOn}
+              {studiedOn}
             </Text>
           ) : null}
         </View>
@@ -99,73 +101,103 @@ export function ReviewDetailContent({
           </Text>
         </View>
       ) : (
-        groups.map((group) => (
-          <View
-            key={group.subjectName}
-            style={[styles.card, { backgroundColor: colors.surface }]}>
-            <View
-              style={[
-                styles.subjectChip,
-                {
-                  backgroundColor: subjectColor(
-                    group.subjectName,
-                    group.subjectColor ?? colorByName,
-                  ),
-                },
+        groups.map((group) => {
+          const groupDate =
+            group.items.find((s) => s.studiedOn?.trim())?.studiedOn?.trim() ??
+            '';
+          const canJumpGroup = Boolean(onStudyPress && groupDate);
+
+          return (
+            <Pressable
+              key={group.subjectName}
+              disabled={!canJumpGroup}
+              accessibilityRole={canJumpGroup ? 'button' : undefined}
+              accessibilityLabel={
+                canJumpGroup
+                  ? `${group.subjectName} 학습일로 이동`
+                  : undefined
+              }
+              onPress={() => {
+                if (groupDate) onStudyPress?.(groupDate);
+              }}
+              style={({ pressed }) => [
+                styles.card,
+                { backgroundColor: colors.surface },
+                pressed && canJumpGroup && styles.pressed,
               ]}>
-              <Text
-                style={[styles.subjectChipText, { color: colors.onAccent }]}
-                numberOfLines={1}>
-                {group.subjectName}
-              </Text>
-            </View>
+              <Pressable
+                disabled={!canJumpGroup}
+                accessibilityRole={canJumpGroup ? 'button' : undefined}
+                accessibilityLabel={group.subjectName}
+                accessibilityHint="시트를 닫고 홈 주간 날짜로 이동합니다"
+                onPress={() => {
+                  if (groupDate) onStudyPress?.(groupDate);
+                }}
+                style={({ pressed }) => [
+                  styles.subjectChip,
+                  {
+                    backgroundColor: subjectColor(
+                      group.subjectName,
+                      group.subjectColor ?? colorByName,
+                    ),
+                  },
+                  pressed && canJumpGroup && styles.pressed,
+                ]}>
+                <Text
+                  style={[styles.subjectChipText, { color: colors.onAccent }]}
+                  numberOfLines={1}>
+                  {group.subjectName}
+                </Text>
+              </Pressable>
 
-            <View style={styles.itemList}>
-              {group.items.map((study, index) => {
-                const canJump = Boolean(onStudyPress && study.studiedOn);
-                const row = (
-                  <View style={styles.itemRow}>
-                    <Text
-                      style={[styles.bullet, { color: colors.body }]}
-                      accessible={false}>
-                      •
-                    </Text>
-                    <Text
-                      style={[styles.itemContent, { color: colors.body }]}
-                      numberOfLines={3}>
-                      {study.content}
-                    </Text>
-                  </View>
-                );
-
-                if (canJump) {
-                  return (
-                    <Pressable
-                      key={`${study.studyId ?? study.content}-${study.studiedOn}-${index}`}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${study.subjectName} ${study.content}`}
-                      accessibilityHint="시트를 닫고 홈 주간 날짜로 이동합니다"
-                      onPress={() => onStudyPress?.(study.studiedOn)}
-                      style={({ pressed }) => [
-                        styles.itemPress,
-                        pressed && styles.itemPressed,
-                      ]}>
-                      {row}
-                    </Pressable>
+              <View style={styles.itemList}>
+                {group.items.map((study, index) => {
+                  const rowDate = study.studiedOn?.trim() ?? '';
+                  const canJump = Boolean(onStudyPress && rowDate);
+                  const row = (
+                    <View style={styles.itemRow} pointerEvents="none">
+                      <Text
+                        style={[styles.bullet, { color: colors.body }]}
+                        accessible={false}>
+                        •
+                      </Text>
+                      <Text
+                        style={[styles.itemContent, { color: colors.body }]}
+                        numberOfLines={3}>
+                        {study.content}
+                      </Text>
+                    </View>
                   );
-                }
 
-                return (
-                  <View
-                    key={`${study.studyId ?? study.content}-${study.studiedOn}-${index}`}
-                    style={styles.itemPress}>
-                    {row}
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        ))
+                  if (canJump) {
+                    return (
+                      <Pressable
+                        key={`${study.studyId ?? study.content}-${study.studiedOn}-${index}`}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${study.subjectName} ${study.content}`}
+                        accessibilityHint="시트를 닫고 홈 주간 날짜로 이동합니다"
+                        onPress={() => onStudyPress?.(rowDate)}
+                        style={({ pressed }) => [
+                          styles.itemPress,
+                          pressed && styles.pressed,
+                        ]}>
+                        {row}
+                      </Pressable>
+                    );
+                  }
+
+                  return (
+                    <View
+                      key={`${study.studyId ?? study.content}-${study.studiedOn}-${index}`}
+                      style={styles.itemPress}>
+                      {row}
+                    </View>
+                  );
+                })}
+              </View>
+            </Pressable>
+          );
+        })
       )}
     </ScrollView>
   );
@@ -178,7 +210,7 @@ const styles = StyleSheet.create({
   body: {
     paddingHorizontal: 24,
     paddingBottom: 8,
-    gap: 14,
+    gap: 12,
   },
   header: {
     gap: 6,
@@ -217,39 +249,45 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: radii.chip,
-    padding: 16,
-    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 6,
   },
   itemList: {
-    gap: 8,
+    gap: 2,
+    alignSelf: 'stretch',
   },
   itemPress: {
-    borderRadius: 8,
+    alignSelf: 'stretch',
+    width: '100%',
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  itemPressed: {
+  pressed: {
     opacity: 0.88,
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
+    width: '100%',
   },
   bullet: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
     width: 12,
   },
   itemContent: {
     flex: 1,
     minWidth: 0,
     fontFamily: fonts.nexonMedium,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
   },
   bodyText: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
   },
 });
