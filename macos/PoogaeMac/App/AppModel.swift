@@ -173,6 +173,22 @@ final class AppModel: ObservableObject {
     }
   }
 
+  /// Drag-reorder: move `draggedId` to sit before `beforeId` (or to end when nil).
+  func moveSubject(draggedId: String, beforeId: String?) {
+    var ids = subjects.map(\.id)
+    guard let from = ids.firstIndex(of: draggedId) else { return }
+    ids.remove(at: from)
+    if let beforeId, let to = ids.firstIndex(of: beforeId) {
+      ids.insert(draggedId, at: to)
+    } else {
+      ids.append(draggedId)
+    }
+    guard let next = AppMutations.reorderSubjects(kvs.data, orderedIds: ids) else { return }
+    withAnimation(PoogaeMotion.settle) {
+      kvs.applyLocal(next)
+    }
+  }
+
   func toggleReview(_ card: HomeReviewCard) {
     var next = kvs.data
     let now = ISO8601DateFormatter.fractional.string(from: Date())

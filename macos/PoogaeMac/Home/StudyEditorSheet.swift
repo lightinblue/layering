@@ -58,8 +58,20 @@ struct StudyEditorSheet: View {
             ForEach(model.subjects) { subject in
               subjectChip(subject)
             }
+            // Drop at end
+            Color.clear
+              .frame(width: 12, height: 28)
+              .dropDestination(for: String.self) { items, _ in
+                guard let id = items.first else { return false }
+                model.moveSubject(draggedId: id, beforeId: nil)
+                return true
+              }
           }
+          .animation(PoogaeMotion.settle, value: model.subjects.map(\.id))
         }
+        Text("드래그해서 순서 변경")
+          .font(.system(size: 10, weight: .regular))
+          .foregroundStyle(PoogaeTheme.muted(colorScheme))
       }
 
       VStack(alignment: .leading, spacing: 8) {
@@ -164,27 +176,42 @@ struct StudyEditorSheet: View {
   private func subjectChip(_ subject: SubjectChip) -> some View {
     let selected = subject.id == selectedSubjectId
     let fill = Color(hexString: subject.color ?? "", fallback: PoogaeTheme.brand)
-    return Button {
-      withAnimation(PoogaeMotion.quick) {
-        selectedSubjectId = subject.id
+    return Text(subject.name)
+      .font(.system(size: 13, weight: .semibold))
+      .foregroundStyle(selected ? .white : PoogaeTheme.ink(colorScheme))
+      .padding(.horizontal, 12)
+      .padding(.vertical, 8)
+      .background(selected ? fill : PoogaeTheme.surface(colorScheme))
+      .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+      .overlay(
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+          .strokeBorder(selected ? Color.clear : fill.opacity(0.35), lineWidth: 1)
+      )
+      .contentShape(Rectangle())
+      .onTapGesture {
+        withAnimation(PoogaeMotion.quick) {
+          selectedSubjectId = subject.id
+        }
       }
-    } label: {
-      Text(subject.name)
-        .font(.system(size: 13, weight: .semibold))
-        .foregroundStyle(selected ? .white : PoogaeTheme.ink(colorScheme))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(selected ? fill : PoogaeTheme.surface(colorScheme))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(
-          RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .strokeBorder(selected ? Color.clear : fill.opacity(0.35), lineWidth: 1)
-        )
-    }
-    .buttonStyle(.plain)
-    .contextMenu {
-      Button("수정") { model.openEditSubject(subject) }
-      Button("삭제", role: .destructive) { model.deleteSubject(id: subject.id) }
-    }
+      .draggable(subject.id) {
+        Text(subject.name)
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(.white)
+          .padding(.horizontal, 12)
+          .padding(.vertical, 8)
+          .background(fill)
+          .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+          .opacity(0.92)
+      }
+      .dropDestination(for: String.self) { items, _ in
+        guard let id = items.first, id != subject.id else { return false }
+        model.moveSubject(draggedId: id, beforeId: subject.id)
+        return true
+      }
+      .contextMenu {
+        Button("수정") { model.openEditSubject(subject) }
+        Button("삭제", role: .destructive) { model.deleteSubject(id: subject.id) }
+      }
+      .help("드래그해서 순서 변경 · 클릭해서 선택")
   }
 }
