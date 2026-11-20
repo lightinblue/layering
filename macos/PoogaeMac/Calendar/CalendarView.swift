@@ -42,7 +42,7 @@ struct CalendarView: View {
             .foregroundStyle(PoogaeTheme.muted(colorScheme))
             .frame(maxWidth: .infinity)
         }
-        ForEach(daysInMonth, id: \.self) { day in
+        ForEach(Array(daysInMonth.enumerated()), id: \.offset) { _, day in
           dayCell(day)
         }
       }
@@ -59,6 +59,11 @@ struct CalendarView: View {
             dismiss()
           }
         }
+      }
+    }
+    .onAppear {
+      if let selected = DateKeys.parse(model.selectedDateKey) {
+        monthAnchor = selected
       }
     }
   }
@@ -96,6 +101,7 @@ struct CalendarView: View {
       let key = DateKeys.toKey(date)
       let selected = key == model.selectedDateKey
       let isToday = key == model.todayKey
+      let hasStudy = model.studyDateKeys.contains(key)
       Button {
         withAnimation(PoogaeMotion.quick) {
           model.selectedDateKey = key
@@ -104,20 +110,25 @@ struct CalendarView: View {
           dismiss()
         }
       } label: {
-        Text("\(Calendar.current.component(.day, from: date))")
-          .font(.system(size: 14, weight: selected ? .bold : .medium))
-          .foregroundStyle(isToday ? PoogaeTheme.brand : PoogaeTheme.ink(colorScheme))
-          .frame(maxWidth: .infinity, minHeight: 36)
-          .background(
-            selected
-              ? PoogaeTheme.primarySoft(colorScheme)
-              : Color.clear
-          )
-          .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        VStack(spacing: 4) {
+          Text("\(Calendar.current.component(.day, from: date))")
+            .font(.system(size: 14, weight: selected ? .bold : .medium))
+            .foregroundStyle(isToday ? PoogaeTheme.brand : PoogaeTheme.ink(colorScheme))
+          Circle()
+            .fill(hasStudy ? PoogaeTheme.brand : Color.clear)
+            .frame(width: 5, height: 5)
+        }
+        .frame(maxWidth: .infinity, minHeight: 40)
+        .background(
+          selected
+            ? PoogaeTheme.primarySoft(colorScheme)
+            : Color.clear
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
       }
       .buttonStyle(.plain)
     } else {
-      Color.clear.frame(minHeight: 36)
+      Color.clear.frame(minHeight: 40)
     }
   }
 

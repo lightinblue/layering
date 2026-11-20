@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Menu bar stub: today-check list + open main window.
+/// Menu bar: today-review check list + open main window.
 struct MenuBarPopover: View {
   @ObservedObject var model: AppModel
   @Environment(\.colorScheme) private var colorScheme
@@ -16,6 +16,9 @@ struct MenuBarPopover: View {
           .font(.system(size: 13, weight: .semibold))
           .foregroundStyle(PoogaeTheme.section(colorScheme))
         Spacer()
+        Text(remainingLabel)
+          .font(.system(size: 11, weight: .medium))
+          .foregroundStyle(PoogaeTheme.muted(colorScheme))
       }
 
       if model.todayReviews.isEmpty {
@@ -24,6 +27,7 @@ struct MenuBarPopover: View {
           .foregroundStyle(PoogaeTheme.muted(colorScheme))
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.vertical, 8)
+          .transition(.opacity)
       } else {
         ForEach(model.todayReviews) { card in
           Button {
@@ -36,7 +40,7 @@ struct MenuBarPopover: View {
                 Text("\(card.intervalDays)일 전")
                   .font(.system(size: 12, weight: .semibold))
                   .foregroundStyle(PoogaeTheme.ink(colorScheme))
-                Text(card.subjectNames.joined(separator: " · "))
+                Text(card.subjectNames.joined(separator: ", "))
                   .font(.system(size: 11, weight: .regular))
                   .foregroundStyle(PoogaeTheme.muted(colorScheme))
                   .lineLimit(1)
@@ -46,6 +50,7 @@ struct MenuBarPopover: View {
             .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
+          .animation(PoogaeMotion.settle, value: card.completed)
         }
       }
 
@@ -68,5 +73,13 @@ struct MenuBarPopover: View {
     .padding(14)
     .frame(width: 280)
     .background(PoogaeTheme.canvas(colorScheme))
+    .animation(PoogaeMotion.settle, value: model.todayReviews.map(\.id))
+  }
+
+  private var remainingLabel: String {
+    let remaining = model.todayReviews.filter { !$0.completed }.count
+    let total = model.todayReviews.count
+    guard total > 0 else { return "" }
+    return "\(remaining)/\(total)"
   }
 }

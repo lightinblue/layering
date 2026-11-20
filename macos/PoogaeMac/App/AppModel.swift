@@ -1,14 +1,19 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
 final class AppModel: ObservableObject {
   @Published var path = NavigationPath()
   @Published var selectedDateKey: String = DateKeys.todayKey()
+  @Published var isPresentingAddStudy = false
 
   let kvs = ICloudKvsStore()
+  private var cancellables = Set<AnyCancellable>()
 
   var todayKey: String { DateKeys.todayKey() }
+
+  var isViewingToday: Bool { selectedDateKey == todayKey }
 
   var studies: [HomeStudyRow] {
     TodayHomeData.studies(for: selectedDateKey, data: kvs.data)
@@ -22,6 +27,27 @@ final class AppModel: ObservableObject {
     TodayHomeData.reviews(for: todayKey, data: kvs.data)
   }
 
+  var subjects: [SubjectChip] {
+    ICloudMerge.activeSubjects(kvs.data.subjects)
+  }
+
+  var canAddStudy: Bool {
+    AppMutations.countStudies(on: selectedDateKey, in: kvs.data) < AppMutations.maxStudiesPerDay
+  }
+
+  var studyDateKeys: Set<String> {
+    AppMutations.dateKeysWithStudies(kvs.data)
+  }
+
+  init() {
+    kvs.objectWillChange
+      .receive(on: RunLoop.main)
+      .sink { [weak self] _ in
+        self?.objectWillChange.send()
+      }
+      .store(in: &cancellables)
+  }
+
   func bootstrap() async {
     await kvs.bootstrap()
     selectedDateKey = todayKey
@@ -33,6 +59,13 @@ final class AppModel: ObservableObject {
     }
   }
 
+  func openAddStudy() {
+    guard canAddStudy else { return }
+    withAnimation(PoogaeMotion.quick) {
+      isPresentingAddStudy = true
+    }
+  }
+
   func focusMainWindow() {
     NSApp.activate(ignoringOtherApps: true)
     if let window = NSApp.windows.first(where: {
@@ -40,12 +73,25 @@ final class AppModel: ObservableObject {
     }) {
       window.makeKeyAndOrderFront(nil)
     } else {
-      // Fallback: bring any app window forward.
       NSApp.windows.first?.makeKeyAndOrderFront(nil)
     }
   }
 
-  /// Toggle review checks locally (milestone 1 — cloud write comes later).
+  func addStudy(subjectId: String, content: String, memo: String?) {
+    guard let next = AppMutations.appendStudy(
+      kvs.data,
+      subjectId: subjectId,
+      content: content,
+      memo: memo,
+      studiedOn: selectedDateKey
+    ) else { return }
+
+    withAnimation(PoogaeMotion.settle) {
+      kvs.applyLocal(next)
+      isPresentingAddStudy = false
+    }
+  }
+
   func toggleReview(_ card: HomeReviewCard) {
     var next = kvs.data
     let now = ISO8601DateFormatter.fractional.string(from: Date())
@@ -66,12 +112,4 @@ final class AppModel: ObservableObject {
 
 enum MacRoute: Hashable {
   case calendar
-}
-
-private extension ISO8601DateFormatter {
-  static let fractional: ISO8601DateFormatter = {
-    let f = ISO8601DateFormatter()
-    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return f
-  }()
 }

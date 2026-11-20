@@ -167,11 +167,3 @@ enum ICloudMerge {
     records.filter { !($0.deleted ?? false) }
   }
 }
-
-private extension ISO8601DateFormatter {
-  static let fractional: ISO8601DateFormatter = {
-    let f = ISO8601DateFormatter()
-    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return f
-  }()
-}

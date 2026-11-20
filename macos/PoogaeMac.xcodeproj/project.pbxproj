@@ -1,47 +1,57 @@
 // !$*UTF8*$!
 {
 	archiveVersion = 1;
-	classes = {};
+	classes = {
+	};
 	objectVersion = 56;
 	objects = {
 
-		74DAB81B962D4D188D200AF7 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
-		F0FA2955A2394F5790EDB40C /* MainWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindow.swift; sourceTree = "<group>"; };
+/* Begin PBXBuildFile section */
+		150F1E4C12B34EC5AE652CBD /* PoogaeTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66423DEE2EE34AE8B9E739B8 /* PoogaeTheme.swift */; };
+		2684421EEDE04EC09FF123B0 /* TodayHomeData.swift in Sources */ = {isa = PBXBuildFile; fileRef = E112D4F280A74AA2AC60E5EC /* TodayHomeData.swift */; };
+		2ECD3DF1FF5342ECAA5D1BD4 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C717F1136A2E41819E2E8384 /* HomeView.swift */; };
+		6B4D2FFAFD4B4226A9D7D907 /* StudyRecordRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1B419FF67F46378450CD39 /* StudyRecordRow.swift */; };
+		9001246205A547F48ED22F32 /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534CAAB67022438C8065B933 /* CalendarView.swift */; };
+		A4E17361D839461F868AB3EE /* ICloudKvsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDBC26445454C74B5C8FEDA /* ICloudKvsStore.swift */; };
+		AD03A3060817412C8FE27726 /* PoogaeMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 606A0F6F5BDC405C80DB06F6 /* PoogaeMacApp.swift */; };
+		B2B71023C55D429E821D0954 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD7A572BB1464B5C851791CF /* Motion.swift */; };
+		B460BD050D4D42E7A6C0D504 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74DAB81B962D4D188D200AF7 /* AppModel.swift */; };
+		C2FED1748B6443DB9396AB00 /* DomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8998282D38194D6EAC7C6479 /* DomainModels.swift */; };
+		D625139DBD874DDFA1494577 /* Merge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91EFFD1367A49648246BAC5 /* Merge.swift */; };
+		D7F597AD95B646B8B4A96CCF /* MenuBarPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32EFBAB730E4442EAB70873D /* MenuBarPopover.swift */; };
+		D87A0D26AEB04CA5A7CEFA4C /* MainWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0FA2955A2394F5790EDB40C /* MainWindow.swift */; };
+		DFF0CC738D8143D1AEBC434B /* DateKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E89BCDB6EC4A5CB01E4D63 /* DateKeys.swift */; };
+		F1C2B43F4B1E45A4B977DB5F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CBFE870AF60E4F569E08C2CD /* Assets.xcassets */; };
+		F9B2B20C404F45B99A5A86AA /* ReviewCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C58BA9505D740C985CDBC78 /* ReviewCardView.swift */; };
+		8D3F02B15C205B7CAE4F9032 /* AddStudySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C2E91A04B1F4A6B9D3E8F21 /* AddStudySheet.swift */; };
+		AF5124D37E427D9EC061B254 /* AppMutations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4013C26D316C8DBF50A143 /* AppMutations.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		07330D578A1A48599BD91871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		32EFBAB730E4442EAB70873D /* MenuBarPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPopover.swift; sourceTree = "<group>"; };
 		534CAAB67022438C8065B933 /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
-		C717F1136A2E41819E2E8384 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		5C58BA9505D740C985CDBC78 /* ReviewCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewCardView.swift; sourceTree = "<group>"; };
-		FA1B419FF67F46378450CD39 /* StudyRecordRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyRecordRow.swift; sourceTree = "<group>"; };
 		606A0F6F5BDC405C80DB06F6 /* PoogaeMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoogaeMacApp.swift; sourceTree = "<group>"; };
-		D0E89BCDB6EC4A5CB01E4D63 /* DateKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateKeys.swift; sourceTree = "<group>"; };
-		8998282D38194D6EAC7C6479 /* DomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainModels.swift; sourceTree = "<group>"; };
-		BCDBC26445454C74B5C8FEDA /* ICloudKvsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudKvsStore.swift; sourceTree = "<group>"; };
-		A91EFFD1367A49648246BAC5 /* Merge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Merge.swift; sourceTree = "<group>"; };
-		E112D4F280A74AA2AC60E5EC /* TodayHomeData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayHomeData.swift; sourceTree = "<group>"; };
-		CD7A572BB1464B5C851791CF /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
 		66423DEE2EE34AE8B9E739B8 /* PoogaeTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoogaeTheme.swift; sourceTree = "<group>"; };
-		CBFE870AF60E4F569E08C2CD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		F5F76ACFA21641B6BC426070 /* PoogaeMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PoogaeMac.entitlements; sourceTree = "<group>"; };
-		07330D578A1A48599BD91871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		6894CAAC7A38483986751C83 /* PoogaeMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PoogaeMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		74DAB81B962D4D188D200AF7 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		8998282D38194D6EAC7C6479 /* DomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainModels.swift; sourceTree = "<group>"; };
+		A91EFFD1367A49648246BAC5 /* Merge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Merge.swift; sourceTree = "<group>"; };
+		BCDBC26445454C74B5C8FEDA /* ICloudKvsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudKvsStore.swift; sourceTree = "<group>"; };
+		C717F1136A2E41819E2E8384 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		CBFE870AF60E4F569E08C2CD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CD7A572BB1464B5C851791CF /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
+		D0E89BCDB6EC4A5CB01E4D63 /* DateKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateKeys.swift; sourceTree = "<group>"; };
+		E112D4F280A74AA2AC60E5EC /* TodayHomeData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayHomeData.swift; sourceTree = "<group>"; };
+		F0FA2955A2394F5790EDB40C /* MainWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindow.swift; sourceTree = "<group>"; };
+		F5F76ACFA21641B6BC426070 /* PoogaeMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PoogaeMac.entitlements; sourceTree = "<group>"; };
+		FA1B419FF67F46378450CD39 /* StudyRecordRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyRecordRow.swift; sourceTree = "<group>"; };
+		7C2E91A04B1F4A6B9D3E8F21 /* AddStudySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddStudySheet.swift; sourceTree = "<group>"; };
+		9E4013C26D316C8DBF50A143 /* AppMutations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMutations.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
 
-		B460BD050D4D42E7A6C0D504 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74DAB81B962D4D188D200AF7 /* AppModel.swift */; };
-		D87A0D26AEB04CA5A7CEFA4C /* MainWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0FA2955A2394F5790EDB40C /* MainWindow.swift */; };
-		D7F597AD95B646B8B4A96CCF /* MenuBarPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32EFBAB730E4442EAB70873D /* MenuBarPopover.swift */; };
-		9001246205A547F48ED22F32 /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534CAAB67022438C8065B933 /* CalendarView.swift */; };
-		2ECD3DF1FF5342ECAA5D1BD4 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C717F1136A2E41819E2E8384 /* HomeView.swift */; };
-		F9B2B20C404F45B99A5A86AA /* ReviewCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C58BA9505D740C985CDBC78 /* ReviewCardView.swift */; };
-		6B4D2FFAFD4B4226A9D7D907 /* StudyRecordRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1B419FF67F46378450CD39 /* StudyRecordRow.swift */; };
-		AD03A3060817412C8FE27726 /* PoogaeMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 606A0F6F5BDC405C80DB06F6 /* PoogaeMacApp.swift */; };
-		DFF0CC738D8143D1AEBC434B /* DateKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E89BCDB6EC4A5CB01E4D63 /* DateKeys.swift */; };
-		C2FED1748B6443DB9396AB00 /* DomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8998282D38194D6EAC7C6479 /* DomainModels.swift */; };
-		A4E17361D839461F868AB3EE /* ICloudKvsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDBC26445454C74B5C8FEDA /* ICloudKvsStore.swift */; };
-		D625139DBD874DDFA1494577 /* Merge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91EFFD1367A49648246BAC5 /* Merge.swift */; };
-		2684421EEDE04EC09FF123B0 /* TodayHomeData.swift in Sources */ = {isa = PBXBuildFile; fileRef = E112D4F280A74AA2AC60E5EC /* TodayHomeData.swift */; };
-		B2B71023C55D429E821D0954 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD7A572BB1464B5C851791CF /* Motion.swift */; };
-		150F1E4C12B34EC5AE652CBD /* PoogaeTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66423DEE2EE34AE8B9E739B8 /* PoogaeTheme.swift */; };
-		F1C2B43F4B1E45A4B977DB5F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CBFE870AF60E4F569E08C2CD /* Assets.xcassets */; };
-
+/* Begin PBXFrameworksBuildPhase section */
 		E06D18ADEE0046ADAC0D4956 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -49,93 +59,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		179828B0F6D24CE8AF0F2781 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				B460BD050D4D42E7A6C0D504 /* AppModel.swift in Sources */,
-				D87A0D26AEB04CA5A7CEFA4C /* MainWindow.swift in Sources */,
-				D7F597AD95B646B8B4A96CCF /* MenuBarPopover.swift in Sources */,
-				9001246205A547F48ED22F32 /* CalendarView.swift in Sources */,
-				2ECD3DF1FF5342ECAA5D1BD4 /* HomeView.swift in Sources */,
-				F9B2B20C404F45B99A5A86AA /* ReviewCardView.swift in Sources */,
-				6B4D2FFAFD4B4226A9D7D907 /* StudyRecordRow.swift in Sources */,
-				AD03A3060817412C8FE27726 /* PoogaeMacApp.swift in Sources */,
-				DFF0CC738D8143D1AEBC434B /* DateKeys.swift in Sources */,
-				C2FED1748B6443DB9396AB00 /* DomainModels.swift in Sources */,
-				A4E17361D839461F868AB3EE /* ICloudKvsStore.swift in Sources */,
-				D625139DBD874DDFA1494577 /* Merge.swift in Sources */,
-				2684421EEDE04EC09FF123B0 /* TodayHomeData.swift in Sources */,
-				B2B71023C55D429E821D0954 /* Motion.swift in Sources */,
-				150F1E4C12B34EC5AE652CBD /* PoogaeTheme.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		9401A11A257843DDBB4F0C54 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F1C2B43F4B1E45A4B977DB5F /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		67711566769C4FACA80AAC00 /* App */ = {
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		03A6F36884CA4BEFBE12B77B = {
 			isa = PBXGroup;
 			children = (
-				74DAB81B962D4D188D200AF7 /* AppModel.swift */,
-				F0FA2955A2394F5790EDB40C /* MainWindow.swift */,
-				32EFBAB730E4442EAB70873D /* MenuBarPopover.swift */,
+				0722FBF4F7A742CF99B7CEBE /* PoogaeMac */,
+				BD0919B9D75C4484A6E169EF /* Products */,
 			);
-			path = App;
-			sourceTree = "<group>";
-		};
-		8F805906BE9F4C2FACAD4D42 /* Home */ = {
-			isa = PBXGroup;
-			children = (
-				C717F1136A2E41819E2E8384 /* HomeView.swift */,
-				5C58BA9505D740C985CDBC78 /* ReviewCardView.swift */,
-				FA1B419FF67F46378450CD39 /* StudyRecordRow.swift */,
-			);
-			path = Home;
-			sourceTree = "<group>";
-		};
-		FEA358F138A84F88BA09CAB0 /* Calendar */ = {
-			isa = PBXGroup;
-			children = (
-				534CAAB67022438C8065B933 /* CalendarView.swift */,
-			);
-			path = Calendar;
-			sourceTree = "<group>";
-		};
-		572D7C0245A24BAA99B7A6C6 /* Theme */ = {
-			isa = PBXGroup;
-			children = (
-				CD7A572BB1464B5C851791CF /* Motion.swift */,
-				66423DEE2EE34AE8B9E739B8 /* PoogaeTheme.swift */,
-			);
-			path = Theme;
-			sourceTree = "<group>";
-		};
-		40422EBC8FBD48B1828A0660 /* Sync */ = {
-			isa = PBXGroup;
-			children = (
-				D0E89BCDB6EC4A5CB01E4D63 /* DateKeys.swift */,
-				8998282D38194D6EAC7C6479 /* DomainModels.swift */,
-				BCDBC26445454C74B5C8FEDA /* ICloudKvsStore.swift */,
-				A91EFFD1367A49648246BAC5 /* Merge.swift */,
-				E112D4F280A74AA2AC60E5EC /* TodayHomeData.swift */,
-			);
-			path = Sync;
-			sourceTree = "<group>";
-		};
-		6B3FD7E13FD8466A92A3034F /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				CBFE870AF60E4F569E08C2CD /* Assets.xcassets */,
-				F5F76ACFA21641B6BC426070 /* PoogaeMac.entitlements */,
-				07330D578A1A48599BD91871 /* Info.plist */,
-			);
-			path = Resources;
 			sourceTree = "<group>";
 		};
 		0722FBF4F7A742CF99B7CEBE /* PoogaeMac */ = {
@@ -152,6 +84,59 @@
 			path = PoogaeMac;
 			sourceTree = "<group>";
 		};
+		40422EBC8FBD48B1828A0660 /* Sync */ = {
+			isa = PBXGroup;
+			children = (
+				D0E89BCDB6EC4A5CB01E4D63 /* DateKeys.swift */,
+				8998282D38194D6EAC7C6479 /* DomainModels.swift */,
+				9E4013C26D316C8DBF50A143 /* AppMutations.swift */,
+				BCDBC26445454C74B5C8FEDA /* ICloudKvsStore.swift */,
+				A91EFFD1367A49648246BAC5 /* Merge.swift */,
+				E112D4F280A74AA2AC60E5EC /* TodayHomeData.swift */,
+			);
+			path = Sync;
+			sourceTree = "<group>";
+		};
+		572D7C0245A24BAA99B7A6C6 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				CD7A572BB1464B5C851791CF /* Motion.swift */,
+				66423DEE2EE34AE8B9E739B8 /* PoogaeTheme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		67711566769C4FACA80AAC00 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				74DAB81B962D4D188D200AF7 /* AppModel.swift */,
+				F0FA2955A2394F5790EDB40C /* MainWindow.swift */,
+				32EFBAB730E4442EAB70873D /* MenuBarPopover.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		6B3FD7E13FD8466A92A3034F /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				CBFE870AF60E4F569E08C2CD /* Assets.xcassets */,
+				F5F76ACFA21641B6BC426070 /* PoogaeMac.entitlements */,
+				07330D578A1A48599BD91871 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		8F805906BE9F4C2FACAD4D42 /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				C717F1136A2E41819E2E8384 /* HomeView.swift */,
+				7C2E91A04B1F4A6B9D3E8F21 /* AddStudySheet.swift */,
+				5C58BA9505D740C985CDBC78 /* ReviewCardView.swift */,
+				FA1B419FF67F46378450CD39 /* StudyRecordRow.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
 		BD0919B9D75C4484A6E169EF /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -160,14 +145,17 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		03A6F36884CA4BEFBE12B77B = {
+		FEA358F138A84F88BA09CAB0 /* Calendar */ = {
 			isa = PBXGroup;
 			children = (
-				0722FBF4F7A742CF99B7CEBE /* PoogaeMac */,
-				BD0919B9D75C4484A6E169EF /* Products */,
+				534CAAB67022438C8065B933 /* CalendarView.swift */,
 			);
+			path = Calendar;
 			sourceTree = "<group>";
 		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
 		26DA4D8DE74C42A5BB53D20B /* PoogaeMac */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 73801DA1794F4843992F3983 /* Build configuration list for PBXNativeTarget "PoogaeMac" */;
@@ -185,6 +173,9 @@
 			productReference = 6894CAAC7A38483986751C83 /* PoogaeMac.app */;
 			productType = "com.apple.product-type.application";
 		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
 		1E8909B0B4F444C7B22918BE /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
@@ -194,7 +185,6 @@
 				TargetAttributes = {
 					26DA4D8DE74C42A5BB53D20B = {
 						CreatedOnToolsVersion = 16.0;
-						DevelopmentTeam = R39JVZ3ZNL;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -216,36 +206,47 @@
 				26DA4D8DE74C42A5BB53D20B /* PoogaeMac */,
 			);
 		};
-		3B637E878D75486FA28E6685 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				ONLY_ACTIVE_ARCH = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				SDKROOT = macosx;
-			};
-			name = Debug;
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9401A11A257843DDBB4F0C54 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F1C2B43F4B1E45A4B977DB5F /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
-		6D8084C4AFED4A32ACA06E55 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				SWIFT_COMPILATION_MODE = wholemodule;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				SDKROOT = macosx;
-			};
-			name = Release;
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		179828B0F6D24CE8AF0F2781 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B460BD050D4D42E7A6C0D504 /* AppModel.swift in Sources */,
+				D87A0D26AEB04CA5A7CEFA4C /* MainWindow.swift in Sources */,
+				D7F597AD95B646B8B4A96CCF /* MenuBarPopover.swift in Sources */,
+				9001246205A547F48ED22F32 /* CalendarView.swift in Sources */,
+				2ECD3DF1FF5342ECAA5D1BD4 /* HomeView.swift in Sources */,
+				F9B2B20C404F45B99A5A86AA /* ReviewCardView.swift in Sources */,
+				6B4D2FFAFD4B4226A9D7D907 /* StudyRecordRow.swift in Sources */,
+				AD03A3060817412C8FE27726 /* PoogaeMacApp.swift in Sources */,
+				DFF0CC738D8143D1AEBC434B /* DateKeys.swift in Sources */,
+				C2FED1748B6443DB9396AB00 /* DomainModels.swift in Sources */,
+				A4E17361D839461F868AB3EE /* ICloudKvsStore.swift in Sources */,
+				D625139DBD874DDFA1494577 /* Merge.swift in Sources */,
+				AF5124D37E427D9EC061B254 /* AppMutations.swift in Sources */,
+				2684421EEDE04EC09FF123B0 /* TodayHomeData.swift in Sources */,
+				B2B71023C55D429E821D0954 /* Motion.swift in Sources */,
+				150F1E4C12B34EC5AE652CBD /* PoogaeTheme.swift in Sources */,
+				8D3F02B15C205B7CAE4F9032 /* AddStudySheet.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
 		227F531FF66A40B59BD454CA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -271,6 +272,36 @@
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
+		};
+		3B637E878D75486FA28E6685 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		6D8084C4AFED4A32ACA06E55 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
 		};
 		8D12674EEA86469A88727A1F /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -298,6 +329,9 @@
 			};
 			name = Release;
 		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
 		5433500B68B6481CA6B7176A /* Build configuration list for PBXProject "PoogaeMac" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -316,6 +350,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+/* End XCConfigurationList section */
 	};
 	rootObject = 1E8909B0B4F444C7B22918BE /* Project object */;
 }

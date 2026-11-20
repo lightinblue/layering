@@ -31,13 +31,15 @@ xcodebuild -project macos/PoogaeMac.xcodeproj -scheme PoogaeMac -configuration D
 
 A free **Personal Team** can also clear the two signing errors for My Mac-only debug, but its Team ID ≠ `R39JVZ3ZNL`, so iCloud KVS will **not** share data with the iOS app. Prefer the paid team above for real sync testing.
 
-## Milestone 1 contents
+## Usable now (phase 2–3 slice)
 
-- Menu bar extra → today-review checklist popover + “창 열기”
+- Menu bar → today-review checklist (toggle) + “창 열기”
 - Main window (≈720×480, min 640×420): landscape **LEFT 공부 기록 | RIGHT 복습**
-- Calendar as NavigationStack destination (not always on home)
-- Theme tokens (#1991ff) + light motion
-- KVS read: `subjects` + `rec/YYYY-MM` → merge helpers → home lists (write/push later)
+- **추가** sheet: subject chip + title + optional memo (max 3/day)
+- Calendar as NavigationStack depth with study dots (not always on home)
+- Theme tokens (#1991ff) + settle motion; system dark
+- KVS read + write (`subjects` / `rec/YYYY-MM`) with local UserDefaults mirror when iCloud is off
+- No dedicated sync UI (short KVS status line in menu bar only)
 
 ## Layout
 

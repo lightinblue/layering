@@ -1,6 +1,7 @@
 import Foundation
 
 /// Thin wrapper around `NSUbiquitousKeyValueStore` — same keys as iOS Expo module.
+/// Local UserDefaults mirror keeps Mac usable when iCloud is off; push when available.
 @MainActor
 final class ICloudKvsStore: ObservableObject {
   @Published private(set) var data: AppData = .empty
@@ -11,10 +12,15 @@ final class ICloudKvsStore: ObservableObject {
   private let store = NSUbiquitousKeyValueStore.default
   private var observer: NSObjectProtocol?
   private let deviceId: String
+  private let localCacheKey = "poogae.mac.app-data-v1"
+  private var applyingRemote = false
 
   init(deviceId: String = DeviceIdentity.loadOrCreate()) {
     self.deviceId = deviceId
     iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
+    if let cached = loadLocalCache() {
+      data = AppMutations.ensureSeedSubjects(cached)
+    }
     observer = NotificationCenter.default.addObserver(
       forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
       object: store,
@@ -36,6 +42,10 @@ final class ICloudKvsStore: ObservableObject {
     _ = store.synchronize()
     iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
     await refreshFromCloud()
+    if ICloudMerge.activeSubjects(data.subjects).isEmpty {
+      let seeded = AppMutations.ensureSeedSubjects(data)
+      applyLocal(seeded, push: iCloudAvailable)
+    }
   }
 
   func refreshFromCloud() async {
@@ -46,7 +56,9 @@ final class ICloudKvsStore: ObservableObject {
     var remoteRecords: [StudyRecord] = []
     var remoteDeviceId = subjectsPayload?.deviceId ?? ""
 
-    for ym in DateKeys.nearbyYearMonths() {
+    var months = Set(DateKeys.nearbyYearMonths())
+    months.formUnion(localYearMonths())
+    for ym in months.sorted() {
       if let month = readMonth(KVSKeys.monthKey(ym)) {
         remoteRecords.append(contentsOf: month.records)
         if remoteDeviceId.isEmpty {
@@ -55,6 +67,9 @@ final class ICloudKvsStore: ObservableObject {
       }
     }
 
+    applyingRemote = true
+    defer { applyingRemote = false }
+
     let merged = ICloudMerge.mergeAppData(
       local: data,
       remoteSubjects: subjectsPayload?.subjects ?? [],
@@ -62,7 +77,8 @@ final class ICloudKvsStore: ObservableObject {
       localDeviceId: deviceId,
       remoteDeviceId: remoteDeviceId
     )
-    data = merged
+    data = AppMutations.ensureSeedSubjects(merged)
+    persistLocalCache(data)
     lastReadAt = Date()
     if !iCloudAvailable {
       statusMessage = "iCloud 없음 — 로컬만"
@@ -71,6 +87,45 @@ final class ICloudKvsStore: ObservableObject {
     } else {
       statusMessage = "KVS 동기화됨"
     }
+  }
+
+  /// Apply mutation, cache locally, and push to KVS when available.
+  func applyLocal(_ next: AppData, push: Bool = true) {
+    data = next
+    persistLocalCache(next)
+    guard push, !applyingRemote else { return }
+    pushToCloud(next)
+  }
+
+  private func pushToCloud(_ next: AppData) {
+    iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
+    guard iCloudAvailable else {
+      statusMessage = "iCloud 없음 — 로컬만"
+      return
+    }
+
+    let encoder = JSONEncoder()
+    let subjectsPayload = SubjectsPayload(deviceId: deviceId, subjects: next.subjects)
+    guard let subjectsData = try? encoder.encode(subjectsPayload),
+          let subjectsJSON = String(data: subjectsData, encoding: .utf8)
+    else { return }
+    store.set(subjectsJSON, forKey: KVSKeys.subjects)
+
+    var byMonth: [String: [StudyRecord]] = [:]
+    for record in next.records {
+      let ym = KVSKeys.yearMonth(from: record.studiedOn)
+      byMonth[ym, default: []].append(record)
+    }
+    for (ym, records) in byMonth {
+      let payload = MonthPayload(deviceId: deviceId, records: records)
+      guard let monthData = try? encoder.encode(payload),
+            let monthJSON = String(data: monthData, encoding: .utf8)
+      else { continue }
+      store.set(monthJSON, forKey: KVSKeys.monthKey(ym))
+    }
+
+    _ = store.synchronize()
+    statusMessage = "KVS 동기화됨"
   }
 
   private func readSubjects() -> SubjectsPayload? {
@@ -87,10 +142,27 @@ final class ICloudKvsStore: ObservableObject {
     return try? JSONDecoder().decode(MonthPayload.self, from: data)
   }
 
-  /// Local-only mutation until KVS write/push lands in a later milestone.
-  func applyLocal(_ next: AppData) {
-    data = next
+  private func localYearMonths() -> Set<String> {
+    Set(data.records.map { KVSKeys.yearMonth(from: $0.studiedOn) })
   }
+
+  private func persistLocalCache(_ next: AppData) {
+    let payload = LocalAppDataCache(subjects: next.subjects, records: next.records)
+    guard let encoded = try? JSONEncoder().encode(payload) else { return }
+    UserDefaults.standard.set(encoded, forKey: localCacheKey)
+  }
+
+  private func loadLocalCache() -> AppData? {
+    guard let raw = UserDefaults.standard.data(forKey: localCacheKey),
+          let payload = try? JSONDecoder().decode(LocalAppDataCache.self, from: raw)
+    else { return nil }
+    return AppData(subjects: payload.subjects, records: payload.records)
+  }
+}
+
+private struct LocalAppDataCache: Codable {
+  var subjects: [SubjectChip]
+  var records: [StudyRecord]
 }
 
 enum DeviceIdentity {

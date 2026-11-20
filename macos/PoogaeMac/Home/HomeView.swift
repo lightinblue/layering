@@ -25,6 +25,10 @@ struct HomeView: View {
     .background(PoogaeTheme.canvas(colorScheme).ignoresSafeArea())
     .animation(PoogaeMotion.settle, value: model.studies.count)
     .animation(PoogaeMotion.settle, value: model.reviews.map(\.id))
+    .sheet(isPresented: $model.isPresentingAddStudy) {
+      AddStudySheet(model: model)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
+    }
   }
 
   private var header: some View {
@@ -34,7 +38,7 @@ struct HomeView: View {
           Circle()
             .fill(PoogaeTheme.brand)
             .frame(width: 10, height: 10)
-          Text("오늘")
+          Text(model.isViewingToday ? "오늘" : "선택한 날")
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(PoogaeTheme.section(colorScheme))
         }
@@ -62,9 +66,26 @@ struct HomeView: View {
 
   private var studySection: some View {
     VStack(alignment: .leading, spacing: 10) {
-      Text("공부 기록")
-        .font(.system(size: 15, weight: .semibold))
-        .foregroundStyle(PoogaeTheme.section(colorScheme))
+      HStack {
+        Text("공부 기록")
+          .font(.system(size: 15, weight: .semibold))
+          .foregroundStyle(PoogaeTheme.section(colorScheme))
+        Spacer(minLength: 0)
+        Button {
+          model.openAddStudy()
+        } label: {
+          Label("추가", systemImage: "plus")
+            .font(.system(size: 12, weight: .semibold))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .foregroundStyle(model.canAddStudy ? PoogaeTheme.brand : PoogaeTheme.muted(colorScheme))
+            .background(PoogaeTheme.surface(colorScheme))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!model.canAddStudy)
+        .help(model.canAddStudy ? "공부 기록 추가" : "하루 최대 3개")
+      }
 
       ScrollView(.vertical, showsIndicators: false) {
         if model.studies.isEmpty {
@@ -106,17 +127,29 @@ struct HomeView: View {
   }
 
   private var emptyStudy: some View {
-    Text("오늘 공부 기록이 없어요")
-      .font(.system(size: 14, weight: .medium))
-      .foregroundStyle(PoogaeTheme.muted(colorScheme))
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(14)
-      .background(PoogaeTheme.surface(colorScheme))
-      .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    VStack(alignment: .leading, spacing: 10) {
+      Text("공부 기록이 없어요")
+        .font(.system(size: 14, weight: .medium))
+        .foregroundStyle(PoogaeTheme.muted(colorScheme))
+      if model.canAddStudy {
+        Button {
+          model.openAddStudy()
+        } label: {
+          Text("첫 기록 추가")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(PoogaeTheme.brand)
+        }
+        .buttonStyle(.plain)
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(14)
+    .background(PoogaeTheme.surface(colorScheme))
+    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
   }
 
   private var emptyReview: some View {
-    Text("오늘 할 복습이 없어요")
+    Text("할 복습이 없어요")
       .font(.system(size: 14, weight: .medium))
       .foregroundStyle(PoogaeTheme.muted(colorScheme))
       .frame(maxWidth: .infinity, alignment: .leading)
