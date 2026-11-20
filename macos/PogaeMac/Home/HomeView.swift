@@ -13,15 +13,15 @@ struct HomeView: View {
         .padding(.top, 16)
         .padding(.bottom, 22)
 
+      // Equal flexible columns (~50/50 when wide); mins keep narrow windows usable.
       HStack(alignment: .top, spacing: 16) {
         studySection
           .frame(minWidth: 260, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
           .layoutPriority(1)
 
-        // Compress first when the window is narrow (chips/check still fit ~200pt).
         reviewSection
           .frame(minWidth: 200, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-          .layoutPriority(0)
+          .layoutPriority(1)
       }
       .padding(.horizontal, 20)
       .padding(.bottom, 16)
