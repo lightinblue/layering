@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Subject chip + title + optional memo — matches iOS add intent.
-struct AddStudySheet: View {
+/// Add or edit a study: subject chips + title + optional memo.
+struct StudyEditorSheet: View {
   @ObservedObject var model: AppModel
+  let presentation: StudyEditorPresentation
   @Environment(\.colorScheme) private var colorScheme
   @Environment(\.dismiss) private var dismiss
 
@@ -10,16 +11,20 @@ struct AddStudySheet: View {
   @State private var title: String = ""
   @State private var memo: String = ""
 
+  private var isEditing: Bool { presentation.editingStudyId != nil }
+
   private var canSave: Bool {
     guard selectedSubjectId != nil else { return false }
     let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-    return !trimmed.isEmpty && model.canAddStudy
+    if trimmed.isEmpty { return false }
+    if isEditing { return true }
+    return model.canAddStudy
   }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 18) {
       HStack {
-        Text("기록 추가")
+        Text(isEditing ? "기록 수정" : "기록 추가")
           .font(.system(size: 16, weight: .semibold))
           .foregroundStyle(PoogaeTheme.ink(colorScheme))
         Spacer()
@@ -31,9 +36,23 @@ struct AddStudySheet: View {
       }
 
       VStack(alignment: .leading, spacing: 8) {
-        Text("과목")
-          .font(.system(size: 12, weight: .semibold))
-          .foregroundStyle(PoogaeTheme.section(colorScheme))
+        HStack {
+          Text("과목")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(PoogaeTheme.section(colorScheme))
+          Spacer()
+          if model.canAddSubject {
+            Button {
+              model.openAddSubject()
+            } label: {
+              Label("과목 추가", systemImage: "plus")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(PoogaeTheme.brand)
+            }
+            .buttonStyle(.plain)
+          }
+        }
+
         ScrollView(.horizontal, showsIndicators: false) {
           HStack(spacing: 8) {
             ForEach(model.subjects) { subject in
@@ -80,28 +99,65 @@ struct AddStudySheet: View {
 
       Spacer(minLength: 0)
 
-      Button {
-        guard let subjectId = selectedSubjectId else { return }
-        model.addStudy(subjectId: subjectId, content: title, memo: memo)
-      } label: {
-        Text("저장")
-          .font(.system(size: 14, weight: .semibold))
-          .frame(maxWidth: .infinity)
-          .padding(.vertical, 11)
-          .foregroundStyle(.white)
-          .background(canSave ? PoogaeTheme.brand : PoogaeTheme.muted(colorScheme).opacity(0.45))
-          .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+      HStack(spacing: 10) {
+        if let studyId = presentation.editingStudyId {
+          Button(role: .destructive) {
+            model.deleteStudy(id: studyId)
+          } label: {
+            Text("삭제")
+              .font(.system(size: 14, weight: .semibold))
+              .frame(maxWidth: .infinity)
+              .padding(.vertical, 11)
+              .foregroundStyle(Color(hex: 0xE25555))
+              .background(PoogaeTheme.surface(colorScheme))
+              .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+          }
+          .buttonStyle(.plain)
+        }
+
+        Button {
+          guard let subjectId = selectedSubjectId else { return }
+          model.saveStudy(
+            subjectId: subjectId,
+            content: title,
+            memo: memo,
+            editingStudyId: presentation.editingStudyId
+          )
+        } label: {
+          Text("저장")
+            .font(.system(size: 14, weight: .semibold))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 11)
+            .foregroundStyle(.white)
+            .background(canSave ? PoogaeTheme.brand : PoogaeTheme.muted(colorScheme).opacity(0.45))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!canSave)
       }
-      .buttonStyle(.plain)
-      .disabled(!canSave)
     }
     .padding(22)
-    .frame(width: 420, height: 360)
+    .frame(width: 440, height: 380)
     .background(PoogaeTheme.canvas(colorScheme))
-    .onAppear {
-      if selectedSubjectId == nil {
-        selectedSubjectId = model.subjects.first?.id
+    .onAppear(perform: hydrate)
+    .onChange(of: model.subjects.map(\.id)) { _, ids in
+      if selectedSubjectId == nil || !(ids.contains(selectedSubjectId ?? "")) {
+        selectedSubjectId = ids.first
       }
+    }
+    .sheet(item: $model.subjectEditor) { subjectPresentation in
+      SubjectEditorSheet(model: model, presentation: subjectPresentation)
+        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+    }
+  }
+
+  private func hydrate() {
+    if let studyId = presentation.editingStudyId, let record = model.studyRecord(id: studyId) {
+      selectedSubjectId = record.subjectId
+      title = record.content
+      memo = record.memo ?? ""
+    } else if selectedSubjectId == nil {
+      selectedSubjectId = model.subjects.first?.id
     }
   }
 
@@ -126,5 +182,9 @@ struct AddStudySheet: View {
         )
     }
     .buttonStyle(.plain)
+    .contextMenu {
+      Button("수정") { model.openEditSubject(subject) }
+      Button("삭제", role: .destructive) { model.deleteSubject(id: subject.id) }
+    }
   }
 }

@@ -2,6 +2,7 @@ import Foundation
 
 struct HomeStudyRow: Identifiable, Hashable {
   var id: String
+  var subjectId: String
   var subjectName: String
   var subjectColor: String?
   var content: String
@@ -30,6 +31,7 @@ enum TodayHomeData {
       .map {
         HomeStudyRow(
           id: $0.id,
+          subjectId: $0.subjectId,
           subjectName: $0.subjectName,
           subjectColor: $0.subjectColor,
           content: $0.content,

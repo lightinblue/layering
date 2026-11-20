@@ -6,7 +6,8 @@ import SwiftUI
 final class AppModel: ObservableObject {
   @Published var path = NavigationPath()
   @Published var selectedDateKey: String = DateKeys.todayKey()
-  @Published var isPresentingAddStudy = false
+  @Published var studyEditor: StudyEditorPresentation?
+  @Published var subjectEditor: SubjectEditorPresentation?
 
   let kvs = ICloudKvsStore()
   private var cancellables = Set<AnyCancellable>()
@@ -33,6 +34,10 @@ final class AppModel: ObservableObject {
 
   var canAddStudy: Bool {
     AppMutations.countStudies(on: selectedDateKey, in: kvs.data) < AppMutations.maxStudiesPerDay
+  }
+
+  var canAddSubject: Bool {
+    subjects.count < AppMutations.maxSubjects
   }
 
   var studyDateKeys: Set<String> {
@@ -62,7 +67,26 @@ final class AppModel: ObservableObject {
   func openAddStudy() {
     guard canAddStudy else { return }
     withAnimation(PoogaeMotion.quick) {
-      isPresentingAddStudy = true
+      studyEditor = .add
+    }
+  }
+
+  func openEditStudy(_ row: HomeStudyRow) {
+    withAnimation(PoogaeMotion.quick) {
+      studyEditor = .edit(studyId: row.id)
+    }
+  }
+
+  func openAddSubject() {
+    guard canAddSubject else { return }
+    withAnimation(PoogaeMotion.quick) {
+      subjectEditor = .add
+    }
+  }
+
+  func openEditSubject(_ subject: SubjectChip) {
+    withAnimation(PoogaeMotion.quick) {
+      subjectEditor = .edit(subjectId: subject.id)
     }
   }
 
@@ -77,18 +101,75 @@ final class AppModel: ObservableObject {
     }
   }
 
-  func addStudy(subjectId: String, content: String, memo: String?) {
-    guard let next = AppMutations.appendStudy(
-      kvs.data,
-      subjectId: subjectId,
-      content: content,
-      memo: memo,
-      studiedOn: selectedDateKey
-    ) else { return }
-
+  func saveStudy(subjectId: String, content: String, memo: String?, editingStudyId: String?) {
+    let next: AppData?
+    if let editingStudyId {
+      next = AppMutations.updateStudy(
+        kvs.data,
+        studyId: editingStudyId,
+        subjectId: subjectId,
+        content: content,
+        memo: memo,
+        studiedOn: selectedDateKey
+      )
+    } else {
+      next = AppMutations.appendStudy(
+        kvs.data,
+        subjectId: subjectId,
+        content: content,
+        memo: memo,
+        studiedOn: selectedDateKey
+      )
+    }
+    guard let next else { return }
     withAnimation(PoogaeMotion.settle) {
       kvs.applyLocal(next)
-      isPresentingAddStudy = false
+      studyEditor = nil
+    }
+  }
+
+  func deleteStudy(id: String) {
+    guard let next = AppMutations.deleteStudy(kvs.data, studyId: id) else { return }
+    withAnimation(PoogaeMotion.settle) {
+      kvs.applyLocal(next)
+      if case .edit(let editingId) = studyEditor, editingId == id {
+        studyEditor = nil
+      }
+    }
+  }
+
+  @discardableResult
+  func saveSubject(name: String, color: String, editingSubjectId: String?) -> AppMutations.SubjectFailure? {
+    let result: Result<AppData, AppMutations.SubjectFailure>
+    if let editingSubjectId {
+      result = AppMutations.updateSubject(
+        kvs.data,
+        subjectId: editingSubjectId,
+        rawName: name,
+        color: color
+      )
+    } else {
+      result = AppMutations.addSubject(kvs.data, rawName: name, color: color)
+    }
+    switch result {
+    case .success(let next):
+      withAnimation(PoogaeMotion.settle) {
+        kvs.applyLocal(next)
+        subjectEditor = nil
+      }
+      return nil
+    case .failure(let reason):
+      return reason
+    }
+  }
+
+  func deleteSubject(id: String) {
+    guard case .success(let next) = AppMutations.removeSubject(kvs.data, subjectId: id) else { return }
+    withAnimation(PoogaeMotion.settle) {
+      kvs.applyLocal(next)
+      if case .edit(let editingId) = subjectEditor, editingId == id {
+        subjectEditor = nil
+      }
     }
   }
 
@@ -108,8 +189,50 @@ final class AppModel: ObservableObject {
       kvs.applyLocal(next)
     }
   }
+
+  func studyRecord(id: String) -> StudyRecord? {
+    ICloudMerge.activeRecords(kvs.data.records).first { $0.id == id }
+  }
+
+  func subject(id: String) -> SubjectChip? {
+    subjects.first { $0.id == id }
+  }
 }
 
 enum MacRoute: Hashable {
   case calendar
+}
+
+enum StudyEditorPresentation: Identifiable, Equatable {
+  case add
+  case edit(studyId: String)
+
+  var id: String {
+    switch self {
+    case .add: return "add"
+    case .edit(let studyId): return "edit-\(studyId)"
+    }
+  }
+
+  var editingStudyId: String? {
+    if case .edit(let studyId) = self { return studyId }
+    return nil
+  }
+}
+
+enum SubjectEditorPresentation: Identifiable, Equatable {
+  case add
+  case edit(subjectId: String)
+
+  var id: String {
+    switch self {
+    case .add: return "add"
+    case .edit(let subjectId): return "edit-\(subjectId)"
+    }
+  }
+
+  var editingSubjectId: String? {
+    if case .edit(let subjectId) = self { return subjectId }
+    return nil
+  }
 }

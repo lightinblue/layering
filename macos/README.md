@@ -35,7 +35,7 @@ A free **Personal Team** can also clear the two signing errors for My Mac-only d
 
 - Menu bar → today-review checklist (toggle) + “창 열기”
 - Main window (≈720×480, min 640×420): landscape **LEFT 공부 기록 | RIGHT 복습**
-- **추가** sheet: subject chip + title + optional memo (max 3/day)
+- **추가/수정** study sheet + subject add/edit/delete (chip context menu); study row click/context menu delete
 - Calendar as NavigationStack depth with study dots (not always on home)
 - Theme tokens (#1991ff) + settle motion; system dark
 - KVS read + write (`subjects` / `rec/YYYY-MM`) with local UserDefaults mirror when iCloud is off

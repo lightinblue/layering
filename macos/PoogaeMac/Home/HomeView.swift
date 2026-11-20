@@ -25,8 +25,8 @@ struct HomeView: View {
     .background(PoogaeTheme.canvas(colorScheme).ignoresSafeArea())
     .animation(PoogaeMotion.settle, value: model.studies.count)
     .animation(PoogaeMotion.settle, value: model.reviews.map(\.id))
-    .sheet(isPresented: $model.isPresentingAddStudy) {
-      AddStudySheet(model: model)
+    .sheet(item: $model.studyEditor) { presentation in
+      StudyEditorSheet(model: model, presentation: presentation)
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
   }
@@ -93,8 +93,12 @@ struct HomeView: View {
         } else {
           LazyVStack(alignment: .leading, spacing: 8) {
             ForEach(model.studies) { row in
-              StudyRecordRow(row: row)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+              StudyRecordRow(
+                row: row,
+                onEdit: { model.openEditStudy(row) },
+                onDelete: { model.deleteStudy(id: row.id) }
+              )
+              .transition(.opacity.combined(with: .move(edge: .top)))
             }
           }
         }
