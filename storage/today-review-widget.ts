@@ -15,25 +15,27 @@ export type { TodayReviewWidgetSnapshot } from '@/utils/today-review-widget-snap
 /**
  * App Group id for 포개 WidgetKit (entitlement in app.json; create the group
  * in Apple Developer before production / TestFlight builds that need it).
+ * Literal keeps historical `.poogae` suffix (Apple App Group id — do not rename).
  */
-export const POOGAE_WIDGET_APP_GROUP_ID = 'group.com.lightinblue.layering.poogae';
+export const POGAE_WIDGET_APP_GROUP_ID =
+  'group.com.lightinblue.layering.poogae';
 
 /** UserDefaults suite key WidgetKit should read. */
-export const POOGAE_WIDGET_SNAPSHOT_KEY = 'todayReviewWidget.v1';
+export const POGAE_WIDGET_SNAPSHOT_KEY = 'todayReviewWidget.v1';
 
 /**
  * Must match `TodayReviewWidget.kind` in
  * `targets/today-review/TodayReviewWidget.swift`.
  */
-export const POOGAE_WIDGET_KIND = 'TodayReviewWidget';
+export const POGAE_WIDGET_KIND = 'TodayReviewWidget';
 
-const appGroupStorage = new ExtensionStorage(POOGAE_WIDGET_APP_GROUP_ID);
+const appGroupStorage = new ExtensionStorage(POGAE_WIDGET_APP_GROUP_ID);
 
 /**
  * Write snapshot JSON into the App Group UserDefaults suite.
  *
  * Uses `@bacons/apple-targets` ExtensionStorage →
- * `UserDefaults(suiteName: POOGAE_WIDGET_APP_GROUP_ID)`.
+ * `UserDefaults(suiteName: POGAE_WIDGET_APP_GROUP_ID)`.
  * No-ops on non-iOS and when the native module is missing (Expo Go).
  *
  * WidgetKit target: `targets/today-review` (kind `TodayReviewWidget`).
@@ -47,12 +49,12 @@ async function writeTodayReviewWidgetSnapshotToAppGroup(
   if (Platform.OS !== 'ios') return;
   try {
     appGroupStorage.set(
-      POOGAE_WIDGET_SNAPSHOT_KEY,
+      POGAE_WIDGET_SNAPSHOT_KEY,
       JSON.stringify(snapshot),
     );
     // Reload all first — ofKind alone no-ops if the kind string ever drifts.
     ExtensionStorage.reloadWidget();
-    ExtensionStorage.reloadWidget(POOGAE_WIDGET_KIND);
+    ExtensionStorage.reloadWidget(POGAE_WIDGET_KIND);
   } catch {
     // Expo Go / missing native module / suite not provisioned — AsyncStorage
     // mirror remains the source of truth for the app process.
