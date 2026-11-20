@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 「복습 내용」 — subject / content / memo for studies on a review card (phone parity).
+/// 「복습 내용」 — studies grouped by subject; 「n일 전」 beside each item (no 학습일).
 struct ReviewDetailSheet: View {
   @ObservedObject var model: AppModel
   let card: HomeReviewCard
@@ -12,17 +12,29 @@ struct ReviewDetailSheet: View {
     return ids.compactMap { model.studyRecord(id: $0) }
   }
 
+  private var groups: [(subjectName: String, subjectColor: String?, items: [StudyRecord])] {
+    var order: [String] = []
+    var map: [String: (color: String?, items: [StudyRecord])] = [:]
+    for study in studies {
+      if map[study.subjectName] == nil {
+        order.append(study.subjectName)
+        map[study.subjectName] = (study.subjectColor, [study])
+      } else {
+        map[study.subjectName]?.items.append(study)
+      }
+    }
+    return order.map { name in
+      let g = map[name]!
+      return (name, g.color, g.items)
+    }
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       HStack {
-        VStack(alignment: .leading, spacing: 4) {
-          Text("복습 내용")
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(PoogaeTheme.ink(colorScheme))
-          Text("\(card.intervalDays)일 전")
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(PoogaeTheme.muted(colorScheme))
-        }
+        Text("복습 내용")
+          .font(.system(size: 16, weight: .semibold))
+          .foregroundStyle(PoogaeTheme.ink(colorScheme))
         Spacer()
         Button("닫기") {
           withAnimation(PoogaeMotion.quick) { dismiss() }
@@ -36,7 +48,7 @@ struct ReviewDetailSheet: View {
 
       ScrollView(.vertical, showsIndicators: true) {
         LazyVStack(alignment: .leading, spacing: 10) {
-          if studies.isEmpty {
+          if groups.isEmpty {
             Text("연결된 공부 기록이 없어요")
               .font(.system(size: 14, weight: .medium))
               .foregroundStyle(PoogaeTheme.muted(colorScheme))
@@ -45,8 +57,8 @@ struct ReviewDetailSheet: View {
               .background(PoogaeTheme.surface(colorScheme))
               .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
           } else {
-            ForEach(studies) { study in
-              studyCard(study)
+            ForEach(groups, id: \.subjectName) { group in
+              subjectGroupCard(group)
             }
           }
         }
@@ -58,56 +70,62 @@ struct ReviewDetailSheet: View {
     .background(PoogaeTheme.canvas(colorScheme))
   }
 
-  private func studyCard(_ study: StudyRecord) -> some View {
-    let memo = study.memo?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    return VStack(alignment: .leading, spacing: 8) {
-      HStack(spacing: 8) {
-        Text(study.subjectName)
-          .font(.system(size: SubjectChipStyle.fontSize, weight: .semibold))
-          .foregroundStyle(.white)
-          .padding(.horizontal, SubjectChipStyle.horizontalPadding)
-          .frame(minHeight: SubjectChipStyle.minHeight)
-          .background(SubjectChipStyle.fill(hex: study.subjectColor))
-          .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
+  private func subjectGroupCard(
+    _ group: (subjectName: String, subjectColor: String?, items: [StudyRecord])
+  ) -> some View {
+    let ago = "\(card.intervalDays)일 전"
+    return VStack(alignment: .leading, spacing: 10) {
+      Text(group.subjectName)
+        .font(.system(size: SubjectChipStyle.fontSize, weight: .semibold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, SubjectChipStyle.horizontalPadding)
+        .frame(minHeight: SubjectChipStyle.minHeight)
+        .background(SubjectChipStyle.fill(hex: group.subjectColor))
+        .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
 
-        Text("학습일 \(DateKeys.normalizeDateKey(study.studiedOn))")
-          .font(.system(size: 12, weight: .medium))
-          .foregroundStyle(PoogaeTheme.section(colorScheme))
-          .lineLimit(1)
-      }
-
-      Text(study.content)
-        .font(.system(size: 14, weight: .medium))
-        .foregroundStyle(PoogaeTheme.ink(colorScheme))
-        .frame(maxWidth: .infinity, alignment: .leading)
-
-      if !memo.isEmpty {
-        Text(memo)
-          .font(.system(size: 13, weight: .regular))
-          .foregroundStyle(PoogaeTheme.muted(colorScheme))
-          .frame(maxWidth: .infinity, alignment: .leading)
+      VStack(alignment: .leading, spacing: 6) {
+        ForEach(group.items) { study in
+          Button {
+            dismiss()
+            model.openEditStudy(
+              HomeStudyRow(
+                id: study.id,
+                subjectId: study.subjectId,
+                subjectName: study.subjectName,
+                subjectColor: study.subjectColor,
+                content: study.content,
+                memo: study.memo,
+                dayBand: study.dayBand,
+                dayOrder: study.dayOrder,
+                createdAt: study.createdAt
+              )
+            )
+          } label: {
+            HStack(alignment: .top, spacing: 8) {
+              Text("•")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(PoogaeTheme.ink(colorScheme))
+                .frame(width: 12, alignment: .leading)
+              Text(study.content)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(PoogaeTheme.ink(colorScheme))
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+              Text(ago)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(PoogaeTheme.muted(colorScheme))
+                .fixedSize(horizontal: true, vertical: false)
+            }
+            .contentShape(Rectangle())
+          }
+          .buttonStyle(.plain)
+          .help("기록 수정")
+        }
       }
     }
     .padding(14)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(PoogaeTheme.surface(colorScheme))
     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    .contentShape(Rectangle())
-    .onTapGesture {
-      dismiss()
-      model.openEditStudy(
-        HomeStudyRow(
-          id: study.id,
-          subjectId: study.subjectId,
-          subjectName: study.subjectName,
-          subjectColor: study.subjectColor,
-          content: study.content,
-          memo: study.memo,
-          dayBand: study.dayBand,
-          dayOrder: study.dayOrder,
-          createdAt: study.createdAt
-        )
-      )
-    }
   }
 }

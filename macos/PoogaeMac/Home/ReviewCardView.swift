@@ -8,16 +8,16 @@ struct ReviewCardView: View {
 
   var body: some View {
     Button(action: onDetail) {
-      VStack(alignment: .leading, spacing: 12) {
-        HStack(spacing: 10) {
+      VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 8) {
           Button(action: onToggle) {
             ZStack {
-              RoundedRectangle(cornerRadius: 8, style: .continuous)
+              RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(card.completed ? PoogaeTheme.brand : PoogaeTheme.muted(colorScheme).opacity(0.35))
-                .frame(width: 28, height: 28)
+                .frame(width: 24, height: 24)
               if card.completed {
                 Image(systemName: "checkmark")
-                  .font(.system(size: 12, weight: .bold))
+                  .font(.system(size: 11, weight: .bold))
                   .foregroundStyle(.white)
               }
             }
@@ -35,16 +35,17 @@ struct ReviewCardView: View {
         HStack(spacing: 4) {
           ForEach(Array(card.subjectNames.prefix(4).enumerated()), id: \.offset) { index, name in
             Text(String(name.prefix(1)))
-              .font(.system(size: 11, weight: .semibold))
+              .font(.system(size: 10, weight: .semibold))
               .foregroundStyle(.white)
-              .frame(width: 22, height: 22)
+              .frame(width: 20, height: 20)
               .background(colorForSubject(at: index, name: name))
               .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
           }
         }
       }
-      .padding(14)
-      .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
+      .padding(.horizontal, 12)
+      .padding(.vertical, 10)
+      .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
       .background(
         card.completed
           ? PoogaeTheme.primarySoft(colorScheme)

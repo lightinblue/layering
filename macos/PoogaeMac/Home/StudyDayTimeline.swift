@@ -7,7 +7,7 @@ struct StudyDayTimeline: View {
   @Environment(\.colorScheme) private var colorScheme
 
   private let slotHeight: CGFloat = 36
-  private let slotGap: CGFloat = 8
+  private let slotGap: CGFloat = 5
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
@@ -102,7 +102,7 @@ private struct BandStudyRows: View {
   @State private var draggingId: String?
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: 5) {
       ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
         StudyRecordRow(
           row: row,
