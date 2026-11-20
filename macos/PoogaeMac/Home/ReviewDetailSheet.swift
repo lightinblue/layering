@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 「복습 내용」 — studies grouped by subject; 「n일 전」 beside each item (no 학습일).
+/// 「복습 내용」 — header 「n일 전」+학습일; body grouped by subject bullets.
 struct ReviewDetailSheet: View {
   @ObservedObject var model: AppModel
   let card: HomeReviewCard
@@ -10,6 +10,17 @@ struct ReviewDetailSheet: View {
   private var studies: [StudyRecord] {
     let ids = card.checkTargets.map(\.studyId)
     return ids.compactMap { model.studyRecord(id: $0) }
+  }
+
+  private var studiedOnLabel: String {
+    let dates = Array(
+      Set(
+        studies
+          .map { DateKeys.normalizeDateKey($0.studiedOn) }
+          .filter { !$0.isEmpty }
+      )
+    ).sorted()
+    return dates.first ?? ""
   }
 
   private var groups: [(subjectName: String, subjectColor: String?, items: [StudyRecord])] {
@@ -31,10 +42,22 @@ struct ReviewDetailSheet: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      HStack {
-        Text("복습 내용")
-          .font(.system(size: 16, weight: .semibold))
-          .foregroundStyle(PoogaeTheme.ink(colorScheme))
+      HStack(alignment: .top) {
+        VStack(alignment: .leading, spacing: 4) {
+          Text("복습 내용")
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(PoogaeTheme.ink(colorScheme))
+          HStack(spacing: 10) {
+            Text("\(card.intervalDays)일 전")
+              .font(.system(size: 12, weight: .medium))
+              .foregroundStyle(PoogaeTheme.muted(colorScheme))
+            if !studiedOnLabel.isEmpty {
+              Text("학습일 \(studiedOnLabel)")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(PoogaeTheme.section(colorScheme))
+            }
+          }
+        }
         Spacer()
         Button("닫기") {
           withAnimation(PoogaeMotion.quick) { dismiss() }
@@ -73,8 +96,7 @@ struct ReviewDetailSheet: View {
   private func subjectGroupCard(
     _ group: (subjectName: String, subjectColor: String?, items: [StudyRecord])
   ) -> some View {
-    let ago = "\(card.intervalDays)일 전"
-    return VStack(alignment: .leading, spacing: 10) {
+    VStack(alignment: .leading, spacing: 10) {
       Text(group.subjectName)
         .font(.system(size: SubjectChipStyle.fontSize, weight: .semibold))
         .foregroundStyle(.white)
@@ -111,10 +133,6 @@ struct ReviewDetailSheet: View {
                 .foregroundStyle(PoogaeTheme.ink(colorScheme))
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
-              Text(ago)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(PoogaeTheme.muted(colorScheme))
-                .fixedSize(horizontal: true, vertical: false)
             }
             .contentShape(Rectangle())
           }
