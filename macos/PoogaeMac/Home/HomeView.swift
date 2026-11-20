@@ -23,6 +23,7 @@ struct HomeView: View {
       .padding(.bottom, 16)
     }
     .background(PoogaeTheme.canvas(colorScheme).ignoresSafeArea())
+    .animation(PoogaeMotion.settle, value: model.selectedDateKey)
     .animation(PoogaeMotion.settle, value: model.studies.count)
     .animation(PoogaeMotion.settle, value: model.reviews.map(\.id))
     .sheet(item: $model.studyEditor) { presentation in
@@ -32,7 +33,7 @@ struct HomeView: View {
   }
 
   private var header: some View {
-    HStack(alignment: .firstTextBaseline) {
+    HStack(alignment: .center, spacing: 12) {
       VStack(alignment: .leading, spacing: 4) {
         HStack(spacing: 8) {
           Circle()
@@ -41,13 +42,35 @@ struct HomeView: View {
           Text(model.isViewingToday ? "오늘" : "선택한 날")
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(PoogaeTheme.section(colorScheme))
+          if !model.isViewingToday {
+            Button("오늘로") {
+              model.goToday()
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(PoogaeTheme.brand.opacity(0.85))
+            .help("오늘로 이동")
+          }
         }
-        Text(headerDateLabel)
-          .font(.system(size: 24, weight: .bold))
-          .foregroundStyle(PoogaeTheme.ink(colorScheme))
+
+        HStack(spacing: 4) {
+          dayArrow(systemName: "chevron.left", help: "이전 날") {
+            model.shiftSelectedDay(-1)
+          }
+
+          Text(headerDateLabel)
+            .font(.system(size: 24, weight: .bold))
+            .foregroundStyle(PoogaeTheme.ink(colorScheme))
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+
+          dayArrow(systemName: "chevron.right", help: "다음 날") {
+            model.shiftSelectedDay(1)
+          }
+        }
       }
 
-      Spacer()
+      Spacer(minLength: 8)
 
       Button {
         model.openCalendar()
@@ -62,6 +85,18 @@ struct HomeView: View {
       .buttonStyle(.plain)
       .help("캘린더로 이동")
     }
+  }
+
+  private func dayArrow(systemName: String, help: String, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      Image(systemName: systemName)
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundStyle(PoogaeTheme.muted(colorScheme).opacity(0.75))
+        .frame(width: 28, height: 28)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .help(help)
   }
 
   private var studySection: some View {

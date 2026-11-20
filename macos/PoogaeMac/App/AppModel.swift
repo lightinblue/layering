@@ -68,6 +68,22 @@ final class AppModel: ObservableObject {
     }
   }
 
+  /// Flip home by ±1 day (iOS week-strip day change, Mac chevron).
+  func shiftSelectedDay(_ days: Int) {
+    let next = DateKeys.addDays(selectedDateKey, days)
+    guard next != selectedDateKey else { return }
+    withAnimation(PoogaeMotion.settle) {
+      selectedDateKey = next
+    }
+  }
+
+  func goToday() {
+    guard !isViewingToday else { return }
+    withAnimation(PoogaeMotion.settle) {
+      selectedDateKey = todayKey
+    }
+  }
+
   func openAddStudy(band: DayBandId? = nil) {
     guard canAddStudy else { return }
     withAnimation(PoogaeMotion.quick) {
