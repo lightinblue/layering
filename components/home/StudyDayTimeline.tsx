@@ -37,6 +37,8 @@ import { matchSubjectPrefix } from '@/utils/parse-subject-prefix';
 
 /** Match home study chip/body height (not the cramped 36). */
 const SLOT_HEIGHT = 44;
+/** Vertical space between study rows inside a band (matches slotStack gap). */
+const ROW_GAP = 8;
 const ROW_LAYOUT = LinearTransition.duration(durations.listRow);
 const ENTER = FadeInDown.duration(durations.fadeIn).easing(
   Easing.out(Easing.cubic),
@@ -133,6 +135,7 @@ export function StudyDayTimeline({
                   overshootClamping: false,
                 }}
                 containerStyle={styles.dragList}
+                ItemSeparatorComponent={StudyRowSeparator}
                 onDragBegin={() => haptics.select()}
                 onDragEnd={({ data }) => {
                   if (!onReorderBand) return;
@@ -228,6 +231,10 @@ export function StudyDayTimeline({
   );
 }
 
+function StudyRowSeparator() {
+  return <View style={styles.rowSeparator} />;
+}
+
 function TimelineMark({ label }: { label: string }) {
   const colors = useThemeColors();
   return (
@@ -253,7 +260,7 @@ function BandAddControl({
   onPress: () => void;
 }) {
   const colors = useThemeColors();
-  const height = SLOT_HEIGHT * span + 5 * Math.max(0, span - 1);
+  const height = SLOT_HEIGHT * span + ROW_GAP * Math.max(0, span - 1);
   return (
     <Animated.View entering={ENTER} exiting={EXIT} layout={ROW_LAYOUT}>
       <Pressable
@@ -407,11 +414,14 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
   },
   slotStack: {
-    gap: 5,
+    gap: ROW_GAP,
     paddingLeft: 32,
   },
   dragList: {
     flexGrow: 0,
+  },
+  rowSeparator: {
+    height: ROW_GAP,
   },
   dragging: {
     opacity: 0.92,
