@@ -133,19 +133,20 @@ struct ReviewDetailSheet: View {
             HStack(alignment: .top, spacing: 8) {
               Text("•")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(PoogaeTheme.ink(colorScheme))
+                .foregroundStyle(PoogaeTheme.body(colorScheme))
                 .frame(width: 12, alignment: .leading)
               Text(study.content)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(PoogaeTheme.ink(colorScheme))
+                .foregroundStyle(PoogaeTheme.body(colorScheme))
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            // Full-row hit box: empty trailing padding is tappable too.
-            // REV-76: tighter vertical rhythm between study/todo rows.
+            // Full gray row is the hit target (not text-only); AppKit needs a
+            // real fill or nearly-opaque clear won't receive clicks.
             .padding(.vertical, 3)
-            .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
             .contentShape(Rectangle())
+            .background(PoogaeTheme.surface(colorScheme))
           }
           .buttonStyle(.plain)
           .help("학습일로 이동")
