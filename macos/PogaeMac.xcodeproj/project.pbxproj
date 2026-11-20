@@ -29,6 +29,7 @@
 		AF5124D37E427D9EC061B254 /* AppMutations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4013C26D316C8DBF50A143 /* AppMutations.swift */; };
 		E3A91C20B1D24F6A9C8E4F11 /* StudyTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A91C20B1D24F6A9C8E4F10 /* StudyTimeline.swift */; };
 		E3A91C20B1D24F6A9C8E4F13 /* StudyDayTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A91C20B1D24F6A9C8E4F12 /* StudyDayTimeline.swift */; };
+		F4A81B32C9D04E7A8B6C5D10 /* ShowcaseSeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A81B32C9D04E7A8B6C5D11 /* ShowcaseSeed.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -57,6 +58,7 @@
 		9E4013C26D316C8DBF50A143 /* AppMutations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMutations.swift; sourceTree = "<group>"; };
 		E3A91C20B1D24F6A9C8E4F10 /* StudyTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyTimeline.swift; sourceTree = "<group>"; };
 		E3A91C20B1D24F6A9C8E4F12 /* StudyDayTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyDayTimeline.swift; sourceTree = "<group>"; };
+		F4A81B32C9D04E7A8B6C5D11 /* ShowcaseSeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShowcaseSeed.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,6 +100,7 @@
 				D0E89BCDB6EC4A5CB01E4D63 /* DateKeys.swift */,
 				8998282D38194D6EAC7C6479 /* DomainModels.swift */,
 				9E4013C26D316C8DBF50A143 /* AppMutations.swift */,
+				F4A81B32C9D04E7A8B6C5D11 /* ShowcaseSeed.swift */,
 				BCDBC26445454C74B5C8FEDA /* ICloudKvsStore.swift */,
 				A91EFFD1367A49648246BAC5 /* Merge.swift */,
 				E3A91C20B1D24F6A9C8E4F10 /* StudyTimeline.swift */,
@@ -252,6 +255,7 @@
 				A4E17361D839461F868AB3EE /* ICloudKvsStore.swift in Sources */,
 				D625139DBD874DDFA1494577 /* Merge.swift in Sources */,
 				AF5124D37E427D9EC061B254 /* AppMutations.swift in Sources */,
+				F4A81B32C9D04E7A8B6C5D10 /* ShowcaseSeed.swift in Sources */,
 				E3A91C20B1D24F6A9C8E4F11 /* StudyTimeline.swift in Sources */,
 				2684421EEDE04EC09FF123B0 /* TodayHomeData.swift in Sources */,
 				E3A91C20B1D24F6A9C8E4F13 /* StudyDayTimeline.swift in Sources */,
@@ -271,7 +275,7 @@
 				CODE_SIGN_ENTITLEMENTS = PogaeMac/Resources/PogaeMac.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = R39JVZ3ZNL;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -327,7 +331,7 @@
 				CODE_SIGN_ENTITLEMENTS = PogaeMac/Resources/PogaeMac.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = R39JVZ3ZNL;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;

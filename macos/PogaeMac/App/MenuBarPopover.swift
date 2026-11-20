@@ -66,6 +66,7 @@ struct MenuBarPopover: View {
       }
       .buttonStyle(.plain)
 
+      #if DEBUG
       Text(model.kvs.statusMessage)
         .font(.system(size: 10, weight: .regular))
         .foregroundStyle(PogaeTheme.muted(colorScheme))
@@ -97,6 +98,7 @@ struct MenuBarPopover: View {
         .foregroundStyle(PogaeTheme.section(colorScheme))
         .help("Mac 로컬 캐시를 비우고 클라우드만 다시 읽습니다 (푸시 없음)")
       }
+      #endif
     }
     .padding(14)
     .frame(width: 300)
