@@ -93,23 +93,36 @@ struct ReviewDetailSheet: View {
     .background(PoogaeTheme.canvas(colorScheme))
   }
 
+  private func goToStudyDate(_ studiedOn: String) {
+    dismiss()
+    model.selectDate(studiedOn)
+  }
+
   private func subjectGroupCard(
     _ group: (subjectName: String, subjectColor: String?, items: [StudyRecord])
   ) -> some View {
-    VStack(alignment: .leading, spacing: 10) {
-      Text(group.subjectName)
-        .font(.system(size: SubjectChipStyle.fontSize, weight: .semibold))
-        .foregroundStyle(.white)
-        .padding(.horizontal, SubjectChipStyle.horizontalPadding)
-        .frame(minHeight: SubjectChipStyle.minHeight)
-        .background(SubjectChipStyle.fill(hex: group.subjectColor))
-        .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
+    let chipDate = group.items.first?.studiedOn ?? ""
+    return VStack(alignment: .leading, spacing: 10) {
+      // Subject chip is tappable (navigates; never opens edit).
+      Button {
+        goToStudyDate(chipDate)
+      } label: {
+        Text(group.subjectName)
+          .font(.system(size: SubjectChipStyle.fontSize, weight: .semibold))
+          .foregroundStyle(.white)
+          .padding(.horizontal, SubjectChipStyle.horizontalPadding)
+          .frame(minHeight: SubjectChipStyle.minHeight)
+          .background(SubjectChipStyle.fill(hex: group.subjectColor))
+          .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .help("학습일로 이동")
 
-      VStack(alignment: .leading, spacing: 6) {
+      VStack(alignment: .leading, spacing: 2) {
         ForEach(group.items) { study in
           Button {
-            dismiss()
-            model.selectDate(study.studiedOn)
+            goToStudyDate(study.studiedOn)
           } label: {
             HStack(alignment: .top, spacing: 8) {
               Text("•")
@@ -122,6 +135,9 @@ struct ReviewDetailSheet: View {
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            // Full-row hit box: empty trailing padding is tappable too.
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
             .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
