@@ -30,29 +30,53 @@ final class ICloudKvsStore: ObservableObject {
   private var hasSeenRemotePayload = false
   private var bootstrapRetryTask: Task<Void, Never>?
   private var pullFeedbackTask: Task<Void, Never>?
+  /// ASC capture: in-memory ShowcaseSeed only — no UserDefaults write, no KVS push/pull.
+  private var shotIsolation = false
+
+  /// ASC capture gate — **DEBUG only**. Release Archives never load ShowcaseSeed,
+  /// even if env/sentinel is present. Never pushes / never writes cache.
+  static var isShotSeedRequested: Bool {
+    #if DEBUG
+    if ProcessInfo.processInfo.environment["POGAE_SHOT_SEED"] == "1" { return true }
+    return FileManager.default.fileExists(atPath: "/tmp/pogaemac-shot-isolate")
+    #else
+    return false
+    #endif
+  }
 
   init(deviceId: String = DeviceIdentity.loadOrCreate()) {
     self.deviceId = deviceId
     iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
-    if let cached = loadLocalCache() {
+    let shot = Self.isShotSeedRequested
+    // ASC shot: skip disk mirror so Y's real data never flashes into UI.
+    if !shot, let cached = loadLocalCache() {
       // Local cache only — never push seed from init.
       data = cached
     }
-    if let cachedPrefs = loadLocalPrefsCache() {
+    if !shot, let cachedPrefs = loadLocalPrefsCache() {
       prefs = cachedPrefs.prefs
       prefsUpdatedAt = cachedPrefs.updatedAt
     }
-    observer = NotificationCenter.default.addObserver(
-      forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
-      object: store,
-      queue: .main
-    ) { [weak self] notification in
-      let reason = notification.userInfo?[NSUbiquitousKeyValueStoreChangeReasonKey] as? Int
-      let keys = notification.userInfo?[NSUbiquitousKeyValueStoreChangedKeysKey] as? [String] ?? []
-      Task { @MainActor in
-        kvsLog.info("external change reason=\(reason ?? -1, privacy: .public) keys=\(keys.joined(separator: ","), privacy: .public)")
-        await self?.refreshFromCloud(mode: .pullOnly)
+    // No iCloud observer during shot isolation — real KVS must not overwrite demo.
+    if !shot {
+      observer = NotificationCenter.default.addObserver(
+        forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
+        object: store,
+        queue: .main
+      ) { [weak self] notification in
+        let reason = notification.userInfo?[NSUbiquitousKeyValueStoreChangeReasonKey] as? Int
+        let keys = notification.userInfo?[NSUbiquitousKeyValueStoreChangedKeysKey] as? [String] ?? []
+        Task { @MainActor in
+          kvsLog.info("external change reason=\(reason ?? -1, privacy: .public) keys=\(keys.joined(separator: ","), privacy: .public)")
+          await self?.refreshFromCloud(mode: .pullOnly)
+        }
       }
+    } else {
+      // Apply seed immediately in init so first frame never shows empty/real cache.
+      shotIsolation = true
+      data = ShowcaseSeed.make()
+      statusMessage = "ASC shot · isolated seed (no iCloud)"
+      kvsLog.info("ASC shot isolation at init (sentinel/env)")
     }
   }
 
@@ -72,6 +96,14 @@ final class ICloudKvsStore: ObservableObject {
   }
 
   func bootstrap() async {
+    // Debug / ASC only. Never when real studies already exist on disk/cloud.
+    if Self.isShotSeedRequested,
+       ICloudMerge.activeRecords(data.records).isEmpty
+    {
+      enterShotIsolation(ShowcaseSeed.make())
+      return
+    }
+
     logEnvironment()
     _ = store.synchronize()
     iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
@@ -85,10 +117,45 @@ final class ICloudKvsStore: ObservableObject {
       kvsLog.info("local seed applied (no cloud push)")
     }
 
+    // One-shot content-twin cleanup (soft-delete extras → KVS).
+    dedupeLocalAndPushIfNeeded()
+
     scheduleBootstrapRetries()
   }
 
+  /// Soft-delete active studies that share day+subject+content (different ids).
+  /// Pushes tombstones so phone/Mac both converge. Never deletes the kept row.
+  @discardableResult
+  func dedupeLocalAndPushIfNeeded() -> Bool {
+    guard !shotIsolation else { return false }
+    let result = ICloudMerge.dedupeStudyRecords(data.records)
+    guard result.didChange else { return false }
+    let next = AppData(subjects: data.subjects, records: result.records)
+    data = next
+    persistLocalCache(next)
+    pushToCloud(next)
+    let active = ICloudMerge.activeRecords(next.records).count
+    kvsLog.info("dedupeStudyRecords applied; active=\(active) pushed tombstones")
+    statusMessage = "중복 공부 정리됨 · active=\(active)"
+    return true
+  }
+
+  /// Replace in-memory app data for screenshots. Does not persist or push.
+  func enterShotIsolation(_ seed: AppData) {
+    shotIsolation = true
+    bootstrapRetryTask?.cancel()
+    pullFeedbackTask?.cancel()
+    data = seed
+    statusMessage = "ASC shot · isolated seed (no iCloud)"
+    debugSummary = "shotIsolation subjects=\(seed.subjects.count) records=\(seed.records.count)"
+    kvsLog.info("ASC shot isolation: in-memory seed only (no persist, no push, no pull)")
+  }
+
   func refreshFromCloud(mode: PullMode = .pullOnly) async {
+    if shotIsolation {
+      kvsLog.info("refreshFromCloud skipped (shot isolation)")
+      return
+    }
     iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
     _ = store.synchronize()
 
@@ -138,18 +205,24 @@ final class ICloudKvsStore: ObservableObject {
     defer { applyingRemote = false }
 
     let localForMerge: AppData = (mode == .hardReset) ? .empty : data
+    // Collapse same-id rows if a month payload lists an id twice.
+    let remoteDeduped = ICloudMerge.dedupeStudyRecords(remoteRecords).records
     let merged = ICloudMerge.mergeAppData(
       local: localForMerge,
       remoteSubjects: remoteSubjects,
-      remoteRecords: remoteRecords,
+      remoteRecords: remoteDeduped,
       localDeviceId: deviceId,
       remoteDeviceId: remoteDeviceId
     )
 
-    let normalized = Self.normalizedAppData(merged)
+    var normalized = Self.normalizedAppData(merged)
+    let contentDedupe = ICloudMerge.dedupeStudyRecords(normalized.records)
+    normalized = AppData(subjects: normalized.subjects, records: contentDedupe.records)
+    let shouldPushDedupe = contentDedupe.didChange
+
     if hadRemote {
       // Adopt cloud into AppModel. Do NOT push — Mac pull used to re-write tombstones
-      // and could win LWW over newer phone actives.
+      // and could win LWW over newer phone actives. Exception: content-dedupe tombstones.
       data = normalized
       persistLocalCache(data)
     } else if ICloudMerge.activeSubjects(normalized.subjects).isEmpty {
@@ -164,6 +237,12 @@ final class ICloudKvsStore: ObservableObject {
     } else {
       data = normalized
       persistLocalCache(data)
+    }
+
+    if shouldPushDedupe {
+      // pushToCloud ignores applyingRemote — intentional so phone receives tombstones.
+      pushToCloud(data)
+      kvsLog.info("pushed content-dedupe tombstones after pull")
     }
 
     lastReadAt = Date()
@@ -248,6 +327,10 @@ final class ICloudKvsStore: ObservableObject {
 
   /// Apply mutation, cache locally, and push to KVS when available.
   func applyLocal(_ next: AppData, push: Bool = true) {
+    if shotIsolation {
+      data = next
+      return
+    }
     data = next
     persistLocalCache(next)
     guard push, !applyingRemote else { return }

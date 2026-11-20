@@ -89,6 +89,10 @@ final class AppModel: ObservableObject {
     didBootstrap = true
     await kvs.bootstrap()
     selectedDateKey = todayKey
+    // Calendar ASC shot (optional; seed isolation is handled inside KVS bootstrap).
+    if ProcessInfo.processInfo.environment["POGAE_SHOT_CALENDAR"] == "1" {
+      path.append(MacRoute.calendar)
+    }
   }
 
   func openCalendar() {
@@ -291,7 +295,9 @@ final class AppModel: ObservableObject {
   }
 
   func studyRecord(id: String) -> StudyRecord? {
-    ICloudMerge.activeRecords(kvs.data.records).first { $0.id == id }
+    // Prefer AppModel mirror (keeps ASC shot isolation + UI in sync).
+    ICloudMerge.activeRecords(appData.records).first { $0.id == id }
+      ?? ICloudMerge.activeRecords(kvs.data.records).first { $0.id == id }
   }
 
   func subject(id: String) -> SubjectChip? {

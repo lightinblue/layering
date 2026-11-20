@@ -18,7 +18,6 @@ struct MainWindow: View {
           }
         }
     }
-    // Slightly under previous 640; HomeView lets the review column compress first.
     .frame(minWidth: 560, minHeight: 420)
     .background(PogaeTheme.canvas(colorScheme))
   }

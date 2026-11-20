@@ -38,6 +38,19 @@ struct HomeView: View {
       ReviewDetailSheet(model: model, card: card)
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
+    .task(id: model.reviews.map(\.id)) {
+      // ASC only: open first review after isolated seed is visible (re-read, don't capture stale).
+      guard ProcessInfo.processInfo.environment["POGAE_SHOT_REVIEW_DETAIL"] == "1",
+            reviewDetail == nil,
+            let first = model.reviews.first,
+            model.studyRecord(id: first.checkTargets.first?.studyId ?? "") != nil
+      else { return }
+      try? await Task.sleep(nanoseconds: 400_000_000)
+      guard reviewDetail == nil, let latest = model.reviews.first else { return }
+      withAnimation(PogaeMotion.quick) {
+        reviewDetail = latest
+      }
+    }
   }
 
   private var header: some View {

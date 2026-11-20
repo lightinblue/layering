@@ -185,4 +185,72 @@ enum ICloudMerge {
   static func activeRecords(_ records: [StudyRecord]) -> [StudyRecord] {
     records.filter { !($0.deleted ?? false) }
   }
+
+  /// Fingerprint for content twins (different ids, same day/subject/title).
+  static func studyContentKey(_ record: StudyRecord) -> String {
+    let day = DateKeys.normalizeDateKey(record.studiedOn)
+    let subject = record.subjectId.trimmingCharacters(in: .whitespacesAndNewlines)
+    let content = record.content.trimmingCharacters(in: .whitespacesAndNewlines)
+    return "\(day)|\(subject)|\(content)"
+  }
+
+  /**
+   Collapse same-id rows (LWW), then soft-delete active content twins.
+   Keeps the newest `updatedAt` (tie → lexicographically greater id). Does not
+   drop tombstones. Returns whether any row was removed or tombstoned.
+   */
+  static func dedupeStudyRecords(
+    _ records: [StudyRecord],
+    now: Date = Date()
+  ) -> (records: [StudyRecord], didChange: Bool) {
+    var byId: [String: StudyRecord] = [:]
+    var idCollapsed = false
+    for record in records {
+      if let existing = byId[record.id] {
+        idCollapsed = true
+        byId[record.id] = pickWinner(
+          local: existing,
+          remote: record,
+          localUpdatedAt: existing.updatedAt,
+          remoteUpdatedAt: record.updatedAt,
+          localDeviceId: existing.id,
+          remoteDeviceId: record.id
+        )
+      } else {
+        byId[record.id] = record
+      }
+    }
+
+    let stamp = ISO8601DateFormatter.fractional.string(from: now)
+    var keptActiveKey: [String: StudyRecord] = [:]
+    var out: [StudyRecord] = []
+    var tombstoned = false
+
+    let ordered = byId.values.sorted { a, b in
+      let at = parseIso(a.updatedAt)
+      let bt = parseIso(b.updatedAt)
+      if at != bt { return at > bt }
+      return a.id > b.id
+    }
+
+    for record in ordered {
+      if record.deleted == true {
+        out.append(record)
+        continue
+      }
+      let key = studyContentKey(record)
+      if keptActiveKey[key] != nil {
+        var tomb = record
+        tomb.deleted = true
+        tomb.updatedAt = stamp
+        out.append(tomb)
+        tombstoned = true
+      } else {
+        keptActiveKey[key] = record
+        out.append(record)
+      }
+    }
+
+    return (out, idCollapsed || tombstoned)
+  }
 }
