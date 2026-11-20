@@ -24,11 +24,19 @@ struct StudyRecord: Codable, Identifiable, Hashable, Sendable {
   var content: String
   var memo: String?
   var studiedOn: String
+  /// Optional day-band for study-day UI (same as iOS).
+  var dayBand: DayBandId?
   var cycle: [Int]
   var checks: [String: ReviewCheck]
   var createdAt: String
   var updatedAt: String
   var deleted: Bool?
+}
+
+enum DayBandId: String, Codable, Hashable, Sendable, CaseIterable {
+  case morning
+  case afternoon
+  case evening
 }
 
 struct SubjectsPayload: Codable, Sendable {

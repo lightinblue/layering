@@ -7,6 +7,7 @@ struct HomeStudyRow: Identifiable, Hashable {
   var subjectColor: String?
   var content: String
   var memo: String?
+  var dayBand: DayBandId?
 }
 
 struct HomeReviewCheckTarget: Hashable {
@@ -35,7 +36,8 @@ enum TodayHomeData {
           subjectName: $0.subjectName,
           subjectColor: $0.subjectColor,
           content: $0.content,
-          memo: $0.memo
+          memo: $0.memo,
+          dayBand: $0.dayBand
         )
       }
   }

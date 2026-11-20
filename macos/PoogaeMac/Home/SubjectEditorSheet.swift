@@ -35,11 +35,16 @@ struct SubjectEditorSheet: View {
         Text("이름 (최대 \(AppMutations.maxSubjectNameLength)자)")
           .font(.system(size: 12, weight: .semibold))
           .foregroundStyle(PoogaeTheme.section(colorScheme))
-        TextField("전공, 국어", text: $name)
+        TextField(
+          "",
+          text: $name,
+          prompt: Text("전공, 국어")
+            .foregroundStyle(PoogaeTheme.placeholder(colorScheme))
+        )
           .textFieldStyle(.plain)
           .font(.system(size: 15, weight: .medium))
           .padding(.horizontal, 14)
-          .frame(height: SubjectChipStyle.minHeight)
+          .padding(.vertical, 12)
           .background(PoogaeTheme.surface(colorScheme))
           .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
           .onChange(of: name) { _, value in

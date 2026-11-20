@@ -45,6 +45,14 @@ enum PoogaeTheme {
   static func primarySoft(_ scheme: ColorScheme) -> Color {
     scheme == .dark ? primarySoftDark : primarySoftLight
   }
+
+  /// Soft / faded placeholder (lighter than body/muted).
+  static let placeholderLight = Color(hex: 0xE0E8EF)
+  static let placeholderDark = Color(hex: 0x556575)
+
+  static func placeholder(_ scheme: ColorScheme) -> Color {
+    scheme == .dark ? placeholderDark : placeholderLight
+  }
 }
 
 /// Subject chip look — matches iOS `AddStudyForm` SelectableChip.

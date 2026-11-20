@@ -26,6 +26,8 @@
 		B1C82E04D3164C7EB851A001 /* StudyEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B71D03C2053B6DA7409001 /* StudyEditorSheet.swift */; };
 		C2D93F15E4275D8FC962B002 /* SubjectEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C82E04D3164C7EB851A002 /* SubjectEditorSheet.swift */; };
 		AF5124D37E427D9EC061B254 /* AppMutations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4013C26D316C8DBF50A143 /* AppMutations.swift */; };
+		E3A91C20B1D24F6A9C8E4F11 /* StudyTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A91C20B1D24F6A9C8E4F10 /* StudyTimeline.swift */; };
+		E3A91C20B1D24F6A9C8E4F13 /* StudyDayTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A91C20B1D24F6A9C8E4F12 /* StudyDayTimeline.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +53,8 @@
 		A0B71D03C2053B6DA7409001 /* StudyEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyEditorSheet.swift; sourceTree = "<group>"; };
 		B1C82E04D3164C7EB851A002 /* SubjectEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectEditorSheet.swift; sourceTree = "<group>"; };
 		9E4013C26D316C8DBF50A143 /* AppMutations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMutations.swift; sourceTree = "<group>"; };
+		E3A91C20B1D24F6A9C8E4F10 /* StudyTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyTimeline.swift; sourceTree = "<group>"; };
+		E3A91C20B1D24F6A9C8E4F12 /* StudyDayTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyDayTimeline.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,6 +98,7 @@
 				9E4013C26D316C8DBF50A143 /* AppMutations.swift */,
 				BCDBC26445454C74B5C8FEDA /* ICloudKvsStore.swift */,
 				A91EFFD1367A49648246BAC5 /* Merge.swift */,
+				E3A91C20B1D24F6A9C8E4F10 /* StudyTimeline.swift */,
 				E112D4F280A74AA2AC60E5EC /* TodayHomeData.swift */,
 			);
 			path = Sync;
@@ -132,6 +137,7 @@
 			isa = PBXGroup;
 			children = (
 				C717F1136A2E41819E2E8384 /* HomeView.swift */,
+				E3A91C20B1D24F6A9C8E4F12 /* StudyDayTimeline.swift */,
 				A0B71D03C2053B6DA7409001 /* StudyEditorSheet.swift */,
 				B1C82E04D3164C7EB851A002 /* SubjectEditorSheet.swift */,
 				5C58BA9505D740C985CDBC78 /* ReviewCardView.swift */,
@@ -242,7 +248,9 @@
 				A4E17361D839461F868AB3EE /* ICloudKvsStore.swift in Sources */,
 				D625139DBD874DDFA1494577 /* Merge.swift in Sources */,
 				AF5124D37E427D9EC061B254 /* AppMutations.swift in Sources */,
+				E3A91C20B1D24F6A9C8E4F11 /* StudyTimeline.swift in Sources */,
 				2684421EEDE04EC09FF123B0 /* TodayHomeData.swift in Sources */,
+				E3A91C20B1D24F6A9C8E4F13 /* StudyDayTimeline.swift in Sources */,
 				B2B71023C55D429E821D0954 /* Motion.swift in Sources */,
 				150F1E4C12B34EC5AE652CBD /* PoogaeTheme.swift in Sources */,
 			);

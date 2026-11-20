@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Landscape home: LEFT 공부 기록 | RIGHT 복습 (calendar is a depth).
+/// Landscape home: LEFT 공부 기록 (day timeline) | RIGHT 복습.
 struct HomeView: View {
   @ObservedObject var model: AppModel
   @Environment(\.colorScheme) private var colorScheme
@@ -66,42 +66,12 @@ struct HomeView: View {
 
   private var studySection: some View {
     VStack(alignment: .leading, spacing: 10) {
-      HStack {
-        Text("공부 기록")
-          .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(PoogaeTheme.section(colorScheme))
-        Spacer(minLength: 0)
-        Button {
-          model.openAddStudy()
-        } label: {
-          Label("추가", systemImage: "plus")
-            .font(.system(size: 12, weight: .semibold))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .foregroundStyle(model.canAddStudy ? PoogaeTheme.brand : PoogaeTheme.muted(colorScheme))
-            .background(PoogaeTheme.surface(colorScheme))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .disabled(!model.canAddStudy)
-        .help(model.canAddStudy ? "공부 기록 추가" : "하루 최대 3개")
-      }
+      Text("공부 기록")
+        .font(.system(size: 15, weight: .semibold))
+        .foregroundStyle(PoogaeTheme.section(colorScheme))
 
       ScrollView(.vertical, showsIndicators: false) {
-        if model.studies.isEmpty {
-          emptyStudy
-        } else {
-          LazyVStack(alignment: .leading, spacing: 8) {
-            ForEach(model.studies) { row in
-              StudyRecordRow(
-                row: row,
-                onEdit: { model.openEditStudy(row) },
-                onDelete: { model.deleteStudy(id: row.id) }
-              )
-              .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-          }
-        }
+        StudyDayTimeline(model: model)
       }
     }
   }
@@ -128,28 +98,6 @@ struct HomeView: View {
         }
       }
     }
-  }
-
-  private var emptyStudy: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      Text("공부 기록이 없어요")
-        .font(.system(size: 14, weight: .medium))
-        .foregroundStyle(PoogaeTheme.muted(colorScheme))
-      if model.canAddStudy {
-        Button {
-          model.openAddStudy()
-        } label: {
-          Text("첫 기록 추가")
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(PoogaeTheme.brand)
-        }
-        .buttonStyle(.plain)
-      }
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(14)
-    .background(PoogaeTheme.surface(colorScheme))
-    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
   }
 
   private var emptyReview: some View {

@@ -44,6 +44,10 @@ final class AppModel: ObservableObject {
     AppMutations.dateKeysWithStudies(kvs.data)
   }
 
+  var timelineBands: [StudyTimeline.BandView] {
+    StudyTimeline.buildBands(studies: studies)
+  }
+
   init() {
     kvs.objectWillChange
       .receive(on: RunLoop.main)
@@ -64,10 +68,10 @@ final class AppModel: ObservableObject {
     }
   }
 
-  func openAddStudy() {
+  func openAddStudy(band: DayBandId? = nil) {
     guard canAddStudy else { return }
     withAnimation(PoogaeMotion.quick) {
-      studyEditor = .add
+      studyEditor = .add(band: band)
     }
   }
 
@@ -113,12 +117,14 @@ final class AppModel: ObservableObject {
         studiedOn: selectedDateKey
       )
     } else {
+      let band = studyEditor?.addBand
       next = AppMutations.appendStudy(
         kvs.data,
         subjectId: subjectId,
         content: content,
         memo: memo,
-        studiedOn: selectedDateKey
+        studiedOn: selectedDateKey,
+        dayBand: band
       )
     }
     guard let next else { return }
@@ -204,18 +210,23 @@ enum MacRoute: Hashable {
 }
 
 enum StudyEditorPresentation: Identifiable, Equatable {
-  case add
+  case add(band: DayBandId?)
   case edit(studyId: String)
 
   var id: String {
     switch self {
-    case .add: return "add"
+    case .add(let band): return "add-\(band?.rawValue ?? "none")"
     case .edit(let studyId): return "edit-\(studyId)"
     }
   }
 
   var editingStudyId: String? {
     if case .edit(let studyId) = self { return studyId }
+    return nil
+  }
+
+  var addBand: DayBandId? {
+    if case .add(let band) = self { return band }
     return nil
   }
 }

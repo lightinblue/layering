@@ -2,7 +2,8 @@ import Foundation
 
 /// Port of iOS `storage/app-data.ts` create/update/delete helpers (Mac-side, no schedules).
 enum AppMutations {
-  static let maxStudiesPerDay = 3
+  /// Matches iOS `TIMELINE_MAX_STUDIES_PER_DAY` (4+6+4).
+  static let maxStudiesPerDay = StudyTimeline.maxStudiesPerDay
   static let maxSubjects = 10
   static let maxSubjectNameLength = 4
   static let maxTitleLength = 40
@@ -134,6 +135,7 @@ enum AppMutations {
     content: String,
     memo: String?,
     studiedOn: String,
+    dayBand: DayBandId?,
     now: Date = Date()
   ) -> AppData? {
     var next = ensureSeedSubjects(data, now: now)
@@ -160,6 +162,7 @@ enum AppMutations {
         content: fields.content,
         memo: fields.memo,
         studiedOn: studiedOn,
+        dayBand: dayBand,
         cycle: cycle,
         checks: checks,
         createdAt: at,
@@ -211,6 +214,7 @@ enum AppMutations {
     record.content = fields.content
     record.memo = fields.memo
     record.studiedOn = studiedOn
+    // Keep existing dayBand on edit (iOS day screen does the same).
     record.cycle = cycle
     record.checks = checks
     record.updatedAt = at

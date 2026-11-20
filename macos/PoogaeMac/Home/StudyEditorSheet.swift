@@ -22,7 +22,7 @@ struct StudyEditorSheet: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 18) {
+    VStack(alignment: .leading, spacing: 0) {
       HStack {
         Text(isEditing ? "기록 수정" : "기록 추가")
           .font(.system(size: 16, weight: .semibold))
@@ -34,113 +34,132 @@ struct StudyEditorSheet: View {
         .buttonStyle(.plain)
         .foregroundStyle(PoogaeTheme.section(colorScheme))
       }
+      .padding(.horizontal, 22)
+      .padding(.top, 22)
+      .padding(.bottom, 14)
 
-      VStack(alignment: .leading, spacing: 8) {
-        HStack {
-          Text("과목")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(PoogaeTheme.section(colorScheme))
-          Spacer()
-          if model.canAddSubject {
+      ScrollView(.vertical, showsIndicators: true) {
+        VStack(alignment: .leading, spacing: 18) {
+          VStack(alignment: .leading, spacing: 8) {
+            HStack {
+              Text("과목")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(PoogaeTheme.section(colorScheme))
+              Spacer()
+              if model.canAddSubject {
+                Button {
+                  model.openAddSubject()
+                } label: {
+                  Label("과목 추가", systemImage: "plus")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(PoogaeTheme.brand)
+                }
+                .buttonStyle(.plain)
+              }
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+              HStack(spacing: 8) {
+                ForEach(model.subjects) { subject in
+                  subjectChip(subject)
+                }
+              }
+            }
+          }
+
+          VStack(alignment: .leading, spacing: 8) {
+            Text("학습 내용")
+              .font(.system(size: 12, weight: .semibold))
+              .foregroundStyle(PoogaeTheme.section(colorScheme))
+            TextField(
+              "",
+              text: $title,
+              prompt: Text("1-3단원 / p. 22-36")
+                .foregroundStyle(PoogaeTheme.placeholder(colorScheme))
+            )
+            .textFieldStyle(.plain)
+            .font(.system(size: 15, weight: .medium))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .background(PoogaeTheme.surface(colorScheme))
+            .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
+            .onChange(of: title) { _, value in
+              if value.count > AppMutations.maxTitleLength {
+                title = String(value.prefix(AppMutations.maxTitleLength))
+              }
+            }
+          }
+
+          VStack(alignment: .leading, spacing: 8) {
+            Text("메모")
+              .font(.system(size: 12, weight: .semibold))
+              .foregroundStyle(PoogaeTheme.section(colorScheme))
+            TextField(
+              "",
+              text: $memo,
+              prompt: Text("추가로 기록하고 싶은 내용")
+                .foregroundStyle(PoogaeTheme.placeholder(colorScheme)),
+              axis: .vertical
+            )
+            .textFieldStyle(.plain)
+            .font(.system(size: 15, weight: .medium))
+            .lineLimit(2...4)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .frame(minHeight: 88, alignment: .topLeading)
+            .background(PoogaeTheme.surface(colorScheme))
+            .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
+            .onChange(of: memo) { _, value in
+              if value.count > AppMutations.maxMemoLength {
+                memo = String(value.prefix(AppMutations.maxMemoLength))
+              }
+            }
+          }
+
+          HStack(spacing: 10) {
+            if let studyId = presentation.editingStudyId {
+              Button(role: .destructive) {
+                model.deleteStudy(id: studyId)
+              } label: {
+                Text("삭제")
+                  .font(.system(size: 14, weight: .semibold))
+                  .frame(maxWidth: .infinity)
+                  .padding(.vertical, 11)
+                  .foregroundStyle(Color(hex: 0xE25555))
+                  .background(PoogaeTheme.surface(colorScheme))
+                  .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+              }
+              .buttonStyle(.plain)
+            }
+
             Button {
-              model.openAddSubject()
+              guard let subjectId = selectedSubjectId else { return }
+              model.saveStudy(
+                subjectId: subjectId,
+                content: title,
+                memo: memo,
+                editingStudyId: presentation.editingStudyId
+              )
             } label: {
-              Label("과목 추가", systemImage: "plus")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(PoogaeTheme.brand)
+              Text("저장")
+                .font(.system(size: 14, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+                .foregroundStyle(.white)
+                .background(canSave ? PoogaeTheme.brand : PoogaeTheme.muted(colorScheme).opacity(0.45))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
+            .disabled(!canSave)
           }
+          .padding(.top, 4)
+          .padding(.bottom, 8)
         }
-
-        ScrollView(.horizontal, showsIndicators: false) {
-          HStack(spacing: 8) {
-            ForEach(model.subjects) { subject in
-              subjectChip(subject)
-            }
-          }
-        }
-      }
-
-      VStack(alignment: .leading, spacing: 8) {
-        Text("학습 내용")
-          .font(.system(size: 12, weight: .semibold))
-          .foregroundStyle(PoogaeTheme.section(colorScheme))
-        TextField("1-3단원 / p. 22-36", text: $title)
-          .textFieldStyle(.plain)
-          .font(.system(size: 15, weight: .medium))
-          .padding(.horizontal, 14)
-          .frame(height: SubjectChipStyle.minHeight)
-          .background(PoogaeTheme.surface(colorScheme))
-          .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
-          .onChange(of: title) { _, value in
-            if value.count > AppMutations.maxTitleLength {
-              title = String(value.prefix(AppMutations.maxTitleLength))
-            }
-          }
-      }
-
-      VStack(alignment: .leading, spacing: 8) {
-        Text("메모")
-          .font(.system(size: 12, weight: .semibold))
-          .foregroundStyle(PoogaeTheme.section(colorScheme))
-        TextField("추가로 기록하고 싶은 내용", text: $memo, axis: .vertical)
-          .textFieldStyle(.plain)
-          .font(.system(size: 15, weight: .medium))
-          .lineLimit(2...3)
-          .padding(.horizontal, 14)
-          .padding(.vertical, 12)
-          .frame(minHeight: 72, alignment: .topLeading)
-          .background(PoogaeTheme.surface(colorScheme))
-          .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
-          .onChange(of: memo) { _, value in
-            if value.count > AppMutations.maxMemoLength {
-              memo = String(value.prefix(AppMutations.maxMemoLength))
-            }
-          }
-      }
-
-      Spacer(minLength: 0)
-
-      HStack(spacing: 10) {
-        if let studyId = presentation.editingStudyId {
-          Button(role: .destructive) {
-            model.deleteStudy(id: studyId)
-          } label: {
-            Text("삭제")
-              .font(.system(size: 14, weight: .semibold))
-              .frame(maxWidth: .infinity)
-              .padding(.vertical, 11)
-              .foregroundStyle(Color(hex: 0xE25555))
-              .background(PoogaeTheme.surface(colorScheme))
-              .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-          }
-          .buttonStyle(.plain)
-        }
-
-        Button {
-          guard let subjectId = selectedSubjectId else { return }
-          model.saveStudy(
-            subjectId: subjectId,
-            content: title,
-            memo: memo,
-            editingStudyId: presentation.editingStudyId
-          )
-        } label: {
-          Text("저장")
-            .font(.system(size: 14, weight: .semibold))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 11)
-            .foregroundStyle(.white)
-            .background(canSave ? PoogaeTheme.brand : PoogaeTheme.muted(colorScheme).opacity(0.45))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .disabled(!canSave)
+        .padding(.horizontal, 22)
+        .padding(.bottom, 16)
       }
     }
-    .padding(22)
-    .frame(width: 440, height: 360)
+    .frame(width: 440, height: 420)
     .background(PoogaeTheme.canvas(colorScheme))
     .onAppear(perform: hydrate)
     .onChange(of: model.subjects.map(\.id)) { _, ids in

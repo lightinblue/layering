@@ -6,6 +6,9 @@ struct StudyRecordRow: View {
   var onDelete: () -> Void
   @Environment(\.colorScheme) private var colorScheme
 
+  /// Home list chip height (unchanged); gray body matches this.
+  private let chipHeight: CGFloat = 36
+
   var body: some View {
     Button(action: onEdit) {
       HStack(spacing: 10) {
@@ -13,27 +16,19 @@ struct StudyRecordRow: View {
           .font(.system(size: 13, weight: .semibold))
           .foregroundStyle(.white)
           .padding(.horizontal, 10)
-          .frame(minWidth: 64, minHeight: 36)
+          .frame(minWidth: 64, minHeight: chipHeight)
           .background(chipColor)
           .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-        VStack(alignment: .leading, spacing: 2) {
-          Text(row.content)
-            .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(PoogaeTheme.body(colorScheme))
-            .lineLimit(1)
-          if let memo = row.memo, !memo.isEmpty {
-            Text(memo)
-              .font(.system(size: 12, weight: .regular))
-              .foregroundStyle(PoogaeTheme.muted(colorScheme))
-              .lineLimit(1)
-          }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .frame(minHeight: 44)
-        .background(PoogaeTheme.surface(colorScheme))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        Text(row.content)
+          .font(.system(size: 14, weight: .medium))
+          .foregroundStyle(PoogaeTheme.body(colorScheme))
+          .lineLimit(1)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal, 14)
+          .frame(height: chipHeight)
+          .background(PoogaeTheme.surface(colorScheme))
+          .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
       }
       .contentShape(Rectangle())
     }
