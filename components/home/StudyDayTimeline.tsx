@@ -33,7 +33,7 @@ import { radii, subjectColor } from '@/constants/tokens';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import { buildTimelineBands } from '@/utils/study-timeline';
 import { haptics } from '@/utils/haptics';
-import { resolveSubjectAndTitle } from '@/utils/parse-subject-prefix';
+import { matchSubjectPrefix } from '@/utils/parse-subject-prefix';
 
 /** Match home study chip/body height (not the cramped 36). */
 const SLOT_HEIGHT = 44;
@@ -293,14 +293,21 @@ function InlineBandAddRow({
   const names = subjects.map((s) => s.name);
 
   const submit = () => {
-    const resolved = resolveSubjectAndTitle(raw, names);
-    if (!resolved) {
+    const match = matchSubjectPrefix(raw, names);
+    const title = match.title.trim();
+    // Empty content (blank or subject-only): dismiss, never create a record.
+    if (!title) {
+      haptics.select();
+      onCancel();
+      return;
+    }
+    if (!match.subject) {
       haptics.reject();
       setShowSubjectPrompt(true);
       return;
     }
     haptics.save();
-    onCommit(resolved.subject, resolved.title);
+    onCommit(match.subject, title);
   };
 
   return (
