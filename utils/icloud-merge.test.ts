@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { AppData, StudyRecord, SubjectChip } from '@/types/domain';
 import {
+  dedupeStudyRecords,
   mergeAppData,
   mergeChecks,
   pickWinner,
@@ -160,6 +161,31 @@ describe('mergeAppData', () => {
     expect(r1?.deleted).toBe(true);
     expect(r1?.checks['1']?.done).toBe(true);
     expect(merged.records.some((r) => r.id === 'r2')).toBe(true);
+  });
+});
+
+describe('dedupeStudyRecords', () => {
+  it('soft-deletes content twins with different ids, keeps newest', () => {
+    const older = study({
+      id: 'a',
+      studiedOn: '2026-11-20',
+      subjectId: 'edu',
+      content: '만능틀 적용, 연습',
+      updatedAt: '2026-11-20T01:00:00.000Z',
+    });
+    const newer = study({
+      id: 'b',
+      studiedOn: '2026-11-20',
+      subjectId: 'edu',
+      content: '만능틀 적용, 연습',
+      updatedAt: '2026-11-20T02:00:00.000Z',
+    });
+    const { records, didChange } = dedupeStudyRecords([older, newer], new Date('2026-11-20T03:00:00.000Z'));
+    expect(didChange).toBe(true);
+    const active = records.filter((r) => !r.deleted);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.id).toBe('b');
+    expect(records.find((r) => r.id === 'a')?.deleted).toBe(true);
   });
 });
 

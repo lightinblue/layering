@@ -168,10 +168,12 @@ export function mergeAppData(input: MergeAppDataInput): AppData {
     mergeStudy,
   );
 
+  const deduped = dedupeStudyRecords(records, now);
+
   return purgeExpiredTombstones(
     {
       subjects,
-      records,
+      records: deduped.records,
       schedules: local.schedules,
     },
     now,
@@ -188,4 +190,65 @@ export function activeSubjects(subjects: readonly SubjectChip[]): SubjectChip[] 
 /** Active (non-deleted) study records. */
 export function activeRecords(records: readonly StudyRecord[]): StudyRecord[] {
   return records.filter((r) => !r.deleted);
+}
+
+/** Fingerprint for content twins (different ids, same day/subject/title). */
+export function studyContentKey(record: StudyRecord): string {
+  const day = record.studiedOn.trim();
+  const subject = record.subjectId.trim();
+  const content = record.content.trim();
+  return `${day}|${subject}|${content}`;
+}
+
+/**
+ * Collapse same-id rows (LWW), then soft-delete active content twins.
+ * Keeps the newest `updatedAt` (tie → greater id). Preserves existing tombstones.
+ */
+export function dedupeStudyRecords(
+  records: readonly StudyRecord[],
+  now = new Date(),
+): { records: StudyRecord[]; didChange: boolean } {
+  const byId = new Map<string, StudyRecord>();
+  let idCollapsed = false;
+  for (const record of records) {
+    const existing = byId.get(record.id);
+    if (existing) {
+      idCollapsed = true;
+      byId.set(
+        record.id,
+        pickWinner(existing, record, existing.id, record.id),
+      );
+    } else {
+      byId.set(record.id, record);
+    }
+  }
+
+  const stamp = now.toISOString();
+  const keptActive = new Map<string, StudyRecord>();
+  const out: StudyRecord[] = [];
+  let tombstoned = false;
+
+  const ordered = [...byId.values()].sort((a, b) => {
+    const at = parseIso(a.updatedAt);
+    const bt = parseIso(b.updatedAt);
+    if (at !== bt) return bt - at;
+    return a.id < b.id ? 1 : -1;
+  });
+
+  for (const record of ordered) {
+    if (record.deleted) {
+      out.push(record);
+      continue;
+    }
+    const key = studyContentKey(record);
+    if (keptActive.has(key)) {
+      out.push({ ...record, deleted: true, updatedAt: stamp });
+      tombstoned = true;
+    } else {
+      keptActive.set(key, record);
+      out.push(record);
+    }
+  }
+
+  return { records: out, didChange: idCollapsed || tombstoned };
 }

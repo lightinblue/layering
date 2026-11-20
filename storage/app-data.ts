@@ -19,7 +19,11 @@ import {
   normalizeAppData,
   rebuildSchedulesFromRecords,
 } from '@/storage/migrate-app-data';
-import { activeRecords, activeSubjects } from '@/utils/icloud-merge';
+import {
+  activeRecords,
+  activeSubjects,
+  dedupeStudyRecords,
+} from '@/utils/icloud-merge';
 import { buildReviewDueDates } from '@/utils/review-schedule';
 
 export const EMPTY_APP_DATA: AppData = {
@@ -285,14 +289,28 @@ export function reorderSubjects(
   };
 }
 
+async function finalizeLoadedAppData(data: AppData): Promise<AppData> {
+  const colored: AppData = {
+    subjects: data.subjects.map(withSubjectColor),
+    records: data.records,
+    schedules: data.schedules,
+  };
+  const { records, didChange } = dedupeStudyRecords(colored.records);
+  if (!didChange) return colored;
+  const next: AppData = { ...colored, records };
+  // Persist + push tombstones so Mac/KVS drop content twins (sync default).
+  await saveAppData(next);
+  return next;
+}
+
 export async function loadAppData(): Promise<AppData> {
   const { data: migrated } = await migrateAppDataIfNeeded();
   if (migrated) {
-    return {
-      subjects: migrated.subjects.map(withSubjectColor),
+    return finalizeLoadedAppData({
+      subjects: migrated.subjects,
       records: migrated.records,
       schedules: migrated.schedules,
-    };
+    });
   }
 
   const raw = await AsyncStorage.getItem(STORAGE_KEYS.appData);
@@ -306,11 +324,7 @@ export async function loadAppData(): Promise<AppData> {
   }
   try {
     const normalized = normalizeAppData(JSON.parse(raw));
-    return {
-      subjects: normalized.subjects.map(withSubjectColor),
-      records: normalized.records,
-      schedules: normalized.schedules,
-    };
+    return finalizeLoadedAppData(normalized);
   } catch {
     const at = nowIso();
     return {
