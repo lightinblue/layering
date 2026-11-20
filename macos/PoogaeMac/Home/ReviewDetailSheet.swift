@@ -103,7 +103,9 @@ struct ReviewDetailSheet: View {
           subjectColor: study.subjectColor,
           content: study.content,
           memo: study.memo,
-          dayBand: study.dayBand
+          dayBand: study.dayBand,
+          dayOrder: study.dayOrder,
+          createdAt: study.createdAt
         )
       )
     }

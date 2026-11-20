@@ -147,8 +147,11 @@ final class AppModel: ObservableObject {
     }
   }
 
-  func saveStudy(subjectId: String, content: String, memo: String?, editingStudyId: String?) {
+  /// Returns whether the editor should stay open for continuous add.
+  @discardableResult
+  func saveStudy(subjectId: String, content: String, memo: String?, editingStudyId: String?) -> Bool {
     let next: AppData?
+    let isAdd = editingStudyId == nil
     if let editingStudyId {
       next = AppMutations.updateStudy(
         kvs.data,
@@ -169,10 +172,39 @@ final class AppModel: ObservableObject {
         dayBand: band
       )
     }
-    guard let next else { return }
+    guard let next else { return false }
     withAnimation(PoogaeMotion.settle) {
       kvs.applyLocal(next)
-      studyEditor = nil
+      // Continuous add: keep sheet open under the daily cap.
+      if !isAdd || AppMutations.countStudies(on: selectedDateKey, in: next) >= AppMutations.maxStudiesPerDay {
+        studyEditor = nil
+      }
+    }
+    return isAdd && AppMutations.countStudies(on: selectedDateKey, in: next) < AppMutations.maxStudiesPerDay
+  }
+
+  func reorderBand(bandId: DayBandId, fromOffsets: IndexSet, toOffset: Int) {
+    var bands = timelineBands
+    guard let bandIndex = bands.firstIndex(where: { $0.id == bandId }) else { return }
+    var rows = bands[bandIndex].studyRows
+    rows.move(fromOffsets: fromOffsets, toOffset: toOffset)
+    bands[bandIndex] = StudyTimeline.BandView(
+      id: bands[bandIndex].id,
+      labelStart: bands[bandIndex].labelStart,
+      labelEnd: bands[bandIndex].labelEnd,
+      slots: rows.map { .study($0) },
+      showAdd: bands[bandIndex].showAdd,
+      addSpan: bands[bandIndex].addSpan,
+      addLabel: bands[bandIndex].addLabel
+    )
+    let orderedIds = StudyTimeline.flattenBandStudyIds(bands)
+    guard let next = AppMutations.reorderStudiesOnDay(
+      kvs.data,
+      studiedOn: selectedDateKey,
+      orderedIds: orderedIds
+    ) else { return }
+    withAnimation(PoogaeMotion.settle) {
+      kvs.applyLocal(next)
     }
   }
 

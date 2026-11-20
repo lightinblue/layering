@@ -153,6 +153,11 @@ enum AppMutations {
       checks[String(interval)] = ReviewCheck(done: false, updatedAt: at)
     }
 
+    let sameDay = ICloudMerge.activeRecords(next.records).filter {
+      DateKeys.normalizeDateKey($0.studiedOn) == DateKeys.normalizeDateKey(studiedOn)
+    }
+    let maxOrder = sameDay.compactMap(\.dayOrder).max() ?? -1
+
     next.records.append(
       StudyRecord(
         id: "study-\(UUID().uuidString.lowercased())",
@@ -163,6 +168,7 @@ enum AppMutations {
         memo: fields.memo,
         studiedOn: studiedOn,
         dayBand: dayBand,
+        dayOrder: maxOrder + 1,
         cycle: cycle,
         checks: checks,
         createdAt: at,
@@ -171,6 +177,39 @@ enum AppMutations {
       )
     )
     return next
+  }
+
+  /// Persist a new display order for studies on one day (ascending `dayOrder`).
+  /// `orderedIds` must list every active study id for that day in visual order.
+  static func reorderStudiesOnDay(
+    _ data: AppData,
+    studiedOn: String,
+    orderedIds: [String],
+    now: Date = Date()
+  ) -> AppData? {
+    let day = DateKeys.normalizeDateKey(studiedOn)
+    let activeIds = Set(
+      ICloudMerge.activeRecords(data.records)
+        .filter { DateKeys.normalizeDateKey($0.studiedOn) == day }
+        .map(\.id)
+    )
+    guard !orderedIds.isEmpty,
+          orderedIds.count == activeIds.count,
+          orderedIds.allSatisfy({ activeIds.contains($0) })
+    else { return nil }
+
+    let at = ISO8601DateFormatter.fractional.string(from: now)
+    let orderById = Dictionary(uniqueKeysWithValues: orderedIds.enumerated().map { ($1, $0) })
+    var next = data
+    var changed = false
+    for idx in next.records.indices {
+      guard let order = orderById[next.records[idx].id] else { continue }
+      if next.records[idx].dayOrder == order { continue }
+      next.records[idx].dayOrder = order
+      next.records[idx].updatedAt = at
+      changed = true
+    }
+    return changed ? next : data
   }
 
   static func updateStudy(

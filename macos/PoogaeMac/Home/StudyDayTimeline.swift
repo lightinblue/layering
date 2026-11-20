@@ -1,11 +1,12 @@
 import SwiftUI
 
 /// Port of iOS `StudyDayTimeline` — faint 8/12/18/24 marks + banded study rows.
+/// Drag rows within a band to reorder (persists via `dayOrder`).
 struct StudyDayTimeline: View {
   @ObservedObject var model: AppModel
   @Environment(\.colorScheme) private var colorScheme
 
-  private let slotHeight: CGFloat = 44
+  private let slotHeight: CGFloat = 36
   private let slotGap: CGFloat = 5
 
   var body: some View {
@@ -23,6 +24,7 @@ struct StudyDayTimeline: View {
       }
     }
     .animation(PoogaeMotion.settle, value: model.studies.map(\.id))
+    .animation(PoogaeMotion.settle, value: model.studies.map { "\($0.id):\($0.dayOrder ?? -1)" })
   }
 
   private func bandBlock(_ band: StudyTimeline.BandView, isLast: Bool) -> some View {
@@ -30,15 +32,30 @@ struct StudyDayTimeline: View {
       timelineMark(band.labelStart)
 
       VStack(alignment: .leading, spacing: slotGap) {
-        ForEach(band.slots) { slot in
-          if case .study(let row) = slot {
-            StudyRecordRow(
-              row: row,
-              onEdit: { model.openEditStudy(row) },
-              onDelete: { model.deleteStudy(id: row.id) }
-            )
-            .transition(.opacity.combined(with: .move(edge: .top)))
+        if !band.studyRows.isEmpty {
+          List {
+            ForEach(band.studyRows) { row in
+              StudyRecordRow(
+                row: row,
+                onEdit: { model.openEditStudy(row) },
+                onDelete: { model.deleteStudy(id: row.id) }
+              )
+              .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
+              .listRowSeparator(.hidden)
+              .listRowBackground(Color.clear)
+              .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+            .onMove { source, destination in
+              withAnimation(PoogaeMotion.settle) {
+                model.reorderBand(bandId: band.id, fromOffsets: source, toOffset: destination)
+              }
+            }
           }
+          .listStyle(.plain)
+          .scrollContentBackground(.hidden)
+          .scrollDisabled(true)
+          .frame(height: listHeight(for: band.studyRows.count))
+          .environment(\.defaultMinListRowHeight, slotHeight)
         }
 
         if model.canAddStudy && band.showAdd {
@@ -52,6 +69,11 @@ struct StudyDayTimeline: View {
         timelineMark(band.labelEnd)
       }
     }
+  }
+
+  private func listHeight(for count: Int) -> CGFloat {
+    guard count > 0 else { return 0 }
+    return CGFloat(count) * (slotHeight + slotGap)
   }
 
   private func timelineMark(_ label: String) -> some View {

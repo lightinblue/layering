@@ -30,6 +30,11 @@ enum StudyTimeline {
       case .study(let row): return row.id
       }
     }
+
+    var row: HomeStudyRow? {
+      if case .study(let row) = self { return row }
+      return nil
+    }
   }
 
   struct BandView: Identifiable, Hashable {
@@ -41,15 +46,29 @@ enum StudyTimeline {
     /// Display height in slot units (~3/4/3 pad).
     var addSpan: Int
     var addLabel: String
+
+    var studyRows: [HomeStudyRow] {
+      slots.compactMap(\.row)
+    }
+  }
+
+  private static func rowSortKey(_ row: HomeStudyRow) -> String {
+    let order = row.dayOrder ?? Int.max
+    return String(format: "%08d|%@|%@", order, row.createdAt, row.id)
+  }
+
+  private static func sortRows(_ rows: [HomeStudyRow]) -> [HomeStudyRow] {
+    rows.sorted { rowSortKey($0) < rowSortKey($1) }
   }
 
   static func buildBands(studies: [HomeStudyRow]) -> [BandView] {
+    let ordered = sortRows(studies)
     var assigned: [DayBandId: [HomeStudyRow]] = [
       .morning: [], .afternoon: [], .evening: [],
     ]
     var unassigned: [HomeStudyRow] = []
 
-    for row in studies {
+    for row in ordered {
       if let band = row.dayBand {
         assigned[band, default: []].append(row)
       } else {
@@ -63,10 +82,10 @@ enum StudyTimeline {
       while filled.count < band.emptySlots, !queue.isEmpty {
         filled.append(queue.removeFirst())
       }
-      return filled
+      return sortRows(filled)
     }
     if !queue.isEmpty {
-      buckets[buckets.count - 1].append(contentsOf: queue)
+      buckets[buckets.count - 1] = sortRows(buckets[buckets.count - 1] + queue)
     }
 
     return bands.enumerated().map { index, band in
@@ -84,6 +103,11 @@ enum StudyTimeline {
         addLabel: band.addLabel
       )
     }
+  }
+
+  /// Flatten band visual order into a full-day id list for persistence.
+  static func flattenBandStudyIds(_ bands: [BandView]) -> [String] {
+    bands.flatMap { $0.studyRows.map(\.id) }
   }
 
   static func count(in data: AppData, dateKey: String, band: DayBandId) -> Int {

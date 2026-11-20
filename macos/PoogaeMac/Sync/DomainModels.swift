@@ -63,6 +63,8 @@ struct StudyRecord: Codable, Identifiable, Hashable, Sendable {
   var studiedOn: String
   /// Optional day-band for study-day UI (same as iOS).
   var dayBand: DayBandId?
+  /// Display order within a studiedOn day (ascending). New studies append at bottom.
+  var dayOrder: Int?
   var cycle: [Int]
   var checks: [String: ReviewCheck]
   var createdAt: String
@@ -78,6 +80,7 @@ struct StudyRecord: Codable, Identifiable, Hashable, Sendable {
     memo: String? = nil,
     studiedOn: String,
     dayBand: DayBandId? = nil,
+    dayOrder: Int? = nil,
     cycle: [Int],
     checks: [String: ReviewCheck],
     createdAt: String,
@@ -92,6 +95,7 @@ struct StudyRecord: Codable, Identifiable, Hashable, Sendable {
     self.memo = memo
     self.studiedOn = DateKeys.normalizeDateKey(studiedOn)
     self.dayBand = dayBand
+    self.dayOrder = dayOrder
     self.cycle = cycle
     self.checks = checks
     self.createdAt = createdAt
@@ -117,6 +121,7 @@ struct StudyRecord: Codable, Identifiable, Hashable, Sendable {
     }
     studiedOn = DateKeys.normalizeDateKey(rawStudiedOn)
     dayBand = try c.decodeIfPresent(DayBandId.self, forKey: .dayBand)
+    dayOrder = try c.decodeIfPresent(Int.self, forKey: .dayOrder)
     cycle = try c.decodeIfPresent([Int].self, forKey: .cycle) ?? ReviewIntervals.days
     checks = try c.decodeIfPresent([String: ReviewCheck].self, forKey: .checks) ?? [:]
     createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt) ?? ""

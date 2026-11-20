@@ -8,6 +8,8 @@ struct HomeStudyRow: Identifiable, Hashable {
   var content: String
   var memo: String?
   var dayBand: DayBandId?
+  var dayOrder: Int?
+  var createdAt: String
 }
 
 struct HomeReviewCheckTarget: Hashable {
@@ -29,7 +31,7 @@ enum TodayHomeData {
     let day = DateKeys.normalizeDateKey(dateKey)
     return ICloudMerge.activeRecords(data.records)
       .filter { DateKeys.normalizeDateKey($0.studiedOn) == day }
-      .sorted { $0.createdAt < $1.createdAt }
+      .sorted(by: studySort)
       .map {
         HomeStudyRow(
           id: $0.id,
@@ -38,9 +40,19 @@ enum TodayHomeData {
           subjectColor: $0.subjectColor,
           content: $0.content,
           memo: $0.memo,
-          dayBand: $0.dayBand
+          dayBand: $0.dayBand,
+          dayOrder: $0.dayOrder,
+          createdAt: $0.createdAt
         )
       }
+  }
+
+  private static func studySort(_ a: StudyRecord, _ b: StudyRecord) -> Bool {
+    let ao = a.dayOrder ?? Int.max
+    let bo = b.dayOrder ?? Int.max
+    if ao != bo { return ao < bo }
+    if a.createdAt != b.createdAt { return a.createdAt < b.createdAt }
+    return a.id < b.id
   }
 
   static func reviews(for dateKey: String, data: AppData) -> [HomeReviewCard] {

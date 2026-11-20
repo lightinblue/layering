@@ -187,12 +187,18 @@ struct StudyEditorSheet: View {
 
   private func saveIfPossible() {
     guard canSave, let subjectId = selectedSubjectId else { return }
-    model.saveStudy(
+    let keepOpen = model.saveStudy(
       subjectId: subjectId,
       content: title,
       memo: memo,
       editingStudyId: presentation.editingStudyId
     )
+    if keepOpen {
+      withAnimation(PoogaeMotion.quick) {
+        title = ""
+        memo = ""
+      }
+    }
   }
 
   private func subjectChip(_ subject: SubjectChip) -> some View {
