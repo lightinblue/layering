@@ -83,6 +83,7 @@ struct StudyEditorSheet: View {
             .padding(.vertical, 14)
             .background(PoogaeTheme.surface(colorScheme))
             .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
+            .onSubmit(saveIfPossible)
             .onChange(of: title) { _, value in
               if value.count > AppMutations.maxTitleLength {
                 title = String(value.prefix(AppMutations.maxTitleLength))
@@ -109,6 +110,14 @@ struct StudyEditorSheet: View {
             .frame(minHeight: 88, alignment: .topLeading)
             .background(PoogaeTheme.surface(colorScheme))
             .clipShape(RoundedRectangle(cornerRadius: SubjectChipStyle.cornerRadius, style: .continuous))
+            // Plain Enter saves; Shift+Enter keeps a newline in the memo.
+            .onKeyPress(keys: [.return]) { press in
+              if press.modifiers.contains(.shift) {
+                return .ignored
+              }
+              saveIfPossible()
+              return .handled
+            }
             .onChange(of: memo) { _, value in
               if value.count > AppMutations.maxMemoLength {
                 memo = String(value.prefix(AppMutations.maxMemoLength))
@@ -132,15 +141,7 @@ struct StudyEditorSheet: View {
               .buttonStyle(.plain)
             }
 
-            Button {
-              guard let subjectId = selectedSubjectId else { return }
-              model.saveStudy(
-                subjectId: subjectId,
-                content: title,
-                memo: memo,
-                editingStudyId: presentation.editingStudyId
-              )
-            } label: {
+            Button(action: saveIfPossible) {
               Text("저장")
                 .font(.system(size: 14, weight: .semibold))
                 .frame(maxWidth: .infinity)
@@ -151,6 +152,7 @@ struct StudyEditorSheet: View {
             }
             .buttonStyle(.plain)
             .disabled(!canSave)
+            .keyboardShortcut(.defaultAction)
           }
           .padding(.top, 4)
           .padding(.bottom, 8)
@@ -183,6 +185,16 @@ struct StudyEditorSheet: View {
     }
   }
 
+  private func saveIfPossible() {
+    guard canSave, let subjectId = selectedSubjectId else { return }
+    model.saveStudy(
+      subjectId: subjectId,
+      content: title,
+      memo: memo,
+      editingStudyId: presentation.editingStudyId
+    )
+  }
+
   private func subjectChip(_ subject: SubjectChip) -> some View {
     let selected = subject.id == selectedSubjectId
     let fill = SubjectChipStyle.fill(hex: subject.color)
@@ -193,7 +205,7 @@ struct StudyEditorSheet: View {
       }
     } label: {
       Text(subject.name)
-        .font(.system(size: 15, weight: .medium))
+        .font(.system(size: SubjectChipStyle.fontSize, weight: .medium))
         .foregroundStyle(.white)
         .padding(.horizontal, SubjectChipStyle.horizontalPadding)
         .frame(minHeight: SubjectChipStyle.minHeight)

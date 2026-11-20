@@ -55,14 +55,15 @@ enum PoogaeTheme {
   }
 }
 
-/// Subject chip look — matches iOS `AddStudyForm` SelectableChip.
+/// Subject chip look — matches iOS `AddStudyForm` SelectableChip (slightly tighter on Mac).
 enum SubjectChipStyle {
-  static let cornerRadius: CGFloat = 12
-  static let borderWidth: CGFloat = 2
+  static let cornerRadius: CGFloat = 10
+  static let borderWidth: CGFloat = 1.5
   static let idleOpacity = 0.45
   static let selectedOpacity = 1.0
-  static let horizontalPadding: CGFloat = 14
-  static let minHeight: CGFloat = 44
+  static let horizontalPadding: CGFloat = 10
+  static let minHeight: CGFloat = 32
+  static let fontSize: CGFloat = 13
 
   static func fill(hex: String?) -> Color {
     Color(hexString: hex ?? "", fallback: PoogaeTheme.brand)

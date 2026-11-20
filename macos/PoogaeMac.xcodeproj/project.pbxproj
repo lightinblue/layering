@@ -23,6 +23,7 @@
 		DFF0CC738D8143D1AEBC434B /* DateKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E89BCDB6EC4A5CB01E4D63 /* DateKeys.swift */; };
 		F1C2B43F4B1E45A4B977DB5F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CBFE870AF60E4F569E08C2CD /* Assets.xcassets */; };
 		F9B2B20C404F45B99A5A86AA /* ReviewCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C58BA9505D740C985CDBC78 /* ReviewCardView.swift */; };
+		A7E4C91D2B8F4E6A9D1C3B20 /* ReviewDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E4C91D2B8F4E6A9D1C3B21 /* ReviewDetailSheet.swift */; };
 		B1C82E04D3164C7EB851A001 /* StudyEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B71D03C2053B6DA7409001 /* StudyEditorSheet.swift */; };
 		C2D93F15E4275D8FC962B002 /* SubjectEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C82E04D3164C7EB851A002 /* SubjectEditorSheet.swift */; };
 		AF5124D37E427D9EC061B254 /* AppMutations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4013C26D316C8DBF50A143 /* AppMutations.swift */; };
@@ -35,6 +36,7 @@
 		32EFBAB730E4442EAB70873D /* MenuBarPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPopover.swift; sourceTree = "<group>"; };
 		534CAAB67022438C8065B933 /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
 		5C58BA9505D740C985CDBC78 /* ReviewCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewCardView.swift; sourceTree = "<group>"; };
+		A7E4C91D2B8F4E6A9D1C3B21 /* ReviewDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewDetailSheet.swift; sourceTree = "<group>"; };
 		606A0F6F5BDC405C80DB06F6 /* PoogaeMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoogaeMacApp.swift; sourceTree = "<group>"; };
 		66423DEE2EE34AE8B9E739B8 /* PoogaeTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoogaeTheme.swift; sourceTree = "<group>"; };
 		6894CAAC7A38483986751C83 /* PoogaeMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PoogaeMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -141,6 +143,7 @@
 				A0B71D03C2053B6DA7409001 /* StudyEditorSheet.swift */,
 				B1C82E04D3164C7EB851A002 /* SubjectEditorSheet.swift */,
 				5C58BA9505D740C985CDBC78 /* ReviewCardView.swift */,
+				A7E4C91D2B8F4E6A9D1C3B21 /* ReviewDetailSheet.swift */,
 				FA1B419FF67F46378450CD39 /* StudyRecordRow.swift */,
 			);
 			path = Home;
@@ -239,6 +242,7 @@
 				9001246205A547F48ED22F32 /* CalendarView.swift in Sources */,
 				2ECD3DF1FF5342ECAA5D1BD4 /* HomeView.swift in Sources */,
 				F9B2B20C404F45B99A5A86AA /* ReviewCardView.swift in Sources */,
+				A7E4C91D2B8F4E6A9D1C3B20 /* ReviewDetailSheet.swift in Sources */,
 				B1C82E04D3164C7EB851A001 /* StudyEditorSheet.swift in Sources */,
 				C2D93F15E4275D8FC962B002 /* SubjectEditorSheet.swift in Sources */,
 				6B4D2FFAFD4B4226A9D7D907 /* StudyRecordRow.swift in Sources */,

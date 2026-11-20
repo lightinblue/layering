@@ -3,22 +3,28 @@ import SwiftUI
 struct ReviewCardView: View {
   let card: HomeReviewCard
   var onToggle: () -> Void
+  var onDetail: () -> Void
   @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
-    Button(action: onToggle) {
+    Button(action: onDetail) {
       VStack(alignment: .leading, spacing: 12) {
         HStack(spacing: 10) {
-          ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-              .fill(card.completed ? PoogaeTheme.brand : PoogaeTheme.muted(colorScheme).opacity(0.35))
-              .frame(width: 28, height: 28)
-            if card.completed {
-              Image(systemName: "checkmark")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white)
+          Button(action: onToggle) {
+            ZStack {
+              RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(card.completed ? PoogaeTheme.brand : PoogaeTheme.muted(colorScheme).opacity(0.35))
+                .frame(width: 28, height: 28)
+              if card.completed {
+                Image(systemName: "checkmark")
+                  .font(.system(size: 12, weight: .bold))
+                  .foregroundStyle(.white)
+              }
             }
+            .contentShape(Rectangle())
           }
+          .buttonStyle(.plain)
+          .help(card.completed ? "복습 완료 해제" : "복습 완료")
 
           Text("\(card.intervalDays)일 전")
             .font(.system(size: 12, weight: .semibold))
@@ -54,6 +60,7 @@ struct ReviewCardView: View {
       .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
     .buttonStyle(.plain)
+    .help("복습 내용 보기")
     .animation(PoogaeMotion.settle, value: card.completed)
   }
 
