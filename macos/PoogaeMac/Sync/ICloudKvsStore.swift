@@ -11,6 +11,11 @@ final class ICloudKvsStore: ObservableObject {
   @Published private(set) var iCloudAvailable: Bool = false
   @Published private(set) var lastReadAt: Date?
   @Published private(set) var statusMessage: String = "준비 중"
+  /// Compact dump for menu-bar diagnostics (keys + sizes).
+  @Published private(set) var debugSummary: String = ""
+
+  /// Must match iOS `app.json` ubiquity-kvstore-identifier (TeamPrefix + com.lightinblue.layering).
+  static let expectedKvStoreId = "R39JVZ3ZNL.com.lightinblue.layering"
 
   private let store = NSUbiquitousKeyValueStore.default
   private var observer: NSObjectProtocol?
@@ -50,6 +55,7 @@ final class ICloudKvsStore: ObservableObject {
   }
 
   func bootstrap() async {
+    logEnvironment()
     _ = store.synchronize()
     iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
     await refreshFromCloud()
@@ -69,11 +75,13 @@ final class ICloudKvsStore: ObservableObject {
     iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
     _ = store.synchronize()
 
-    let allKeys = store.dictionaryRepresentation.keys.compactMap { $0 as? String }
+    let dict = store.dictionaryRepresentation
+    let allKeys = dict.keys.compactMap { $0 as? String }.sorted()
     let subjectKeys = allKeys.filter { $0 == KVSKeys.subjects }
-    let monthKeys = allKeys
-      .filter { $0.hasPrefix(KVSKeys.monthPrefix) }
-      .sorted()
+    let monthKeys = allKeys.filter { $0.hasPrefix(KVSKeys.monthPrefix) }
+    let otherKeys = allKeys.filter { $0 != KVSKeys.subjects && !$0.hasPrefix(KVSKeys.monthPrefix) }
+
+    logDictionary(dict, allKeys: allKeys)
 
     let subjectsRead = readSubjects()
     let subjectsPayload = subjectsRead.payload
@@ -140,9 +148,36 @@ final class ICloudKvsStore: ObservableObject {
       monthKeyCount: monthKeys.count,
       remoteRecordCount: remoteRecords.count,
       monthDecodeFailures: monthDecodeFailures,
-      hadRemote: hadRemote
+      hadRemote: hadRemote,
+      totalKeyCount: allKeys.count
+    )
+    debugSummary = makeDebugSummary(
+      allKeys: allKeys,
+      monthKeys: monthKeys,
+      otherKeys: otherKeys,
+      dict: dict,
+      subjectsBytes: subjectsRead.rawByteCount,
+      remoteRecords: remoteRecords.count
     )
     kvsLog.info("\(self.statusMessage, privacy: .public) localSubjects=\(self.data.subjects.count) localRecords=\(self.data.records.count)")
+    kvsLog.info("debug \(self.debugSummary, privacy: .public)")
+  }
+
+  /// Wipe Mac local mirror + in-memory seed, then re-pull (does not clear iCloud).
+  func resetLocalStoreAndPull() async {
+    UserDefaults.standard.removeObject(forKey: localCacheKey)
+    data = .empty
+    hasSeenRemotePayload = false
+    statusMessage = "로컬 초기화 후 재동기화…"
+    debugSummary = ""
+    kvsLog.info("local cache cleared; re-pulling")
+    _ = store.synchronize()
+    await refreshFromCloud()
+    if ICloudMerge.activeSubjects(data.subjects).isEmpty {
+      data = AppMutations.ensureSeedSubjects(data)
+      persistLocalCache(data)
+    }
+    scheduleBootstrapRetries()
   }
 
   /// Apply mutation, cache locally, and push to KVS when available.
@@ -157,7 +192,7 @@ final class ICloudKvsStore: ObservableObject {
     bootstrapRetryTask?.cancel()
     bootstrapRetryTask = Task { @MainActor in
       // KVS download is async; empty first read is normal. Retry before giving up.
-      for delayNs in [2_000_000_000, 5_000_000_000, 12_000_000_000] as [UInt64] {
+      for delayNs in [2_000_000_000, 5_000_000_000, 12_000_000_000, 30_000_000_000] as [UInt64] {
         try? await Task.sleep(nanoseconds: delayNs)
         if Task.isCancelled { return }
         if hasSeenRemotePayload { return }
@@ -196,45 +231,72 @@ final class ICloudKvsStore: ObservableObject {
     }
 
     _ = store.synchronize()
-    if !statusMessage.contains("KVS") {
-      statusMessage = "KVS 동기화됨 · subjects=\(next.subjects.count) rec=\(next.records.count)"
-    }
   }
 
   private struct DecodeRead<T> {
     var payload: T?
     var hadRaw: Bool
+    var rawByteCount: Int
   }
 
   private func readSubjects() -> DecodeRead<SubjectsPayload> {
-    guard let raw = store.string(forKey: KVSKeys.subjects) else {
-      return DecodeRead(payload: nil, hadRaw: false)
-    }
-    guard let data = raw.data(using: .utf8) else {
-      return DecodeRead(payload: nil, hadRaw: true)
-    }
-    do {
-      let payload = try JSONDecoder().decode(SubjectsPayload.self, from: data)
-      return DecodeRead(payload: payload, hadRaw: true)
-    } catch {
-      kvsLog.error("subjects decode error: \(error.localizedDescription, privacy: .public)")
-      return DecodeRead(payload: nil, hadRaw: true)
-    }
+    decodeJSON(SubjectsPayload.self, key: KVSKeys.subjects)
   }
 
   private func readMonth(_ key: String) -> DecodeRead<MonthPayload> {
-    guard let raw = store.string(forKey: key) else {
-      return DecodeRead(payload: nil, hadRaw: false)
-    }
-    guard let data = raw.data(using: .utf8) else {
-      return DecodeRead(payload: nil, hadRaw: true)
+    decodeJSON(MonthPayload.self, key: key)
+  }
+
+  /// iOS writes UTF-8 JSON strings; also accept Data / NSString object forms.
+  private func decodeJSON<T: Decodable>(_ type: T.Type, key: String) -> DecodeRead<T> {
+    guard let bytes = rawUTF8Bytes(forKey: key) else {
+      return DecodeRead(payload: nil, hadRaw: false, rawByteCount: 0)
     }
     do {
-      let payload = try JSONDecoder().decode(MonthPayload.self, from: data)
-      return DecodeRead(payload: payload, hadRaw: true)
+      let payload = try JSONDecoder().decode(type, from: bytes)
+      return DecodeRead(payload: payload, hadRaw: true, rawByteCount: bytes.count)
     } catch {
-      kvsLog.error("month \(key, privacy: .public) decode error: \(error.localizedDescription, privacy: .public)")
-      return DecodeRead(payload: nil, hadRaw: true)
+      kvsLog.error("\(key, privacy: .public) decode error: \(error.localizedDescription, privacy: .public)")
+      return DecodeRead(payload: nil, hadRaw: true, rawByteCount: bytes.count)
+    }
+  }
+
+  private func rawUTF8Bytes(forKey key: String) -> Data? {
+    if let s = store.string(forKey: key), let d = s.data(using: .utf8) {
+      return d
+    }
+    if let d = store.data(forKey: key) {
+      return d
+    }
+    if let obj = store.object(forKey: key) as? String, let d = obj.data(using: .utf8) {
+      return d
+    }
+    if let obj = store.object(forKey: key) as? Data {
+      return obj
+    }
+    return nil
+  }
+
+  private func logEnvironment() {
+    let token = FileManager.default.ubiquityIdentityToken != nil
+    kvsLog.info("kvstore expected=\(Self.expectedKvStoreId, privacy: .public) ubiquityToken=\(token) deviceId=\(self.deviceId, privacy: .public)")
+    kvsLog.info("entitlement note: signed app must include network.client + ubiquity-kvstore-identifier=\(Self.expectedKvStoreId, privacy: .public)")
+  }
+
+  private func logDictionary(_ dict: [AnyHashable: Any], allKeys: [String]) {
+    kvsLog.info("dictionaryRepresentation count=\(dict.count) keys=[\(allKeys.joined(separator: ","), privacy: .public)]")
+    for key in allKeys {
+      let value = dict[key]
+      let typeName = value.map { String(describing: type(of: $0)) } ?? "nil"
+      let bytes: Int
+      if let s = value as? String {
+        bytes = s.utf8.count
+      } else if let d = value as? Data {
+        bytes = d.count
+      } else {
+        bytes = -1
+      }
+      kvsLog.info("  key=\(key, privacy: .public) type=\(typeName, privacy: .public) bytes=\(bytes)")
     }
   }
 
@@ -246,22 +308,37 @@ final class ICloudKvsStore: ObservableObject {
     monthKeyCount: Int,
     remoteRecordCount: Int,
     monthDecodeFailures: Int,
-    hadRemote: Bool
+    hadRemote: Bool,
+    totalKeyCount: Int
   ) -> String {
     if !iCloud {
-      return "iCloud 없음 — 로컬만 (Team R39JVZ3ZNL ≠ Personal)"
+      return "iCloud 없음 — 로컬만 (Mac Apple ID / iCloud 로그인 확인)"
     }
     if subjectsDecodeFailed {
-      return "subjects 디코드 실패 · rec keys=\(monthKeyCount)"
+      return "subjects 디코드 실패 · dict=\(totalKeyCount) · rec keys=\(monthKeyCount)"
     }
     if monthDecodeFailures > 0 {
       return "KVS 일부 디코드 실패 · months=\(monthDecodeFailures) · rec=\(remoteRecordCount)"
     }
     if hadRemote {
       let subj = subjectsDecoded ? "ok" : (subjectKeyPresent ? "empty" : "missing")
-      return "KVS 동기화됨 · subjects=\(subj) · rec keys=\(monthKeyCount) · records=\(remoteRecordCount)"
+      return "KVS 동기화됨 · subjects=\(subj) · dict=\(totalKeyCount) · records=\(remoteRecordCount)"
     }
-    return "클라우드 대기/비어 있음 · keys subjects=\(subjectKeyPresent ? 1 : 0) rec=\(monthKeyCount)"
+    return "클라우드 비어 있음 · dict=\(totalKeyCount) · subjects=\(subjectKeyPresent ? 1 : 0) · rec=\(monthKeyCount) · 컨테이너 \(Self.expectedKvStoreId)"
+  }
+
+  private func makeDebugSummary(
+    allKeys: [String],
+    monthKeys: [String],
+    otherKeys: [String],
+    dict: [AnyHashable: Any],
+    subjectsBytes: Int,
+    remoteRecords: Int
+  ) -> String {
+    let keyPreview = allKeys.isEmpty ? "(none)" : allKeys.prefix(12).joined(separator: ", ")
+    let more = allKeys.count > 12 ? "…" : ""
+    let other = otherKeys.isEmpty ? "" : " other=[\(otherKeys.joined(separator: ","))]"
+    return "dict=\(dict.count) keys=[\(keyPreview)\(more)] subjectsBytes=\(subjectsBytes) months=\(monthKeys.count) records=\(remoteRecords)\(other)"
   }
 
   private func persistLocalCache(_ next: AppData) {

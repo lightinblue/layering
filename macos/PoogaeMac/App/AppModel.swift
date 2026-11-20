@@ -84,6 +84,14 @@ final class AppModel: ObservableObject {
     }
   }
 
+  func forcePullFromICloud() {
+    Task { await kvs.refreshFromCloud() }
+  }
+
+  func resetLocalStoreAndPull() {
+    Task { await kvs.resetLocalStoreAndPull() }
+  }
+
   func openAddStudy(band: DayBandId? = nil) {
     guard canAddStudy else { return }
     withAnimation(PoogaeMotion.quick) {

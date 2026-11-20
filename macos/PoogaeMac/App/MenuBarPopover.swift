@@ -69,9 +69,34 @@ struct MenuBarPopover: View {
       Text(model.kvs.statusMessage)
         .font(.system(size: 10, weight: .regular))
         .foregroundStyle(PoogaeTheme.muted(colorScheme))
+        .textSelection(.enabled)
+
+      if !model.kvs.debugSummary.isEmpty {
+        Text(model.kvs.debugSummary)
+          .font(.system(size: 9, weight: .regular).monospaced())
+          .foregroundStyle(PoogaeTheme.muted(colorScheme).opacity(0.9))
+          .textSelection(.enabled)
+      }
+
+      HStack(spacing: 12) {
+        Button("다시 받기") {
+          model.forcePullFromICloud()
+        }
+        .buttonStyle(.plain)
+        .font(.system(size: 11, weight: .medium))
+        .foregroundStyle(PoogaeTheme.brand)
+
+        Button("로컬 초기화") {
+          model.resetLocalStoreAndPull()
+        }
+        .buttonStyle(.plain)
+        .font(.system(size: 11, weight: .medium))
+        .foregroundStyle(PoogaeTheme.section(colorScheme))
+        .help("Mac 로컬 캐시만 지우고 iCloud를 다시 읽습니다")
+      }
     }
     .padding(14)
-    .frame(width: 280)
+    .frame(width: 300)
     .background(PoogaeTheme.canvas(colorScheme))
     .animation(PoogaeMotion.settle, value: model.todayReviews.map(\.id))
   }

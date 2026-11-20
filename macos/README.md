@@ -31,7 +31,11 @@ xcodebuild -project macos/PoogaeMac.xcodeproj -scheme PoogaeMac -configuration D
 
 A free **Personal Team** shows as **`Name (Personal Team)`** in the Team dropdown and uses a different Team ID — iCloud KVS will **not** share data with the iOS app. The paid Individual team appears as **`Seoyoung Yoon`** (no “Personal Team” suffix) with Team ID **`R39JVZ3ZNL`**. Prefer that for sync testing.
 
-**KVS status** (menu bar footer): after Run, look for `KVS 동기화됨 · subjects=ok · rec keys=…`. `클라우드 대기/비어 있음` that never clears usually means Mac iCloud Apple ID ≠ phone, or phone has not pushed yet — not a wrong Team ID when Team is already `R39JVZ3ZNL`.
+**KVS status** (menu bar footer): after Run, look for `KVS 동기화됨 · subjects=ok · dict=…`. If `dict=0` forever, Mac never received phone keys.
+
+Sandboxed Mac builds **must** include `com.apple.security.network.client` (Outgoing Connections) or iCloud KVS cannot download. Entitlements also pin the shared store to `R39JVZ3ZNL.com.lightinblue.layering` (same as iOS).
+
+**If subjects/records still wrong after a sync fix:** menu bar → **로컬 초기화** (clears Mac UserDefaults mirror only) → wait for status/`dict` to fill → or delete the app and container `~/Library/Containers/com.lightinblue.layering.mac`, then Run again. Phone and Mac must use the **same iCloud Apple ID**.
 
 ## Usable now (phase 2–3 slice)
 

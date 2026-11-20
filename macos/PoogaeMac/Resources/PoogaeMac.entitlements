@@ -6,5 +6,8 @@
 	<string>$(TeamIdentifierPrefix)com.lightinblue.layering</string>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	<!-- Required for sandboxed Mac apps to reach iCloud KVS servers. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
 </dict>
 </plist>
