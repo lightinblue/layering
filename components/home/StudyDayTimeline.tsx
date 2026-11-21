@@ -648,6 +648,7 @@ function InlineBandAddRow({
       setShowSubjectPrompt(true);
       return;
     }
+    setShowSubjectPrompt(false);
     haptics.save();
     onCommit(match.subject, title);
   };
@@ -658,31 +659,18 @@ function InlineBandAddRow({
       exiting={EXIT}
       layout={ROW_LAYOUT}
       style={styles.inlineWrap}>
-      {showSubjectPrompt ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="과목을 선택해 주세요"
-          accessibilityHint="과목 이름을 앞에 적으면 자동으로 배정돼요"
-          onPress={() => haptics.select()}
-          style={[
-            styles.subjectPrompt,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.mutedLight,
-            },
-          ]}>
-          <Text style={[styles.subjectPromptText, { color: colors.muted }]}>
-            과목을 선택해 주세요
-          </Text>
-        </Pressable>
-      ) : null}
-
       <View style={styles.inlineInputRow}>
         <TextInput
           value={raw}
           onChangeText={(text) => {
             setRaw(text);
-            if (showSubjectPrompt) setShowSubjectPrompt(false);
+            // Clear hint as soon as a known subject prefix is present.
+            if (
+              showSubjectPrompt &&
+              matchSubjectPrefix(text, names).subject
+            ) {
+              setShowSubjectPrompt(false);
+            }
           }}
           placeholder={INLINE_STUDY_PLACEHOLDER}
           placeholderTextColor={colors.mutedLight}
@@ -718,6 +706,14 @@ function InlineBandAddRow({
           <Text style={[styles.cancelText, { color: colors.muted }]}>취소</Text>
         </Pressable>
       </View>
+      {showSubjectPrompt ? (
+        <Text
+          accessibilityLiveRegion="polite"
+          accessibilityRole="text"
+          style={[styles.subjectHint, { color: colors.primary }]}>
+          과목을 입력해주세요
+        </Text>
+      ) : null}
     </Animated.View>
   );
 }
@@ -781,17 +777,12 @@ const styles = StyleSheet.create({
   inlineWrap: {
     gap: 6,
   },
-  subjectPrompt: {
-    height: SLOT_HEIGHT,
-    borderRadius: radii.chip,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  subjectPromptText: {
+  /** Small theme-primary hint under the inline add input (no toast/banner). */
+  subjectHint: {
     fontFamily: fonts.nexonMedium,
-    fontSize: 13,
+    fontSize: 12,
+    lineHeight: 16,
+    paddingLeft: 4,
   },
   inlineInputRow: {
     flexDirection: 'row',
