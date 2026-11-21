@@ -91,12 +91,15 @@ type StudyDayTimelineProps = {
   onDeferTomorrow?: (studyId: string) => void;
   /** Persist long-press reorder within a band. */
   onReorderBand?: (bandId: TimelineBandId, orderedIds: string[]) => void;
-  /** Persist long-press drop into another band (오전→오후/밤). */
+  /**
+   * Persist long-press drop into another band (오전→오후/밤).
+   * Return true only when the move was applied (optimistic UI depends on this).
+   */
   onMoveStudyToBand?: (input: {
     studyId: string;
     toBandId: TimelineBandId;
     toIndex: number;
-  }) => void;
+  }) => boolean;
 };
 
 /**
@@ -246,17 +249,27 @@ export function StudyDayTimeline({
                     return false;
                   }
                   if (!onMoveStudyToBand) return false;
-                  // When leaving the source band, index is among remaining rows.
-                  onMoveStudyToBand({
+                  // Only optimistic-remove when persist path actually applied.
+                  return onMoveStudyToBand({
                     studyId,
                     toBandId: hit.bandId,
                     toIndex: hit.index,
                   });
-                  return true;
                 }}
               />
               {drafting ? (
-                <View style={styles.bandAddDraft}>
+                <View
+                  style={[
+                    styles.bandAddDraft,
+                    studyRows.length === 0
+                      ? {
+                          // Empty-band draft: keep tall gray pad so lower bands
+                          // don't snap (Y layout fix) while still dismiss-on-save.
+                          minHeight: bandAddHeight(band.addSpan),
+                          backgroundColor: colors.surface,
+                        }
+                      : null,
+                  ]}>
                   <InlineBandAddRow
                     key={draftKey}
                     subjects={subjects}

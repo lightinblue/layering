@@ -45,6 +45,7 @@ import {
   updateStudyWithReviews,
   withSubjectColor,
 } from '@/storage/app-data';
+import { subscribeICloudMerged } from '@/storage/icloud-sync';
 import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
 import {
   useColorScheme,
@@ -137,6 +138,15 @@ export default function DayTimelineScreen() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // Keep Day in sync with KVS merges so persist cannot clobber remote/home writes.
+  useEffect(() => {
+    return subscribeICloudMerged((merged) => {
+      appDataRef.current = merged;
+      setAppData(merged);
+      void syncTodayReviewWidgetSnapshot(merged);
+    });
   }, []);
 
   const studies = useMemo(
@@ -238,9 +248,9 @@ export default function DayTimelineScreen() {
       studyId: string;
       toBandId: TimelineBandId;
       toIndex: number;
-    }) => {
+    }): boolean => {
       const data = appDataRef.current;
-      if (!data) return;
+      if (!data) return false;
       const bands = buildTimelineBands(studiesForDay(data, dateKey));
       const layout = layoutAfterCrossBandMove({
         bands,
@@ -248,24 +258,26 @@ export default function DayTimelineScreen() {
         toBandId: input.toBandId,
         toIndex: input.toIndex,
       });
-      if (!layout) return;
+      if (!layout) return false;
       const next = applyDayStudyLayout(data, dateKey, layout);
-      if (next === data) return;
+      if (next === data) return false;
       haptics.select();
       void persist(next);
+      return true;
     },
     [dateKey, persist],
   );
 
   const onSaveEdit = useCallback(
     (payload: AddStudyPayload) => {
-      if (!appData || !editingStudy) return;
+      const data = appDataRef.current;
+      if (!data || !editingStudy) return;
       const content = payload.title.trim();
       if (!content) {
         haptics.reject();
         return;
       }
-      const next = updateStudyWithReviews(appData, editingStudy.id, {
+      const next = updateStudyWithReviews(data, editingStudy.id, {
         subjectName: payload.subject,
         content,
         studiedOn: dateKey,
@@ -274,15 +286,16 @@ export default function DayTimelineScreen() {
       haptics.save();
       setEditOpen(false);
     },
-    [appData, dateKey, editingStudy, persist],
+    [dateKey, editingStudy, persist],
   );
 
   const onDelete = useCallback(() => {
-    if (!editingStudy || !appData) return;
-    void persist(deleteStudyWithReviews(appData, editingStudy.id));
+    const data = appDataRef.current;
+    if (!editingStudy || !data) return;
+    void persist(deleteStudyWithReviews(data, editingStudy.id));
     haptics.delete();
     setEditOpen(false);
-  }, [editingStudy, appData, persist]);
+  }, [editingStudy, persist]);
 
   const onToggleDayDone = useCallback(
     (studyId: string) => {
