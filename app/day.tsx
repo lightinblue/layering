@@ -3,6 +3,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -283,9 +285,7 @@ export default function DayTimelineScreen() {
   }
 
   return (
-    // Plain View — keyboard overlays; do not pad/shift lower bands when
-    // the inline band-add TextInput focuses (Y: leave layout in place).
-    <View
+    <KeyboardAvoidingView
       style={[
         styles.root,
         {
@@ -293,7 +293,8 @@ export default function DayTimelineScreen() {
           paddingTop: insets.top,
           paddingBottom: Math.max(insets.bottom, 12),
         },
-      ]}>
+      ]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
 
       <Animated.View
@@ -360,7 +361,7 @@ export default function DayTimelineScreen() {
           />
         ) : null}
       </BottomSheetModal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

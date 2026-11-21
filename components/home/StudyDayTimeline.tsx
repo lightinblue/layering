@@ -51,6 +51,11 @@ const SLOT_HEIGHT = 44;
 /** Vertical space between study rows inside a band (matches slotStack gap). */
 const ROW_GAP = 5;
 const ROW_STRIDE = SLOT_HEIGHT + ROW_GAP;
+
+/** Same height as BandAddControl — keep when swapping empty slot → input. */
+function bandAddHeight(span: number): number {
+  return SLOT_HEIGHT * span + ROW_GAP * Math.max(0, span - 1);
+}
 const ROW_LAYOUT = LinearTransition.duration(durations.listRow);
 const ENTER = FadeInDown.duration(durations.fadeIn).easing(
   Easing.out(Easing.cubic),
@@ -251,13 +256,24 @@ export function StudyDayTimeline({
                 }}
               />
               {drafting ? (
-                <InlineBandAddRow
-                  key={draftKey}
-                  subjects={subjects}
-                  colorByName={colorByName}
-                  onCancel={closeDraft}
-                  onCommit={commitDraft}
-                />
+                <View
+                  style={[
+                    styles.bandAddDraft,
+                    {
+                      minHeight: bandAddHeight(band.addSpan),
+                      // Keep gray empty-slot chrome so lower bands don't snap up.
+                      backgroundColor:
+                        studyRows.length > 0 ? 'transparent' : colors.surface,
+                    },
+                  ]}>
+                  <InlineBandAddRow
+                    key={draftKey}
+                    subjects={subjects}
+                    colorByName={colorByName}
+                    onCancel={closeDraft}
+                    onCommit={commitDraft}
+                  />
+                </View>
               ) : canAdd && band.showAdd ? (
                 <BandAddControl
                   label={band.addLabel}
@@ -597,7 +613,7 @@ function BandAddControl({
   onPress: () => void;
 }) {
   const colors = useThemeColors();
-  const height = SLOT_HEIGHT * span + ROW_GAP * Math.max(0, span - 1);
+  const height = bandAddHeight(span);
   return (
     <Animated.View entering={ENTER} exiting={EXIT} layout={ROW_LAYOUT}>
       <Pressable
@@ -769,6 +785,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 6,
+  },
+  /** Holds inline input at the empty-slot height (gray pad preserved). */
+  bandAddDraft: {
+    borderRadius: radii.chip,
+    justifyContent: 'flex-start',
+    paddingTop: 0,
   },
   emptyText: {
     fontFamily: fonts.nexonMedium,
