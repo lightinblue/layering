@@ -71,9 +71,8 @@ export const APP_THEMES: readonly AppTheme[] = [
   {
     id: 'sunset',
     label: '노을',
-    primary: '#ff7a45',
-    /** Picker circle is yellow; chrome + chips stay orange/yellow family. */
-    swatch: '#F5C21C',
+    /** Chrome + picker yellow; chips keep yellow/orange mix. */
+    primary: '#F5C21C',
     // Yellow + orange + coral (9 incl. gray)
     chips: [
       '#FBE28A',
@@ -173,7 +172,7 @@ export function getTheme(id: ThemeId): AppTheme {
 export function themeIdForPrimary(primary: string): ThemeId {
   const hex = primary.trim().toLowerCase();
   if (hex === '#1991ff') return 'multicolor';
-  if (hex === '#f5c21c') return 'sunset';
+  if (hex === '#f5c21c' || hex === '#ff7a45') return 'sunset';
   if (hex === '#8b7cf6') return 'lilac';
   const match = APP_THEMES.find(
     (t) => t.id !== 'multicolor' && t.primary.toLowerCase() === hex,

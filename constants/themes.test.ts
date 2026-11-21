@@ -45,10 +45,8 @@ describe('APP_THEMES', () => {
     }
   });
 
-  it('uses a yellow picker swatch for 노을 while primary stays orange', () => {
-    const sunset = getTheme('sunset');
-    expect(sunset.primary.toLowerCase()).toBe('#ff7a45');
-    expect(sunset.swatch?.toLowerCase()).toBe('#f5c21c');
+  it('uses yellow chrome primary for 노을', () => {
+    expect(getTheme('sunset').primary.toLowerCase()).toBe('#f5c21c');
   });
 });
 
