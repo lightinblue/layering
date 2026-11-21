@@ -88,14 +88,14 @@ export const APP_THEMES: readonly AppTheme[] = [
     id: 'forest',
     label: '숲',
     primary: '#45c775',
-    // Green + yellow-green + teal; chips 2–3 stay light mint vs deep green
+    // Green + yellow-green + teal — light → dark, gray last
     chips: [
-      '#A8C95C',
       '#6EDC9A',
-      '#2E9B5A',
+      '#A8C95C',
       '#45c775',
-      '#1E8A4A',
       '#3DB8A0',
+      '#2E9B5A',
+      '#1E8A4A',
       '#0D7A6A',
       THEME_NEUTRAL_GRAY,
     ],
