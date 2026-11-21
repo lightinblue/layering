@@ -5,6 +5,7 @@ import {
   colors,
   subjectColor,
 } from '@/constants/tokens';
+import { remapColorToPalette } from '@/constants/themes';
 import type { ReviewIntervalDay } from '@/constants/review';
 import type {
   AppData,
@@ -112,6 +113,40 @@ export const DEFAULT_SUBJECTS: SubjectChip[] = [
 export function withSubjectColor(chip: SubjectChip): SubjectChip {
   const color = chip.color?.trim() || subjectColor(chip.name);
   return color === chip.color ? chip : { ...chip, color };
+}
+
+/**
+ * Remap subject chip + record snapshot colors onto a new theme palette.
+ * Keeps subjects/records; only swaps hex fills. No-op when nothing changes.
+ */
+export function remapAppDataColors(
+  data: AppData,
+  fromPalette: readonly string[],
+  toPalette: readonly string[],
+  now = new Date(),
+): AppData {
+  if (toPalette.length === 0) return data;
+  const at = now.toISOString();
+  let changed = false;
+
+  const subjects = data.subjects.map((s) => {
+    if (s.deleted || !s.color?.trim()) return s;
+    const next = remapColorToPalette(s.color, fromPalette, toPalette);
+    if (next.toLowerCase() === s.color.trim().toLowerCase()) return s;
+    changed = true;
+    return { ...s, color: next, updatedAt: at };
+  });
+
+  const records = data.records.map((r) => {
+    if (r.deleted || !r.subjectColor?.trim()) return r;
+    const next = remapColorToPalette(r.subjectColor, fromPalette, toPalette);
+    if (next.toLowerCase() === r.subjectColor.trim().toLowerCase()) return r;
+    changed = true;
+    return { ...r, subjectColor: next, updatedAt: at };
+  });
+
+  if (!changed) return data;
+  return withSchedules({ ...data, subjects, records });
 }
 
 export function subjectColorMap(

@@ -23,7 +23,8 @@ import {
 } from '@/components/home/AddStudyForm';
 import { fonts } from '@/constants/fonts';
 import { durations, springs } from '@/constants/motion';
-import { PRIMARY_OPTIONS, radii, type PrimaryOption } from '@/constants/tokens';
+import { radii } from '@/constants/tokens';
+import { APP_THEMES, type ThemeId } from '@/constants/themes';
 import { MAX_SUBJECTS } from '@/storage/app-data';
 import { WEEKDAY_START_OPTIONS } from '@/storage/calendar-prefs';
 import { useCalendarPrefs } from '@/theme/CalendarPrefsProvider';
@@ -43,7 +44,7 @@ export type SettingsSheetProps = {
 };
 
 /**
- * Settings body: subjects, calendar week start + accent color.
+ * Settings body: subjects, calendar week start + theme.
  * Appearance always follows the device system setting (no in-app toggle).
  * Screenshot helpers render only when `__DEV__` and handlers are passed.
  */
@@ -55,7 +56,7 @@ export function SettingsSheet({
   onScreenshotSeed,
   onScreenshotReset,
 }: SettingsSheetProps) {
-  const { colors, primary, setPrimary } = useTheme();
+  const { colors, themeId, setTheme } = useTheme();
   const { weekStartsOn, setWeekStartsOn } = useCalendarPrefs();
   const [busy, setBusy] = useState<'seed' | 'reset' | null>(null);
   const showScreenshotTools =
@@ -131,17 +132,23 @@ export function SettingsSheet({
       </View>
 
       <View style={styles.field}>
-        <Text style={[styles.label, { color: colors.sectionLabel }]}>색상</Text>
-        <View style={styles.swatchRow}>
-          {PRIMARY_OPTIONS.map((hex) => (
-            <ColorSwatch
-              key={hex}
-              hex={hex}
-              selected={hex === primary}
-              borderColor={colors.black}
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>테마</Text>
+        <View style={styles.themeList}>
+          {APP_THEMES.map((theme) => (
+            <ThemeOptionRow
+              key={theme.id}
+              themeId={theme.id}
+              label={theme.label}
+              primary={theme.primary}
+              chips={theme.chips}
+              selected={theme.id === themeId}
+              surface={colors.surface}
+              ink={colors.black}
+              muted={colors.muted}
               onPress={() => {
+                if (theme.id === themeId) return;
                 haptics.themePick();
-                setPrimary(hex as PrimaryOption);
+                setTheme(theme.id);
               }}
             />
           ))}
@@ -309,15 +316,25 @@ function SegmentedPicker<T extends string | number>({
   );
 }
 
-function ColorSwatch({
-  hex,
+function ThemeOptionRow({
+  themeId,
+  label,
+  primary,
+  chips,
   selected,
-  borderColor,
+  surface,
+  ink,
+  muted,
   onPress,
 }: {
-  hex: string;
+  themeId: ThemeId;
+  label: string;
+  primary: string;
+  chips: readonly string[];
   selected: boolean;
-  borderColor: string;
+  surface: string;
+  ink: string;
+  muted: string;
   onPress: () => void;
 }) {
   const scale = useSharedValue(1);
@@ -329,7 +346,7 @@ function ColorSwatch({
       return;
     }
     if (!selected) return;
-    scale.value = withSpring(1.12, springs.snappy, (finished) => {
+    scale.value = withSpring(1.02, springs.snappy, (finished) => {
       if (finished) scale.value = withSpring(1, springs.soft);
     });
   }, [selected, scale]);
@@ -338,23 +355,40 @@ function ColorSwatch({
     transform: [{ scale: scale.value }],
   }));
 
+  const previewChips = chips.slice(0, 5);
+
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole="radio"
       accessibilityState={{ selected }}
-      accessibilityLabel={`앱 색상 ${hex}`}
+      accessibilityLabel={`테마 ${label}`}
       onPress={onPress}>
       <Animated.View
         style={[
-          styles.swatch,
-          { backgroundColor: hex },
-          selected && {
-            borderColor,
+          styles.themeRow,
+          {
+            backgroundColor: surface,
+            borderColor: selected ? primary : 'transparent',
             borderWidth: 2,
           },
           animStyle,
-        ]}
-      />
+        ]}>
+        <View style={[styles.themePrimaryDot, { backgroundColor: primary }]} />
+        <View style={styles.themeMeta}>
+          <Text style={[styles.themeLabel, { color: ink }]}>{label}</Text>
+          <View style={styles.themeChipPreview}>
+            {previewChips.map((hex) => (
+              <View
+                key={`${themeId}-${hex}`}
+                style={[styles.themeChipDot, { backgroundColor: hex }]}
+              />
+            ))}
+          </View>
+        </View>
+        {selected ? (
+          <Text style={[styles.themeSelectedMark, { color: muted }]}>✓</Text>
+        ) : null}
+      </Animated.View>
     </Pressable>
   );
 }
@@ -431,16 +465,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
-  swatchRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  themeList: {
+    gap: 8,
   },
-  swatch: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: 'transparent',
+  themeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: radii.chip,
+  },
+  themePrimaryDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  themeMeta: {
+    flex: 1,
+    gap: 6,
+  },
+  themeLabel: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 15,
+  },
+  themeChipPreview: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  themeChipDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 3,
+  },
+  themeSelectedMark: {
+    fontFamily: fonts.nexonMedium,
+    fontSize: 16,
   },
 });

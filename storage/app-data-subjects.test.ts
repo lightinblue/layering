@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import { MULTICOLOR_CHIPS, getTheme } from '@/constants/themes';
 import {
   appendStudyWithReviews,
   applyDayStudyLayout,
+  remapAppDataColors,
   removeSubject,
   reorderStudiesOnDay,
   subjectColorMap,
@@ -153,5 +155,21 @@ describe('applyDayStudyLayout', () => {
       studiedOn: '2026-11-20',
     });
     expect(data.records[0]?.dayBand).toBe('evening');
+  });
+});
+
+describe('remapAppDataColors', () => {
+  it('maps subject and record colors by palette index without dropping chips', () => {
+    const withStudy = appendStudyWithReviews(baseData(), {
+      subjectName: '전공',
+      content: '1단원',
+      studiedOn: '2026-11-19',
+    });
+    const sky = getTheme('sky').chips;
+    const next = remapAppDataColors(withStudy, MULTICOLOR_CHIPS, sky);
+    expect(activeSubjects(next.subjects)).toHaveLength(2);
+    // chipBlue (#62B3F6) is index 4 in MULTICOLOR_CHIPS → sky[4]
+    expect(next.subjects.find((s) => s.name === '전공')?.color).toBe(sky[4]);
+    expect(next.records[0]?.subjectColor).toBe(sky[4]);
   });
 });

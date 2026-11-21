@@ -25,7 +25,11 @@ import {
   type SyncedPrefsBody,
   type SyncedPrefsPayload,
 } from '@/storage/synced-prefs';
-import { loadThemePrimary, saveThemePrimary } from '@/storage/theme';
+import {
+  loadThemeId,
+  loadThemePrimary,
+  saveThemeSelection,
+} from '@/storage/theme';
 import type { AppData, StudyRecord, SubjectChip } from '@/types/domain';
 import { mergeAppData } from '@/utils/icloud-merge';
 
@@ -284,13 +288,15 @@ export function subscribeSyncedPrefs(
 }
 
 async function readLocalSyncedPrefsBody(): Promise<SyncedPrefsBody> {
-  const [cal, themePrimary] = await Promise.all([
+  const [cal, themePrimary, themeId] = await Promise.all([
     loadCalendarPrefs(),
     loadThemePrimary(),
+    loadThemeId(),
   ]);
   return {
     weekStartsOn: cal.weekStartsOn,
     themePrimary,
+    themeId,
   };
 }
 
@@ -300,7 +306,7 @@ async function applySyncedPrefsLocally(
   applyingPrefsRemote = true;
   try {
     await saveCalendarPrefs({ weekStartsOn: payload.prefs.weekStartsOn });
-    await saveThemePrimary(payload.prefs.themePrimary);
+    await saveThemeSelection(payload.prefs.themeId);
     await AsyncStorage.setItem(
       STORAGE_KEYS.syncedPrefsUpdatedAt,
       payload.updatedAt,
@@ -345,10 +351,11 @@ export async function pushSyncedPrefsToICloud(
   const nextBody: SyncedPrefsBody = {
     weekStartsOn: partial?.weekStartsOn ?? current.weekStartsOn,
     themePrimary: partial?.themePrimary ?? current.themePrimary,
+    themeId: partial?.themeId ?? current.themeId,
   };
   // Persist mirrors first so local stamp + body stay consistent.
   await saveCalendarPrefs({ weekStartsOn: nextBody.weekStartsOn });
-  await saveThemePrimary(nextBody.themePrimary);
+  await saveThemeSelection(nextBody.themeId);
 
   const payload = buildSyncedPrefsPayload(deviceId, nextBody);
   const json = JSON.stringify(payload);

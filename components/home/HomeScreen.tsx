@@ -83,10 +83,12 @@ import {
   spacing,
   subjectColor,
 } from '@/constants/tokens';
+import { getTheme, type ThemeId } from '@/constants/themes';
 import {
   addSubject,
   EMPTY_APP_DATA,
   loadAppData,
+  remapAppDataColors,
   removeSubject,
   reorderSubjects,
   saveAppData,
@@ -104,6 +106,7 @@ import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
 import { useCalendarPrefs } from '@/theme/CalendarPrefsProvider';
 import {
   useColorScheme,
+  useTheme,
   useThemeColors,
   type ThemeColors,
 } from '@/theme/ThemeProvider';
@@ -488,9 +491,11 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const theme = useThemeColors();
+  const { themeId, hydrated: themeHydrated } = useTheme();
   const colorScheme = useColorScheme();
   const styles = useHomeStyles();
   const { weekStartsOn } = useCalendarPrefs();
+  const lastThemeIdRef = useRef<ThemeId | null>(null);
 
   const [hydrated, setHydrated] = useState(dataProp != null);
   const [appData, setAppData] = useState<AppData | null>(null);
@@ -633,6 +638,29 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     // 포개 widget: review toggle · study add/delete/edit · subject changes.
     await syncTodayReviewWidgetSnapshot(next);
   }, []);
+
+  // Remap subject/record colors when theme changes (local pick or KVS sync).
+  // Skip the first hydrated themeId so we don't rewrite chips on cold start.
+  useEffect(() => {
+    if (dataProp || !themeHydrated) return;
+    if (lastThemeIdRef.current === null) {
+      lastThemeIdRef.current = themeId;
+      return;
+    }
+    if (lastThemeIdRef.current === themeId) return;
+    const fromId = lastThemeIdRef.current;
+    lastThemeIdRef.current = themeId;
+    const current = appDataRef.current;
+    if (!current) return;
+    const next = remapAppDataColors(
+      current,
+      getTheme(fromId).chips,
+      getTheme(themeId).chips,
+    );
+    if (next !== current) {
+      void persistApp(next);
+    }
+  }, [dataProp, themeHydrated, themeId, persistApp]);
 
   const selectedDateKey = selected?.dateKey ?? todayKey;
 

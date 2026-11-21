@@ -149,13 +149,14 @@ export function subjectBorderColor(
   return darkenHex(subjectColor(name, colorByName));
 }
 
-/** Solid accent options for Settings → 색상 (first = default blue). */
+/** Solid accent options (theme primaries; Settings picks themes, not raw swatches). */
 export const PRIMARY_OPTIONS = [
   '#1991ff',
   '#45c775',
   '#ff7a45',
   '#ef5b7a',
   colors.chipYellow,
+  '#8B7CF6',
 ] as const;
 
 export type PrimaryOption = (typeof PRIMARY_OPTIONS)[number];
