@@ -187,29 +187,40 @@ export function StudyDayTimeline({
     [],
   );
 
-  const openDraft = (bandId: TimelineBandId) => {
-    if (!canAdd) {
-      haptics.reject();
-      return;
-    }
-    if (subjects.length === 0) {
-      haptics.reject();
-      return;
-    }
-    haptics.select();
-    setDraftKey((k) => k + 1);
-    setDraftBandId(bandId);
-  };
+  const openDraft = useCallback(
+    (bandId: TimelineBandId) => {
+      if (!canAdd) {
+        haptics.reject();
+        return;
+      }
+      if (subjects.length === 0) {
+        haptics.reject();
+        return;
+      }
+      haptics.select();
+      setDraftKey((k) => k + 1);
+      setDraftBandId(bandId);
+    },
+    [canAdd, subjects.length],
+  );
 
-  const closeDraft = () => setDraftBandId(null);
+  const closeDraft = useCallback(() => setDraftBandId(null), []);
 
-  const commitDraft = (subject: string, title: string) => {
-    if (!draftBandId) return;
-    const bandId = draftBandId;
-    onAddStudy({ bandId, subject, title });
-    // Always dismiss the gray draft shell after save (no stuck multi-add tray).
-    setDraftBandId(null);
-  };
+  const commitDraft = useCallback(
+    (subject: string, title: string) => {
+      if (!draftBandId) return;
+      const bandId = draftBandId;
+      // Clear tray first so a slow persist / remount cannot leave gray chrome up.
+      setDraftBandId(null);
+      onAddStudy({ bandId, subject, title });
+    },
+    [draftBandId, onAddStudy],
+  );
+
+  // Cap or external study list changes must not leave a draft tray mounted.
+  useEffect(() => {
+    if (!canAdd && draftBandId != null) setDraftBandId(null);
+  }, [canAdd, draftBandId]);
 
   const canDrag = Boolean(onReorderBand || onMoveStudyToBand);
 
@@ -234,10 +245,28 @@ export function StudyDayTimeline({
                 rows={studyRows}
                 colorByName={colorByName}
                 canReorder={canDrag}
-                onEditStudy={onEditStudy}
-                onToggleDayDone={onToggleDayDone}
-                onDeferTomorrow={onDeferTomorrow}
+                onEditStudy={(row) => {
+                  closeDraft();
+                  onEditStudy(row);
+                }}
+                onToggleDayDone={
+                  onToggleDayDone
+                    ? (id) => {
+                        closeDraft();
+                        onToggleDayDone(id);
+                      }
+                    : undefined
+                }
+                onDeferTomorrow={
+                  onDeferTomorrow
+                    ? (id) => {
+                        closeDraft();
+                        onDeferTomorrow(id);
+                      }
+                    : undefined
+                }
                 onDragStart={() => {
+                  closeDraft();
                   measureBands();
                 }}
                 onReorder={(orderedIds) => onReorderBand?.(band.id, orderedIds)}
@@ -258,18 +287,9 @@ export function StudyDayTimeline({
                 }}
               />
               {drafting ? (
-                <View
-                  style={[
-                    styles.bandAddDraft,
-                    studyRows.length === 0
-                      ? {
-                          // Empty-band draft: keep tall gray pad so lower bands
-                          // don't snap (Y layout fix) while still dismiss-on-save.
-                          minHeight: bandAddHeight(band.addSpan),
-                          backgroundColor: colors.surface,
-                        }
-                      : null,
-                  ]}>
+                // Compact tray only — never paint addSpan-tall surface chrome
+                // while editing (that dead gray pad did not blur/dismiss).
+                <View style={styles.bandAddDraft}>
                   <InlineBandAddRow
                     key={draftKey}
                     subjects={subjects}
@@ -684,11 +704,14 @@ function InlineBandAddRow({
     const match = matchSubjectPrefix(raw, names);
     const title = match.title.trim();
     if (!title) {
+      committingRef.current = true;
       haptics.select();
       onCancel();
       return;
     }
     if (!match.subject) {
+      // Stay open for the hint; allow a later blur to dismiss.
+      committingRef.current = false;
       haptics.reject();
       setShowSubjectPrompt(true);
       return;
@@ -730,7 +753,7 @@ function InlineBandAddRow({
               committingRef.current = false;
               return;
             }
-            // Dismiss gray draft tray when focus leaves without save.
+            // Dismiss draft when focus leaves without save.
             onCancel();
           }}
           style={[
@@ -742,6 +765,10 @@ function InlineBandAddRow({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="저장"
+          // onPressIn before blur so save is not cancelled by blur-dismiss.
+          onPressIn={() => {
+            committingRef.current = true;
+          }}
           onPress={submit}
           style={[styles.savePill, { backgroundColor: colors.primary }]}>
           <Text style={[styles.savePillText, { color: colors.onAccent }]}>
@@ -752,8 +779,10 @@ function InlineBandAddRow({
           accessibilityRole="button"
           accessibilityLabel="취소"
           hitSlop={8}
-          onPress={() => {
+          onPressIn={() => {
             committingRef.current = true;
+          }}
+          onPress={() => {
             haptics.select();
             onCancel();
           }}
