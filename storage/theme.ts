@@ -6,9 +6,8 @@ import {
   type PrimaryOption,
 } from '@/constants/tokens';
 import {
-  DEFAULT_THEME_ID,
+  coerceThemeId,
   getTheme,
-  isThemeId,
   themeIdForPrimary,
   type ThemeId,
 } from '@/constants/themes';
@@ -26,7 +25,8 @@ export async function saveThemePrimary(primary: PrimaryOption): Promise<void> {
 
 export async function loadThemeId(): Promise<ThemeId> {
   const raw = await AsyncStorage.getItem(STORAGE_KEYS.themeId);
-  if (isThemeId(raw)) return raw;
+  const coerced = coerceThemeId(raw);
+  if (coerced) return coerced;
   const primary = await loadThemePrimary();
   return themeIdForPrimary(primary);
 }

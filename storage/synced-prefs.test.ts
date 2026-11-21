@@ -30,6 +30,21 @@ describe('normalizeSyncedPrefsBody', () => {
     });
   });
 
+  it('coerces legacy cherry/lemon themeIds onto merges', () => {
+    expect(
+      normalizeSyncedPrefsBody({
+        weekStartsOn: 0,
+        themeId: 'cherry',
+      }).themeId,
+    ).toBe('lilac');
+    expect(
+      normalizeSyncedPrefsBody({
+        weekStartsOn: 0,
+        themeId: 'lemon',
+      }).themeId,
+    ).toBe('sunset');
+  });
+
   it('infers themeId from legacy themePrimary when themeId missing', () => {
     expect(
       normalizeSyncedPrefsBody({
@@ -39,7 +54,7 @@ describe('normalizeSyncedPrefsBody', () => {
     ).toEqual({
       weekStartsOn: 0,
       themePrimary: '#ef5b7a',
-      themeId: 'cherry',
+      themeId: 'lilac',
     });
   });
 
@@ -109,8 +124,8 @@ describe('parseSyncedPrefsPayload', () => {
   it('parses a valid payload', () => {
     const payload = buildSyncedPrefsPayload('dev', {
       weekStartsOn: 1,
-      themePrimary: '#8B7CF6',
-      themeId: 'lavender',
+      themePrimary: '#ef5b7a',
+      themeId: 'lilac',
     });
     expect(parseSyncedPrefsPayload(JSON.stringify(payload))).toEqual(payload);
   });

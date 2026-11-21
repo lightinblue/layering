@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   APP_THEMES,
   MULTICOLOR_CHIPS,
+  THEME_IDS,
+  THEME_NEUTRAL_GRAY,
+  coerceThemeId,
   getTheme,
   remapColorToPalette,
   themeIdForPrimary,
@@ -16,6 +19,16 @@ describe('APP_THEMES', () => {
     expect(multi.chips).toEqual([...MULTICOLOR_CHIPS]);
   });
 
+  it('orders themes in a connected hue path after 알록달록', () => {
+    expect([...THEME_IDS]).toEqual([
+      'multicolor',
+      'sunset',
+      'forest',
+      'sky',
+      'lilac',
+    ]);
+  });
+
   it('keeps every theme primary in PRIMARY_OPTIONS', () => {
     for (const theme of APP_THEMES) {
       expect(isPrimaryOption(theme.primary)).toBe(true);
@@ -23,10 +36,21 @@ describe('APP_THEMES', () => {
     }
   });
 
-  it('ships seven chips per theme', () => {
+  it('ships seven chips per theme ending with neutral gray', () => {
     for (const theme of APP_THEMES) {
       expect(theme.chips).toHaveLength(7);
+      expect(theme.chips[theme.chips.length - 1]!.toLowerCase()).toBe(
+        THEME_NEUTRAL_GRAY.toLowerCase(),
+      );
     }
+  });
+});
+
+describe('coerceThemeId', () => {
+  it('maps merged legacy ids', () => {
+    expect(coerceThemeId('lemon')).toBe('sunset');
+    expect(coerceThemeId('cherry')).toBe('lilac');
+    expect(coerceThemeId('lavender')).toBe('lilac');
   });
 });
 
@@ -37,6 +61,11 @@ describe('themeIdForPrimary', () => {
 
   it('maps green to forest', () => {
     expect(themeIdForPrimary('#45c775')).toBe('forest');
+  });
+
+  it('maps yellow and purple primaries onto merged themes', () => {
+    expect(themeIdForPrimary('#F5C21C')).toBe('sunset');
+    expect(themeIdForPrimary('#8B7CF6')).toBe('lilac');
   });
 });
 
@@ -49,8 +78,9 @@ describe('remapColorToPalette', () => {
   });
 
   it('maps by index when color is in the source palette', () => {
+    // pink / green are not also members of sky — pure index remap
     expect(remapColorToPalette(from[0]!, from, to)).toBe(to[0]);
-    expect(remapColorToPalette(from[4]!, from, to)).toBe(to[4]);
+    expect(remapColorToPalette(from[3]!, from, to)).toBe(to[3]);
   });
 
   it('falls back to nearest when unknown', () => {

@@ -10,8 +10,8 @@ import {
 } from '@/constants/tokens';
 import {
   DEFAULT_THEME_ID,
+  coerceThemeId,
   getTheme,
-  isThemeId,
   themeIdForPrimary,
   type ThemeId,
 } from '@/constants/themes';
@@ -62,9 +62,8 @@ export function normalizeSyncedPrefsBody(raw: unknown): SyncedPrefsBody {
   const primaryFallback =
     themeRaw && isPrimaryOption(themeRaw) ? themeRaw : DEFAULT_PRIMARY;
   const themeIdRaw = typeof obj.themeId === 'string' ? obj.themeId : undefined;
-  const themeId: ThemeId = isThemeId(themeIdRaw)
-    ? themeIdRaw
-    : themeIdForPrimary(primaryFallback);
+  const themeId: ThemeId =
+    coerceThemeId(themeIdRaw) ?? themeIdForPrimary(primaryFallback);
   return {
     weekStartsOn: cal.weekStartsOn,
     themeId,

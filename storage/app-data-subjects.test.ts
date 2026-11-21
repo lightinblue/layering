@@ -160,7 +160,14 @@ describe('applyDayStudyLayout', () => {
 
 describe('remapAppDataColors', () => {
   it('maps subject and record colors by palette index without dropping chips', () => {
-    const withStudy = appendStudyWithReviews(baseData(), {
+    const pink = MULTICOLOR_CHIPS[0]!;
+    const data: AppData = {
+      ...baseData(),
+      subjects: baseData().subjects.map((s) =>
+        s.name === '전공' ? { ...s, color: pink } : s,
+      ),
+    };
+    const withStudy = appendStudyWithReviews(data, {
       subjectName: '전공',
       content: '1단원',
       studiedOn: '2026-11-19',
@@ -168,8 +175,8 @@ describe('remapAppDataColors', () => {
     const sky = getTheme('sky').chips;
     const next = remapAppDataColors(withStudy, MULTICOLOR_CHIPS, sky);
     expect(activeSubjects(next.subjects)).toHaveLength(2);
-    // chipBlue (#62B3F6) is index 4 in MULTICOLOR_CHIPS → sky[4]
-    expect(next.subjects.find((s) => s.name === '전공')?.color).toBe(sky[4]);
-    expect(next.records[0]?.subjectColor).toBe(sky[4]);
+    // pink is index 0 in MULTICOLOR → sky[0]
+    expect(next.subjects.find((s) => s.name === '전공')?.color).toBe(sky[0]);
+    expect(next.records[0]?.subjectColor).toBe(sky[0]);
   });
 });

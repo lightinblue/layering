@@ -4,19 +4,25 @@ import { colors } from '@/constants/tokens';
  * App themes: fixed primary + coordinated subject-chip palette.
  * `multicolor` (알록달록) keeps the original mixed Figma swatches.
  * Family themes mix related hues (not mono tints) so chips stay distinguishable.
+ * Picker order follows a connected hue path after 알록달록.
  */
 
 export const THEME_IDS = [
   'multicolor',
-  'sky',
-  'forest',
   'sunset',
-  'cherry',
-  'lemon',
-  'lavender',
+  'forest',
+  'sky',
+  'lilac',
 ] as const;
 
 export type ThemeId = (typeof THEME_IDS)[number];
+
+/** Legacy theme ids from earlier builds → current id. */
+const THEME_ID_ALIASES: Record<string, ThemeId> = {
+  lemon: 'sunset',
+  cherry: 'lilac',
+  lavender: 'lilac',
+};
 
 export type AppTheme = {
   id: ThemeId;
@@ -24,9 +30,12 @@ export type AppTheme = {
   label: string;
   /** Accent / chrome primary. */
   primary: string;
-  /** Subject chip swatches (pickable; length 7). */
+  /** Subject chip swatches (pickable; length 7, last = neutral gray). */
   chips: readonly string[];
 };
+
+/** Shared neutral chip (every palette includes one). */
+export const THEME_NEUTRAL_GRAY = colors.chipGray;
 
 /** Default / legacy mixed palette (Figma order). */
 export const MULTICOLOR_CHIPS = [
@@ -36,9 +45,12 @@ export const MULTICOLOR_CHIPS = [
   colors.chipGreen,
   colors.chipBlue,
   colors.chipPurple,
-  colors.chipGray,
+  THEME_NEUTRAL_GRAY,
 ] as const;
 
+/**
+ * Hue-connected picker order: 알록달록 → warm → green → blue → pink/purple.
+ */
 export const APP_THEMES: readonly AppTheme[] = [
   {
     id: 'multicolor',
@@ -47,93 +59,63 @@ export const APP_THEMES: readonly AppTheme[] = [
     chips: MULTICOLOR_CHIPS,
   },
   {
-    id: 'sky',
-    label: '하늘',
-    primary: '#1991ff',
-    // Blue family + teal / soft violet / cool gray
+    id: 'sunset',
+    label: '노을',
+    primary: '#ff7a45',
+    // Yellow + orange family (merged 레몬+노을), higher contrast
     chips: [
-      '#7EB8F0',
-      '#1991ff',
-      '#5BB8C9',
-      '#4A90D9',
-      '#6B8AE8',
-      '#9DC4F0',
-      '#9fb1c1',
+      '#F5C21C',
+      '#FFB347',
+      '#ff7a45',
+      '#E85A28',
+      '#FE9253',
+      '#D4A017',
+      THEME_NEUTRAL_GRAY,
     ],
   },
   {
     id: 'forest',
     label: '숲',
     primary: '#45c775',
-    // Green + yellow-green + teal + moss
+    // Green + yellow-green + teal
     chips: [
-      '#8FD9A8',
-      '#45c775',
       '#A8C95C',
-      '#2FA85C',
       '#5DCB85',
+      '#45c775',
+      '#2FA85C',
+      '#1E8A4A',
       '#3DB8A0',
-      '#8FA89A',
+      THEME_NEUTRAL_GRAY,
     ],
   },
   {
-    id: 'sunset',
-    label: '노을',
-    primary: '#ff7a45',
-    // Orange + coral + peach + warm rose
+    id: 'sky',
+    label: '하늘',
+    primary: '#1991ff',
+    // Blue + teal + soft violet
     chips: [
-      '#FFA87A',
-      '#ff7a45',
-      '#FE9253',
-      '#E85A28',
-      '#F06583',
-      '#FFB347',
-      '#C4A090',
+      '#9DC4F0',
+      '#62B3F6',
+      '#1991ff',
+      '#0D6FD4',
+      '#5BB8C9',
+      '#6B8AE8',
+      THEME_NEUTRAL_GRAY,
     ],
   },
   {
-    id: 'cherry',
-    label: '벚꽃',
+    id: 'lilac',
+    label: '라일락',
     primary: '#ef5b7a',
-    // Pink + red + soft magenta/purple
+    // Pink + purple family (merged 벚꽃+라벤더)
     chips: [
-      '#F48BA3',
+      '#F65E83',
       '#ef5b7a',
       '#E0455A',
-      '#F65E83',
       '#C75B8A',
       '#B7A4E9',
-      '#C49AA6',
-    ],
-  },
-  {
-    id: 'lemon',
-    label: '레몬',
-    primary: '#F5C21C',
-    // Yellow + orange + gold + amber
-    chips: [
-      '#F7D45A',
-      '#F5C21C',
-      '#FE9253',
-      '#E0A800',
-      '#FFB347',
-      '#D4A017',
-      '#B2A88A',
-    ],
-  },
-  {
-    id: 'lavender',
-    label: '라벤더',
-    primary: '#8B7CF6',
-    // Purple + lilac + blue-violet + soft pink-lilac
-    chips: [
-      '#B7A4E9',
       '#8B7CF6',
-      '#A78BFA',
-      '#6F5FE0',
-      '#9B8CF8',
-      '#D4A5E8',
-      '#A39BB8',
+      THEME_NEUTRAL_GRAY,
     ],
   },
 ] as const;
@@ -151,6 +133,15 @@ export function isThemeId(value: string | null | undefined): value is ThemeId {
   );
 }
 
+/** Resolve current or legacy theme id (lemon/cherry/lavender → merged). */
+export function coerceThemeId(
+  value: string | null | undefined,
+): ThemeId | null {
+  if (!value) return null;
+  if (isThemeId(value)) return value;
+  return THEME_ID_ALIASES[value] ?? null;
+}
+
 export function getTheme(id: ThemeId): AppTheme {
   return THEME_BY_ID[id] ?? THEME_BY_ID[DEFAULT_THEME_ID];
 }
@@ -162,6 +153,8 @@ export function getTheme(id: ThemeId): AppTheme {
 export function themeIdForPrimary(primary: string): ThemeId {
   const hex = primary.trim().toLowerCase();
   if (hex === '#1991ff') return 'multicolor';
+  if (hex === '#f5c21c') return 'sunset';
+  if (hex === '#8b7cf6') return 'lilac';
   const match = APP_THEMES.find(
     (t) => t.id !== 'multicolor' && t.primary.toLowerCase() === hex,
   );
