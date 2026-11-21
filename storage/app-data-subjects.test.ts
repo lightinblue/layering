@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   appendStudyWithReviews,
+  applyDayStudyLayout,
   removeSubject,
   reorderStudiesOnDay,
   subjectColorMap,
@@ -116,5 +117,41 @@ describe('reorderStudiesOnDay', () => {
     const next = reorderStudiesOnDay(data, '2026-11-20', onlyFirst);
     expect(next).toBe(data);
     expect(next.records).toHaveLength(2);
+  });
+});
+
+describe('applyDayStudyLayout', () => {
+  it('writes dayBand + dayOrder for a cross-band move', () => {
+    let data = baseData();
+    data = appendStudyWithReviews(data, {
+      subjectName: '전공',
+      content: 'A',
+      studiedOn: '2026-11-20',
+      dayBand: 'morning',
+    });
+    data = appendStudyWithReviews(data, {
+      subjectName: '교육학',
+      content: 'B',
+      studiedOn: '2026-11-20',
+      dayBand: 'afternoon',
+    });
+    const [a, b] = data.records;
+    const next = applyDayStudyLayout(data, '2026-11-20', [
+      { id: b!.id, dayBand: 'afternoon' },
+      { id: a!.id, dayBand: 'afternoon' },
+    ]);
+    expect(next.records.find((r) => r.id === a!.id)?.dayBand).toBe('afternoon');
+    expect(next.records.find((r) => r.id === a!.id)?.dayOrder).toBe(1);
+    expect(next.records.find((r) => r.id === b!.id)?.dayOrder).toBe(0);
+  });
+
+  it('defaults missing dayBand to evening on append', () => {
+    let data = baseData();
+    data = appendStudyWithReviews(data, {
+      subjectName: '전공',
+      content: 'A',
+      studiedOn: '2026-11-20',
+    });
+    expect(data.records[0]?.dayBand).toBe('evening');
   });
 });

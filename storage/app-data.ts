@@ -412,7 +412,9 @@ export function appendStudyWithReviews(
     content: fields.content,
     ...(fields.memo ? { memo: fields.memo } : {}),
     studiedOn: input.studiedOn,
-    ...(input.dayBand ? { dayBand: input.dayBand } : {}),
+    // Always persist band membership — missing dayBand used to rebucket into
+    // earlier bands when capacity opened (delete looked like a band jump).
+    dayBand: input.dayBand ?? 'evening',
     dayOrder: maxOrder + 1,
     cycle,
     checks: emptyChecks(cycle, at),
@@ -426,14 +428,19 @@ export function appendStudyWithReviews(
   });
 }
 
+export type DayStudyLayoutItem = {
+  id: string;
+  dayBand: 'morning' | 'afternoon' | 'evening';
+};
+
 /**
- * Persist a new display order for studies on one day (ascending dayOrder).
- * `orderedIds` should list every active study id for that day in visual order.
+ * Persist full-day visual order + band membership.
+ * `layout` must list every active study id for that day exactly once.
  */
-export function reorderStudiesOnDay(
+export function applyDayStudyLayout(
   data: AppData,
   studiedOn: string,
-  orderedIds: readonly string[],
+  layout: readonly DayStudyLayoutItem[],
   now = new Date(),
 ): AppData {
   const at = nowIso(now);
@@ -442,22 +449,66 @@ export function reorderStudiesOnDay(
       .filter((r) => r.studiedOn === studiedOn)
       .map((r) => r.id),
   );
-  if (orderedIds.length === 0 || orderedIds.some((id) => !activeIds.has(id))) {
+  if (layout.length === 0 || layout.length !== activeIds.size) {
     return data;
   }
-  if (orderedIds.length !== activeIds.size) {
+  if (layout.some((item) => !activeIds.has(item.id))) {
     return data;
   }
-  const orderById = new Map(orderedIds.map((id, index) => [id, index]));
+  const seen = new Set<string>();
+  for (const item of layout) {
+    if (seen.has(item.id)) return data;
+    seen.add(item.id);
+  }
+
+  const metaById = new Map(
+    layout.map((item, index) => [item.id, { dayBand: item.dayBand, dayOrder: index }]),
+  );
   return withSchedules({
     subjects: data.subjects,
     records: data.records.map((r) => {
-      const nextOrder = orderById.get(r.id);
-      if (nextOrder === undefined) return r;
-      if (r.dayOrder === nextOrder) return r;
-      return { ...r, dayOrder: nextOrder, updatedAt: at };
+      const meta = metaById.get(r.id);
+      if (!meta) return r;
+      if (r.dayOrder === meta.dayOrder && r.dayBand === meta.dayBand) return r;
+      return {
+        ...r,
+        dayBand: meta.dayBand,
+        dayOrder: meta.dayOrder,
+        updatedAt: at,
+      };
     }),
   });
+}
+
+/**
+ * Persist a new display order for studies on one day (ascending dayOrder).
+ * `orderedIds` should list every active study id for that day in visual order.
+ * Preserves each record's existing `dayBand`.
+ */
+export function reorderStudiesOnDay(
+  data: AppData,
+  studiedOn: string,
+  orderedIds: readonly string[],
+  now = new Date(),
+): AppData {
+  const active = activeRecords(data.records).filter(
+    (r) => r.studiedOn === studiedOn,
+  );
+  const bandById = new Map(
+    active.map((r) => [
+      r.id,
+      (r.dayBand === 'morning' ||
+      r.dayBand === 'afternoon' ||
+      r.dayBand === 'evening'
+        ? r.dayBand
+        : 'evening') as DayStudyLayoutItem['dayBand'],
+    ]),
+  );
+  const layout: DayStudyLayoutItem[] = orderedIds.map((id) => ({
+    id,
+    dayBand: bandById.get(id) ?? 'evening',
+  }));
+  return applyDayStudyLayout(data, studiedOn, layout, now);
 }
 
 /** Toggle a single study's check for an interval (source of truth). */

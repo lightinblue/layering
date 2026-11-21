@@ -11,6 +11,7 @@ import type {
   SubjectChip,
 } from '@/types/domain';
 import { buildReviewDueDates } from '@/utils/review-schedule';
+import { assignMissingDayBands } from '@/utils/study-timeline';
 
 export const DEFAULT_CYCLE: ReviewIntervalDay[] = [...REVIEW_INTERVAL_DAYS];
 
@@ -153,10 +154,11 @@ export function normalizeAppData(raw: unknown, now = new Date()): AppData {
   });
 
   const withOrder = ensureDayOrders(records);
+  const withBands = ensureDayBands(withOrder);
   return {
     subjects,
-    records: withOrder,
-    schedules: rebuildSchedules(withOrder),
+    records: withBands,
+    schedules: rebuildSchedules(withBands),
   };
 }
 
@@ -193,6 +195,47 @@ export function ensureDayOrders(records: StudyRecord[]): StudyRecord[] {
   }
 
   return records.map((r) => nextById.get(r.id) ?? r);
+}
+
+/**
+ * Persist `dayBand` for active records that lack one, using the legacy
+ * capacity fill once. After this, UI partitioning never rebuckets on delete.
+ */
+export function ensureDayBands(records: StudyRecord[]): StudyRecord[] {
+  const byDay = new Map<string, StudyRecord[]>();
+  for (const record of records) {
+    if (record.deleted) continue;
+    const key = record.studiedOn || record.createdAt.slice(0, 10);
+    const list = byDay.get(key) ?? [];
+    list.push(record);
+    byDay.set(key, list);
+  }
+
+  const bandById = new Map<string, 'morning' | 'afternoon' | 'evening'>();
+  for (const [, list] of byDay) {
+    if (!list.some((r) => !r.dayBand)) continue;
+    const rows = list.map((r) => ({
+      id: r.id,
+      subjectName: r.subjectName,
+      content: r.content,
+      ...(r.dayBand ? { dayBand: r.dayBand } : {}),
+      ...(typeof r.dayOrder === 'number' ? { dayOrder: r.dayOrder } : {}),
+      createdAt: r.createdAt,
+    }));
+    const assigned = assignMissingDayBands(rows);
+    for (const [id, band] of assigned) {
+      const existing = list.find((r) => r.id === id);
+      if (existing && !existing.dayBand) {
+        bandById.set(id, band);
+      }
+    }
+  }
+
+  if (bandById.size === 0) return records;
+  return records.map((r) => {
+    const band = bandById.get(r.id);
+    return band ? { ...r, dayBand: band } : r;
+  });
 }
 
 export function rebuildSchedulesFromRecords(records: readonly StudyRecord[]): ReviewSchedule[] {
