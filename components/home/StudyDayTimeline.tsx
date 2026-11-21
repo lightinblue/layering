@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type ElementRef,
+  type ReactNode,
 } from 'react';
 import {
   Pressable,
@@ -209,20 +210,13 @@ export function StudyDayTimeline({
         return (
           <View key={band.id} style={styles.bandBlock}>
             <TimelineMark label={band.labelStart} />
-            <View
-              ref={(node) => {
+            <BandDropTargetStack
+              active={isDropTarget}
+              highlightColor={colors.primarySoft}
+              onLayout={measureBands}
+              stackRef={(node) => {
                 bandStackRefs.current[band.id] = node;
-              }}
-              style={[
-                styles.slotStack,
-                isDropTarget
-                  ? {
-                      borderRadius: radii.chip,
-                      backgroundColor: colors.primarySoft,
-                    }
-                  : null,
-              ]}
-              onLayout={measureBands}>
+              }}>
               <BandStudyList
                 bandId={band.id}
                 rows={studyRows}
@@ -272,7 +266,7 @@ export function StudyDayTimeline({
                   onPress={() => openDraft(band.id)}
                 />
               ) : null}
-            </View>
+            </BandDropTargetStack>
             {bandIndex === bands.length - 1 ? (
               <TimelineMark label={band.labelEnd} />
             ) : null}
@@ -284,6 +278,48 @@ export function StudyDayTimeline({
           하루 {TIMELINE_MAX_STUDIES_PER_DAY}개까지
         </Text>
       ) : null}
+    </View>
+  );
+}
+
+/** Soft 스륵 fade for cross-band drop target — color unchanged, opacity only. */
+function BandDropTargetStack({
+  active,
+  highlightColor,
+  children,
+  onLayout,
+  stackRef,
+}: {
+  active: boolean;
+  highlightColor: string;
+  children: ReactNode;
+  onLayout: () => void;
+  stackRef: (node: HostView | null) => void;
+}) {
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withTiming(active ? 1 : 0, {
+      duration: active ? durations.fadeIn : durations.fadeOut,
+      easing: Easing.inOut(Easing.cubic),
+    });
+  }, [active, opacity]);
+
+  const highlightStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <View ref={stackRef} style={styles.slotStack} onLayout={onLayout}>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.dropHighlight,
+          { backgroundColor: highlightColor },
+          highlightStyle,
+        ]}
+      />
+      {children}
     </View>
   );
 }
@@ -714,6 +750,11 @@ const styles = StyleSheet.create({
   slotStack: {
     gap: ROW_GAP,
     paddingLeft: 32,
+    position: 'relative',
+  },
+  dropHighlight: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: radii.chip,
   },
   bandList: {
     width: '100%',
