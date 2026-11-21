@@ -25,6 +25,7 @@ import {
   activeSubjects,
   recoverFromShowcaseContamination,
 } from '@/utils/icloud-merge';
+import { addDaysToDate, parseKey, toKey } from '@/utils/date';
 import { buildReviewDueDates } from '@/utils/review-schedule';
 
 export const EMPTY_APP_DATA: AppData = {
@@ -674,6 +675,11 @@ export function updateStudyWithReviews(
     ...(subjectColorSnap ? { subjectColor: subjectColorSnap } : {}),
     content: fields.content,
     studiedOn: input.studiedOn,
+    ...(existing.dayBand ? { dayBand: existing.dayBand } : {}),
+    ...(typeof existing.dayOrder === 'number'
+      ? { dayOrder: existing.dayOrder }
+      : {}),
+    ...(existing.dayDone ? { dayDone: true } : {}),
     cycle,
     checks,
     createdAt: existing.createdAt,
@@ -684,6 +690,96 @@ export function updateStudyWithReviews(
   return withSchedules({
     ...data,
     records: data.records.map((r) => (r.id === studyId ? nextRecord : r)),
+  });
+}
+
+/** Toggle study-day timeline todo check (`dayDone`). */
+export function toggleStudyDayDone(
+  data: AppData,
+  studyId: string,
+  now = new Date(),
+): AppData {
+  const existing = data.records.find((r) => r.id === studyId && !r.deleted);
+  if (!existing) return data;
+  const at = nowIso(now);
+  const nextDone = !existing.dayDone;
+  return {
+    ...data,
+    records: data.records.map((r) =>
+      r.id === studyId
+        ? {
+            ...r,
+            dayDone: nextDone,
+            updatedAt: at,
+          }
+        : r,
+    ),
+  };
+}
+
+/**
+ * Move a study to the next calendar day, same time band, appended in-band.
+ * Clears `dayDone`. Regenerates review schedules from the new studiedOn.
+ */
+export function deferStudyToTomorrow(
+  data: AppData,
+  studyId: string,
+  now = new Date(),
+): AppData {
+  const existing = data.records.find((r) => r.id === studyId && !r.deleted);
+  if (!existing) return data;
+
+  const tomorrowKey = toKey(addDaysToDate(parseKey(existing.studiedOn), 1));
+  if (countStudiesOn(data, tomorrowKey) >= MAX_STUDIES_PER_DAY) {
+    return data;
+  }
+
+  const band =
+    existing.dayBand === 'morning' ||
+    existing.dayBand === 'afternoon' ||
+    existing.dayBand === 'evening'
+      ? existing.dayBand
+      : 'evening';
+
+  const sameBandTomorrow = activeRecords(data.records).filter(
+    (r) =>
+      r.id !== studyId &&
+      r.studiedOn === tomorrowKey &&
+      (r.dayBand === 'morning' ||
+      r.dayBand === 'afternoon' ||
+      r.dayBand === 'evening'
+        ? r.dayBand
+        : 'evening') === band,
+  );
+  const maxOrder = sameBandTomorrow.reduce(
+    (max, r) => Math.max(max, typeof r.dayOrder === 'number' ? r.dayOrder : -1),
+    -1,
+  );
+  // Also respect global dayOrder on that day so sort stays stable.
+  const sameDayTomorrow = activeRecords(data.records).filter(
+    (r) => r.studiedOn === tomorrowKey && r.id !== studyId,
+  );
+  const maxDayOrder = sameDayTomorrow.reduce(
+    (max, r) => Math.max(max, typeof r.dayOrder === 'number' ? r.dayOrder : -1),
+    -1,
+  );
+  const dayOrder = Math.max(maxOrder, maxDayOrder) + 1;
+  const at = nowIso(now);
+
+  return withSchedules({
+    ...data,
+    records: data.records.map((r) =>
+      r.id === studyId
+        ? {
+            ...r,
+            studiedOn: tomorrowKey,
+            dayBand: band,
+            dayOrder,
+            dayDone: false,
+            updatedAt: at,
+          }
+        : r,
+    ),
   });
 }
 

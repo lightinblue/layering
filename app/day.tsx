@@ -36,10 +36,12 @@ import {
 import {
   appendStudyWithReviews,
   applyDayStudyLayout,
+  deferStudyToTomorrow,
   deleteStudyWithReviews,
   loadAppData,
   saveAppData,
   subjectColorMap,
+  toggleStudyDayDone,
   updateStudyWithReviews,
   withSubjectColor,
 } from '@/storage/app-data';
@@ -87,8 +89,14 @@ function studiesForDay(data: AppData, dateKey: string): HomeStudyRow[] {
       ...(r.subjectColor ? { subjectColor: r.subjectColor } : {}),
       ...(r.dayBand ? { dayBand: r.dayBand } : {}),
       ...(typeof r.dayOrder === 'number' ? { dayOrder: r.dayOrder } : {}),
+      ...(r.dayDone ? { dayDone: true } : {}),
       createdAt: r.createdAt,
     }));
+}
+
+function countActiveOnDay(data: AppData, dateKey: string): number {
+  return activeRecords(data.records).filter((r) => r.studiedOn === dateKey)
+    .length;
 }
 
 /**
@@ -276,6 +284,39 @@ export default function DayTimelineScreen() {
     setEditOpen(false);
   }, [editingStudy, appData, persist]);
 
+  const onToggleDayDone = useCallback(
+    (studyId: string) => {
+      const data = appDataRef.current;
+      if (!data) return;
+      const existing = data.records.find((r) => r.id === studyId && !r.deleted);
+      if (!existing) return;
+      const next = toggleStudyDayDone(data, studyId);
+      if (next === data) return;
+      if (existing.dayDone) haptics.checkOff();
+      else haptics.checkOn();
+      void persist(next);
+    },
+    [persist],
+  );
+
+  const onDeferTomorrow = useCallback(
+    (studyId: string) => {
+      const data = appDataRef.current;
+      if (!data) return;
+      const before = countActiveOnDay(data, dateKey);
+      const next = deferStudyToTomorrow(data, studyId);
+      const after = countActiveOnDay(next, dateKey);
+      if (after >= before) {
+        // Cap or missing — soft reject.
+        haptics.reject();
+        return;
+      }
+      haptics.save();
+      void persist(next);
+    },
+    [dateKey, persist],
+  );
+
   if (!hydrated) {
     return (
       <View style={[styles.root, styles.center, { backgroundColor: colors.mainWhite }]}>
@@ -334,6 +375,8 @@ export default function DayTimelineScreen() {
             allowAdd={allowAdd}
             onAddStudy={onAddStudy}
             onEditStudy={openEdit}
+            onToggleDayDone={onToggleDayDone}
+            onDeferTomorrow={onDeferTomorrow}
             onReorderBand={onReorderBand}
             onMoveStudyToBand={onMoveStudyToBand}
           />

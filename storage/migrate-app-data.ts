@@ -145,6 +145,7 @@ export function normalizeAppData(raw: unknown, now = new Date()): AppData {
       ...(typeof r.dayOrder === 'number' && Number.isFinite(r.dayOrder)
         ? { dayOrder: r.dayOrder }
         : {}),
+      ...(r.dayDone ? { dayDone: true } : {}),
       cycle,
       checks,
       createdAt,

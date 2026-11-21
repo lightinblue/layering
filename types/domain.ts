@@ -45,6 +45,11 @@ export type StudyRecord = {
    * at max+1. Legacy records omit this and fall back to createdAt.
    */
   dayOrder?: number;
+  /**
+   * Study-day timeline todo check (not a review-interval check).
+   * Omitted / false = unchecked.
+   */
+  dayDone?: boolean;
   /** Review intervals in days (always present; default fixed curve). */
   cycle: ReviewIntervalDay[];
   /** Check state keyed by interval days (string keys in JSON). */

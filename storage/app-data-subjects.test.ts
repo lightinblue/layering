@@ -4,10 +4,12 @@ import { MULTICOLOR_CHIPS, getTheme } from '@/constants/themes';
 import {
   appendStudyWithReviews,
   applyDayStudyLayout,
+  deferStudyToTomorrow,
   remapAppDataColors,
   removeSubject,
   reorderStudiesOnDay,
   subjectColorMap,
+  toggleStudyDayDone,
 } from '@/storage/app-data';
 import type { AppData } from '@/types/domain';
 import { activeSubjects } from '@/utils/icloud-merge';
@@ -178,5 +180,40 @@ describe('remapAppDataColors', () => {
     // pink is index 0 in MULTICOLOR → sky[0]
     expect(next.subjects.find((s) => s.name === '전공')?.color).toBe(sky[0]);
     expect(next.records[0]?.subjectColor).toBe(sky[0]);
+  });
+});
+
+describe('toggleStudyDayDone', () => {
+  it('flips dayDone on the study record', () => {
+    const withStudy = appendStudyWithReviews(baseData(), {
+      subjectName: '전공',
+      content: '1단원',
+      studiedOn: '2026-11-19',
+      dayBand: 'morning',
+    });
+    const id = withStudy.records[0]!.id;
+    const on = toggleStudyDayDone(withStudy, id);
+    expect(on.records.find((r) => r.id === id)?.dayDone).toBe(true);
+    const off = toggleStudyDayDone(on, id);
+    expect(off.records.find((r) => r.id === id)?.dayDone).toBe(false);
+  });
+});
+
+describe('deferStudyToTomorrow', () => {
+  it('moves studiedOn +1 day, keeps band, clears dayDone', () => {
+    let data = appendStudyWithReviews(baseData(), {
+      subjectName: '전공',
+      content: '1단원',
+      studiedOn: '2026-11-19',
+      dayBand: 'afternoon',
+    });
+    const id = data.records[0]!.id;
+    data = toggleStudyDayDone(data, id);
+    const next = deferStudyToTomorrow(data, id);
+    const row = next.records.find((r) => r.id === id)!;
+    expect(row.studiedOn).toBe('2026-11-20');
+    expect(row.dayBand).toBe('afternoon');
+    expect(row.dayDone).toBe(false);
+    expect(row.content).toBe('1단원');
   });
 });

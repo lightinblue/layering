@@ -12,6 +12,8 @@ export type HomeStudyRow = {
   dayBand?: 'morning' | 'afternoon' | 'evening';
   /** Display order within the day (ascending). */
   dayOrder?: number;
+  /** Study-day timeline todo checked. */
+  dayDone?: boolean;
   createdAt?: string;
 };
 

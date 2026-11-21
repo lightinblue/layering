@@ -7,6 +7,7 @@ import {
   type ElementRef,
 } from 'react';
 import {
+  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -25,14 +26,19 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
 import type { SubjectOption } from '@/components/home/AddStudyForm';
-import { PlusIcon } from '@/components/icons/HomeIcons';
+import {
+  ArrowRightIcon,
+  PlusIcon,
+  SoftCheckIcon,
+} from '@/components/icons/HomeIcons';
 import type { HomeStudyRow } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
-import { durations } from '@/constants/motion';
+import { durations, springs } from '@/constants/motion';
 import {
   INLINE_STUDY_PLACEHOLDER,
   TIMELINE_MAX_STUDIES_PER_DAY,
@@ -79,6 +85,10 @@ type StudyDayTimelineProps = {
     title: string;
   }) => void;
   onEditStudy: (row: HomeStudyRow) => void;
+  /** Toggle study-day todo check. */
+  onToggleDayDone?: (studyId: string) => void;
+  /** After confirm: move study to tomorrow, same band. */
+  onDeferTomorrow?: (studyId: string) => void;
   /** Persist long-press reorder within a band. */
   onReorderBand?: (bandId: TimelineBandId, orderedIds: string[]) => void;
   /** Persist long-press drop into another band (오전→오후/밤). */
@@ -100,6 +110,8 @@ export function StudyDayTimeline({
   allowAdd,
   onAddStudy,
   onEditStudy,
+  onToggleDayDone,
+  onDeferTomorrow,
   onReorderBand,
   onMoveStudyToBand,
 }: StudyDayTimelineProps) {
@@ -224,6 +236,8 @@ export function StudyDayTimeline({
                 colorByName={colorByName}
                 canReorder={canDrag}
                 onEditStudy={onEditStudy}
+                onToggleDayDone={onToggleDayDone}
+                onDeferTomorrow={onDeferTomorrow}
                 onDragStart={() => {
                   measureBands();
                 }}
@@ -299,6 +313,8 @@ function BandStudyList({
   colorByName,
   canReorder,
   onEditStudy,
+  onToggleDayDone,
+  onDeferTomorrow,
   onReorder,
   onDragStart,
   onDropAcross,
@@ -308,6 +324,8 @@ function BandStudyList({
   colorByName?: Record<string, string>;
   canReorder: boolean;
   onEditStudy: (row: HomeStudyRow) => void;
+  onToggleDayDone?: (studyId: string) => void;
+  onDeferTomorrow?: (studyId: string) => void;
   onReorder: (orderedIds: string[]) => void;
   onDragStart: () => void;
   /** Return true if a cross-band move was handled. */
@@ -317,7 +335,10 @@ function BandStudyList({
   const itemsRef = useRef(items);
   itemsRef.current = items;
   const rowKey = rows
-    .map((r) => `${r.id}:${r.dayOrder ?? ''}:${r.dayBand ?? ''}`)
+    .map(
+      (r) =>
+        `${r.id}:${r.dayOrder ?? ''}:${r.dayBand ?? ''}:${r.dayDone ? 1 : 0}`,
+    )
     .join('|');
 
   useEffect(() => {
@@ -368,6 +389,8 @@ function BandStudyList({
           colorByName={colorByName}
           canReorder={canReorder}
           onEditStudy={onEditStudy}
+          onToggleDayDone={onToggleDayDone}
+          onDeferTomorrow={onDeferTomorrow}
           onDragStart={onDragStart}
           onCommitDrag={(from, ty, absoluteY) =>
             commitRef.current(from, ty, absoluteY)
@@ -384,6 +407,8 @@ function DraggableStudyRow({
   colorByName,
   canReorder,
   onEditStudy,
+  onToggleDayDone,
+  onDeferTomorrow,
   onCommitDrag,
   onDragStart,
 }: {
@@ -392,6 +417,8 @@ function DraggableStudyRow({
   colorByName?: Record<string, string>;
   canReorder: boolean;
   onEditStudy: (row: HomeStudyRow) => void;
+  onToggleDayDone?: (studyId: string) => void;
+  onDeferTomorrow?: (studyId: string) => void;
   onCommitDrag: (
     from: number,
     translationY: number,
@@ -403,6 +430,8 @@ function DraggableStudyRow({
   const translateY = useSharedValue(0);
   const isActive = useSharedValue(false);
   const startIndex = useSharedValue(index);
+  const checkScale = useSharedValue(1);
+  const deferScale = useSharedValue(1);
   const commitRef = useRef(onCommitDrag);
   commitRef.current = onCommitDrag;
   const startRef = useRef(onDragStart);
@@ -464,7 +493,35 @@ function DraggableStudyRow({
     elevation: isActive.value ? 3 : 0,
   }));
 
+  const checkAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkScale.value }],
+  }));
+  const deferAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: deferScale.value }],
+  }));
+
   const top = index * ROW_STRIDE;
+  const done = Boolean(item.dayDone);
+  const showActions = Boolean(onToggleDayDone || onDeferTomorrow);
+
+  const bounce = (sv: typeof checkScale) => {
+    sv.value = withSpring(0.86, springs.snappy, (finished) => {
+      if (finished) sv.value = withSpring(1, springs.soft);
+    });
+  };
+
+  const confirmDefer = () => {
+    if (!onDeferTomorrow) return;
+    haptics.select();
+    bounce(deferScale);
+    Alert.alert('내일로 미룰까요?', '같은 시간대(오전·오후·밤)로 옮겨져요.', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '미루기',
+        onPress: () => onDeferTomorrow(item.id),
+      },
+    ]);
+  };
 
   return (
     <GestureDetector gesture={pan}>
@@ -474,43 +531,86 @@ function DraggableStudyRow({
           { top, height: SLOT_HEIGHT },
           animatedStyle,
         ]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${item.subjectName} ${item.content} 수정`}
-          accessibilityHint={
-            canReorder
-              ? '길게 눌러 순서를 바꾸거나 다른 시간대로 옮길 수 있어요'
-              : undefined
-          }
-          onPress={() => {
-            haptics.select();
-            onEditStudy(item);
-          }}
-          style={styles.studyRow}>
-          <View
-            style={[
-              styles.chip,
-              {
-                backgroundColor: subjectColor(
-                  item.subjectName,
-                  item.subjectColor ?? colorByName,
-                ),
-              },
-            ]}>
-            <Text
-              style={[styles.chipText, { color: colors.onAccent }]}
-              numberOfLines={1}>
-              {item.subjectName}
-            </Text>
-          </View>
-          <View style={[styles.body, { backgroundColor: colors.surface }]}>
-            <Text
-              style={[styles.bodyText, { color: colors.body }]}
-              numberOfLines={1}>
-              {item.content}
-            </Text>
-          </View>
-        </Pressable>
+        <View style={styles.studyRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${item.subjectName} ${item.content} 수정`}
+            accessibilityHint={
+              canReorder
+                ? '길게 눌러 순서를 바꾸거나 다른 시간대로 옮길 수 있어요'
+                : undefined
+            }
+            onPress={() => {
+              haptics.select();
+              onEditStudy(item);
+            }}
+            style={styles.studyMain}>
+            <View
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: subjectColor(
+                    item.subjectName,
+                    item.subjectColor ?? colorByName,
+                  ),
+                },
+              ]}>
+              <Text
+                style={[styles.chipText, { color: colors.onAccent }]}
+                numberOfLines={1}>
+                {item.subjectName}
+              </Text>
+            </View>
+            <View style={[styles.body, { backgroundColor: colors.surface }]}>
+              <Text
+                style={[
+                  styles.bodyText,
+                  {
+                    color: done ? colors.muted : colors.body,
+                  },
+                ]}
+                numberOfLines={1}>
+                {item.content}
+              </Text>
+            </View>
+          </Pressable>
+          {showActions ? (
+            <View style={styles.rowActions}>
+              {onDeferTomorrow ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="내일로 미루기"
+                  hitSlop={10}
+                  onPress={confirmDefer}
+                  style={styles.actionHit}>
+                  <Animated.View style={deferAnimStyle}>
+                    <ArrowRightIcon size={16} color={colors.mutedLight} />
+                  </Animated.View>
+                </Pressable>
+              ) : null}
+              {onToggleDayDone ? (
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: done }}
+                  accessibilityLabel={done ? '완료 해제' : '완료'}
+                  hitSlop={10}
+                  onPress={() => {
+                    bounce(checkScale);
+                    onToggleDayDone(item.id);
+                  }}
+                  style={styles.actionHit}>
+                  <Animated.View style={checkAnimStyle}>
+                    <SoftCheckIcon
+                      size={18}
+                      color={done ? colors.primary : colors.mutedLight}
+                      strokeWidth={done ? 2.6 : 2}
+                    />
+                  </Animated.View>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
       </Animated.View>
     </GestureDetector>
   );
@@ -765,6 +865,14 @@ const styles = StyleSheet.create({
   studyRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    height: SLOT_HEIGHT,
+  },
+  studyMain: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
     height: SLOT_HEIGHT,
   },
@@ -792,6 +900,19 @@ const styles = StyleSheet.create({
   bodyText: {
     fontFamily: fonts.nexonMedium,
     fontSize: 14,
+  },
+  rowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    flexShrink: 0,
+    paddingLeft: 2,
+  },
+  actionHit: {
+    width: 28,
+    height: SLOT_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   capHint: {
     fontFamily: fonts.nexonMedium,
