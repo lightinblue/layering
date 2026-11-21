@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
   type ElementRef,
-  type ReactNode,
 } from 'react';
 import {
   Pressable,
@@ -110,7 +109,6 @@ export function StudyDayTimeline({
   const canAdd = allowAdd && !atCap;
   const [draftBandId, setDraftBandId] = useState<TimelineBandId | null>(null);
   const [draftKey, setDraftKey] = useState(0);
-  const [dropBandId, setDropBandId] = useState<TimelineBandId | null>(null);
   const bandStackRefs = useRef<Partial<Record<TimelineBandId, HostView | null>>>(
     {},
   );
@@ -211,17 +209,15 @@ export function StudyDayTimeline({
         const studyRows = band.slots
           .filter((s) => s.kind === 'study')
           .map((s) => s.row);
-        const isDropTarget = dropBandId === band.id;
         return (
           <View key={band.id} style={styles.bandBlock}>
             <TimelineMark label={band.labelStart} />
-            <BandDropTargetStack
-              active={isDropTarget}
-              highlightColor={colors.primarySoft}
-              onLayout={measureBands}
-              stackRef={(node) => {
+            <View
+              ref={(node) => {
                 bandStackRefs.current[band.id] = node;
-              }}>
+              }}
+              style={styles.slotStack}
+              onLayout={measureBands}>
               <BandStudyList
                 bandId={band.id}
                 rows={studyRows}
@@ -231,14 +227,8 @@ export function StudyDayTimeline({
                 onDragStart={() => {
                   measureBands();
                 }}
-                onDragHover={(absoluteY) => {
-                  const hit = resolveDropBand(absoluteY);
-                  setDropBandId(hit?.bandId ?? null);
-                }}
-                onDragEnd={() => setDropBandId(null)}
                 onReorder={(orderedIds) => onReorderBand?.(band.id, orderedIds)}
-                onDropAcross={(studyId, absoluteY, fromIndex) => {
-                  setDropBandId(null);
+                onDropAcross={(studyId, absoluteY) => {
                   const hit = resolveDropBand(absoluteY);
                   if (!hit) return false;
                   if (hit.bandId === band.id) {
@@ -282,7 +272,7 @@ export function StudyDayTimeline({
                   onPress={() => openDraft(band.id)}
                 />
               ) : null}
-            </BandDropTargetStack>
+            </View>
             {bandIndex === bands.length - 1 ? (
               <TimelineMark label={band.labelEnd} />
             ) : null}
@@ -294,48 +284,6 @@ export function StudyDayTimeline({
           하루 {TIMELINE_MAX_STUDIES_PER_DAY}개까지
         </Text>
       ) : null}
-    </View>
-  );
-}
-
-/** Soft 스륵 fade for cross-band drop target — color unchanged, opacity only. */
-function BandDropTargetStack({
-  active,
-  highlightColor,
-  children,
-  onLayout,
-  stackRef,
-}: {
-  active: boolean;
-  highlightColor: string;
-  children: ReactNode;
-  onLayout: () => void;
-  stackRef: (node: HostView | null) => void;
-}) {
-  const opacity = useSharedValue(0);
-
-  useEffect(() => {
-    opacity.value = withTiming(active ? 1 : 0, {
-      duration: active ? durations.fadeIn : durations.fadeOut,
-      easing: Easing.inOut(Easing.cubic),
-    });
-  }, [active, opacity]);
-
-  const highlightStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
-
-  return (
-    <View ref={stackRef} style={styles.slotStack} onLayout={onLayout}>
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.dropHighlight,
-          { backgroundColor: highlightColor },
-          highlightStyle,
-        ]}
-      />
-      {children}
     </View>
   );
 }
@@ -353,8 +301,6 @@ function BandStudyList({
   onEditStudy,
   onReorder,
   onDragStart,
-  onDragHover,
-  onDragEnd,
   onDropAcross,
 }: {
   bandId: TimelineBandId;
@@ -364,14 +310,8 @@ function BandStudyList({
   onEditStudy: (row: HomeStudyRow) => void;
   onReorder: (orderedIds: string[]) => void;
   onDragStart: () => void;
-  onDragHover: (absoluteY: number) => void;
-  onDragEnd: () => void;
   /** Return true if a cross-band move was handled. */
-  onDropAcross: (
-    studyId: string,
-    absoluteY: number,
-    fromIndex: number,
-  ) => boolean;
+  onDropAcross: (studyId: string, absoluteY: number) => boolean;
 }) {
   const [items, setItems] = useState(rows);
   const itemsRef = useRef(items);
@@ -396,7 +336,7 @@ function BandStudyList({
     const moved = list[from];
     if (!moved) return;
 
-    if (onDropAcross(moved.id, absoluteY, from)) {
+    if (onDropAcross(moved.id, absoluteY)) {
       // Optimistic remove — parent persist will refresh band membership.
       setItems(list.filter((_, i) => i !== from));
       return;
@@ -429,8 +369,6 @@ function BandStudyList({
           canReorder={canReorder}
           onEditStudy={onEditStudy}
           onDragStart={onDragStart}
-          onDragHover={onDragHover}
-          onDragEnd={onDragEnd}
           onCommitDrag={(from, ty, absoluteY) =>
             commitRef.current(from, ty, absoluteY)
           }
@@ -448,8 +386,6 @@ function DraggableStudyRow({
   onEditStudy,
   onCommitDrag,
   onDragStart,
-  onDragHover,
-  onDragEnd,
 }: {
   item: HomeStudyRow;
   index: number;
@@ -462,8 +398,6 @@ function DraggableStudyRow({
     absoluteY: number,
   ) => void;
   onDragStart: () => void;
-  onDragHover: (absoluteY: number) => void;
-  onDragEnd: () => void;
 }) {
   const colors = useThemeColors();
   const translateY = useSharedValue(0);
@@ -471,12 +405,8 @@ function DraggableStudyRow({
   const startIndex = useSharedValue(index);
   const commitRef = useRef(onCommitDrag);
   commitRef.current = onCommitDrag;
-  const hoverRef = useRef(onDragHover);
-  hoverRef.current = onDragHover;
   const startRef = useRef(onDragStart);
   startRef.current = onDragStart;
-  const endRef = useRef(onDragEnd);
-  endRef.current = onDragEnd;
 
   useEffect(() => {
     startIndex.value = index;
@@ -484,7 +414,6 @@ function DraggableStudyRow({
 
   const finishDrag = (from: number, translationY: number, absoluteY: number) => {
     commitRef.current(from, translationY, absoluteY);
-    endRef.current();
   };
 
   const pan = useMemo(() => {
@@ -502,7 +431,6 @@ function DraggableStudyRow({
       })
       .onUpdate((e) => {
         translateY.value = e.translationY;
-        runOnJS(hoverRef.current)(e.absoluteY);
       })
       .onEnd((e) => {
         const from = startIndex.value;
@@ -517,7 +445,6 @@ function DraggableStudyRow({
         if (isActive.value) {
           translateY.value = withTiming(0, { duration: 140 });
           isActive.value = false;
-          runOnJS(endRef.current)();
         }
       });
     // finishDrag reads commitRef — stable across renders.
@@ -763,10 +690,6 @@ const styles = StyleSheet.create({
     gap: ROW_GAP,
     paddingLeft: 32,
     position: 'relative',
-  },
-  dropHighlight: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: radii.chip,
   },
   bandList: {
     width: '100%',
