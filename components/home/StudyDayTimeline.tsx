@@ -287,9 +287,17 @@ export function StudyDayTimeline({
                 }}
               />
               {drafting ? (
-                // Compact tray only — never paint addSpan-tall surface chrome
-                // while editing (that dead gray pad did not blur/dismiss).
-                <View style={styles.bandAddDraft}>
+                // Keep empty-band footprint so lower content does not snap up,
+                // but do NOT wrap the TextInput in a tall tappable surface
+                // (that dead pad stole taps and blocked blur-dismiss).
+                <View
+                  style={[
+                    styles.bandAddDraft,
+                    studyRows.length === 0
+                      ? { minHeight: bandAddHeight(band.addSpan) }
+                      : null,
+                  ]}
+                  pointerEvents="box-none">
                   <InlineBandAddRow
                     key={draftKey}
                     subjects={subjects}
@@ -297,6 +305,18 @@ export function StudyDayTimeline({
                     onCancel={closeDraft}
                     onCommit={commitDraft}
                   />
+                  {studyRows.length === 0 ? (
+                    <View
+                      pointerEvents="none"
+                      style={{
+                        flexGrow: 1,
+                        minHeight: Math.max(
+                          0,
+                          bandAddHeight(band.addSpan) - SLOT_HEIGHT,
+                        ),
+                      }}
+                    />
+                  ) : null}
                 </View>
               ) : canAdd && band.showAdd ? (
                 <BandAddControl
