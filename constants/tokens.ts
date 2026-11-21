@@ -56,14 +56,15 @@ export const SUBJECT_COLORS: Record<string, string> = {
 };
 
 /**
- * Palette for new subject chips (Figma subject swatches).
- * Order: pink → orange → yellow → green → blue → purple → gray.
+ * Fallback subject swatches (prefer theme `chipPalette`).
+ * Rainbow/spectrum order: pink → … → purple → gray.
  */
 export const SUBJECT_COLOR_OPTIONS: readonly string[] = [
   colors.chipPink,
   colors.chipOrange,
   colors.chipYellow,
   colors.chipGreen,
+  '#5BB8C9',
   colors.chipBlue,
   colors.chipPurple,
   colors.chipGray,

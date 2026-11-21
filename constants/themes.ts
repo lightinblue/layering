@@ -2,7 +2,7 @@ import { colors } from '@/constants/tokens';
 
 /**
  * App themes: fixed primary + coordinated subject-chip palette.
- * `multicolor` (알록달록) keeps a mixed Figma-style set (now 9 incl. gray).
+ * `multicolor` (알록달록) lists chips in rainbow/spectrum order (+ gray).
  * Family themes mix related hues (not mono tints) so chips stay distinguishable.
  * Picker order follows a connected hue path after 알록달록.
  */
@@ -35,7 +35,7 @@ export type AppTheme = {
    * 알록달록 ignores this and renders a multicolor pie.
    */
   swatch?: string;
-  /** Subject chip swatches (pickable; length 9, last = neutral gray). */
+  /** Subject chip swatches (pickable; length 8, last = neutral gray). */
   chips: readonly string[];
 };
 
@@ -43,18 +43,17 @@ export type AppTheme = {
 export const THEME_NEUTRAL_GRAY = colors.chipGray;
 
 /**
- * Default / legacy mixed palette (Figma hues + extras for 9 slots).
- * Order kept familiar; last = gray.
+ * 알록달록: rainbow/spectrum order for add/list swatches, then gray.
+ * pink → orange → yellow → green → teal → blue → purple → gray
  */
 export const MULTICOLOR_CHIPS = [
   colors.chipPink,
   colors.chipOrange,
   colors.chipYellow,
   colors.chipGreen,
+  '#5BB8C9',
   colors.chipBlue,
   colors.chipPurple,
-  '#FE9253',
-  '#5BB8C9',
   THEME_NEUTRAL_GRAY,
 ] as const;
 
@@ -73,7 +72,7 @@ export const APP_THEMES: readonly AppTheme[] = [
     label: '노을',
     /** Chrome + picker yellow; chips keep yellow/orange mix. */
     primary: '#F5C21C',
-    // Yellow + orange + coral (9 incl. gray)
+    // Yellow + orange + coral (8 incl. gray)
     chips: [
       '#FBE28A',
       '#F5C21C',
@@ -82,7 +81,6 @@ export const APP_THEMES: readonly AppTheme[] = [
       '#ff7a45',
       '#E85A28',
       '#C94A1A',
-      '#D4A017',
       THEME_NEUTRAL_GRAY,
     ],
   },
@@ -92,7 +90,6 @@ export const APP_THEMES: readonly AppTheme[] = [
     primary: '#45c775',
     // Green + yellow-green + teal; chips 2–3 stay light mint vs deep green
     chips: [
-      '#C5E87A',
       '#A8C95C',
       '#6EDC9A',
       '#2E9B5A',
@@ -109,7 +106,6 @@ export const APP_THEMES: readonly AppTheme[] = [
     primary: '#1991ff',
     // Blue + teal + soft violet
     chips: [
-      '#C5DFF8',
       '#9DC4F0',
       '#62B3F6',
       '#1991ff',
@@ -130,7 +126,6 @@ export const APP_THEMES: readonly AppTheme[] = [
       '#F65E83',
       '#B71C5A',
       '#ef5b7a',
-      '#C75B8A',
       '#B7A4E9',
       '#8B7CF6',
       '#5E4BCF',

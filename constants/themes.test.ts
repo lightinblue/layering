@@ -10,10 +10,10 @@ import {
   remapColorToPalette,
   themeIdForPrimary,
 } from '@/constants/themes';
-import { PRIMARY_OPTIONS, isPrimaryOption } from '@/constants/tokens';
+import { PRIMARY_OPTIONS, colors, isPrimaryOption } from '@/constants/tokens';
 
 describe('APP_THEMES', () => {
-  it('includes 알록달록 with the legacy mixed chip palette', () => {
+  it('includes 알록달록 with the spectrum chip palette', () => {
     const multi = getTheme('multicolor');
     expect(multi.label).toBe('알록달록');
     expect(multi.chips).toEqual([...MULTICOLOR_CHIPS]);
@@ -36,13 +36,26 @@ describe('APP_THEMES', () => {
     }
   });
 
-  it('ships nine chips per theme ending with neutral gray', () => {
+  it('ships eight chips per theme ending with neutral gray', () => {
     for (const theme of APP_THEMES) {
-      expect(theme.chips).toHaveLength(9);
+      expect(theme.chips).toHaveLength(8);
       expect(theme.chips[theme.chips.length - 1]!.toLowerCase()).toBe(
         THEME_NEUTRAL_GRAY.toLowerCase(),
       );
     }
+  });
+
+  it('lists 알록달록 chips in rainbow/spectrum order before gray', () => {
+    expect([...MULTICOLOR_CHIPS]).toEqual([
+      colors.chipPink,
+      colors.chipOrange,
+      colors.chipYellow,
+      colors.chipGreen,
+      '#5BB8C9',
+      colors.chipBlue,
+      colors.chipPurple,
+      THEME_NEUTRAL_GRAY,
+    ]);
   });
 
   it('uses yellow chrome primary for 노을', () => {
