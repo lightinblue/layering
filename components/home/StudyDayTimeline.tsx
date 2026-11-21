@@ -204,12 +204,8 @@ export function StudyDayTimeline({
     if (!draftBandId) return;
     const bandId = draftBandId;
     onAddStudy({ bandId, subject, title });
-    if (studies.length + 1 >= TIMELINE_MAX_STUDIES_PER_DAY) {
-      setDraftBandId(null);
-      return;
-    }
-    setDraftKey((k) => k + 1);
-    setDraftBandId(bandId);
+    // Always dismiss the gray draft shell after save (no stuck multi-add tray).
+    setDraftBandId(null);
   };
 
   const canDrag = Boolean(onReorderBand || onMoveStudyToBand);
@@ -260,16 +256,7 @@ export function StudyDayTimeline({
                 }}
               />
               {drafting ? (
-                <View
-                  style={[
-                    styles.bandAddDraft,
-                    {
-                      minHeight: bandAddHeight(band.addSpan),
-                      // Keep gray empty-slot chrome so lower bands don't snap up.
-                      backgroundColor:
-                        studyRows.length > 0 ? 'transparent' : colors.surface,
-                    },
-                  ]}>
+                <View style={styles.bandAddDraft}>
                   <InlineBandAddRow
                     key={draftKey}
                     subjects={subjects}
@@ -514,7 +501,7 @@ function DraggableStudyRow({
     if (!onDeferTomorrow) return;
     haptics.select();
     bounce(deferScale);
-    Alert.alert('내일로 미룰까요?', '같은 시간대(오전·오후·밤)로 옮겨져요.', [
+    Alert.alert('내일로 미룰까요?', '같은 시간대로 옮겨져요.', [
       { text: '취소', style: 'cancel' },
       {
         text: '미루기',
@@ -677,6 +664,8 @@ function InlineBandAddRow({
   const [raw, setRaw] = useState('');
   const [showSubjectPrompt, setShowSubjectPrompt] = useState(false);
   const names = subjects.map((s) => s.name);
+  /** Skip blur-dismiss when save/submit is in flight (blur fires first). */
+  const committingRef = useRef(false);
 
   const submit = () => {
     const match = matchSubjectPrefix(raw, names);
@@ -692,6 +681,7 @@ function InlineBandAddRow({
       return;
     }
     setShowSubjectPrompt(false);
+    committingRef.current = true;
     haptics.save();
     onCommit(match.subject, title);
   };
@@ -722,6 +712,14 @@ function InlineBandAddRow({
           onSubmitEditing={submit}
           blurOnSubmit
           autoFocus
+          onBlur={() => {
+            if (committingRef.current) {
+              committingRef.current = false;
+              return;
+            }
+            // Dismiss gray draft tray when focus leaves without save.
+            onCancel();
+          }}
           style={[
             styles.inlineInput,
             { backgroundColor: colors.surface, color: colors.body },
@@ -742,6 +740,7 @@ function InlineBandAddRow({
           accessibilityLabel="취소"
           hitSlop={8}
           onPress={() => {
+            committingRef.current = true;
             haptics.select();
             onCancel();
           }}
@@ -809,11 +808,11 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 6,
   },
-  /** Holds inline input at the empty-slot height (gray pad preserved). */
+  /** Compact draft tray — one input row (not full empty-band addSpan). */
   bandAddDraft: {
     borderRadius: radii.chip,
     justifyContent: 'flex-start',
-    paddingTop: 0,
+    minHeight: SLOT_HEIGHT,
   },
   emptyText: {
     fontFamily: fonts.nexonMedium,
