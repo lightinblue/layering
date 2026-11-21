@@ -36,9 +36,9 @@ describe('APP_THEMES', () => {
     }
   });
 
-  it('ships seven chips per theme ending with neutral gray', () => {
+  it('ships nine chips per theme ending with neutral gray', () => {
     for (const theme of APP_THEMES) {
-      expect(theme.chips).toHaveLength(7);
+      expect(theme.chips).toHaveLength(9);
       expect(theme.chips[theme.chips.length - 1]!.toLowerCase()).toBe(
         THEME_NEUTRAL_GRAY.toLowerCase(),
       );
