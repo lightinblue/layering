@@ -3,6 +3,7 @@ import { colors } from '@/constants/tokens';
 /**
  * App themes: fixed primary + coordinated subject-chip palette.
  * `multicolor` (알록달록) keeps the original mixed Figma swatches.
+ * Family themes mix related hues (not mono tints) so chips stay distinguishable.
  */
 
 export const THEME_IDS = [
@@ -49,13 +50,14 @@ export const APP_THEMES: readonly AppTheme[] = [
     id: 'sky',
     label: '하늘',
     primary: '#1991ff',
+    // Blue family + teal / soft violet / cool gray
     chips: [
-      '#B8D9F8',
       '#7EB8F0',
-      '#4A9BE6',
       '#1991ff',
-      '#0D6FD4',
       '#5BB8C9',
+      '#4A90D9',
+      '#6B8AE8',
+      '#9DC4F0',
       '#9fb1c1',
     ],
   },
@@ -63,13 +65,14 @@ export const APP_THEMES: readonly AppTheme[] = [
     id: 'forest',
     label: '숲',
     primary: '#45c775',
+    // Green + yellow-green + teal + moss
     chips: [
-      '#C8EBD4',
       '#8FD9A8',
-      '#5DCB85',
       '#45c775',
+      '#A8C95C',
       '#2FA85C',
-      '#6BBF8A',
+      '#5DCB85',
+      '#3DB8A0',
       '#8FA89A',
     ],
   },
@@ -77,13 +80,14 @@ export const APP_THEMES: readonly AppTheme[] = [
     id: 'sunset',
     label: '노을',
     primary: '#ff7a45',
+    // Orange + coral + peach + warm rose
     chips: [
-      '#FFD0B8',
       '#FFA87A',
-      '#FF8A55',
       '#ff7a45',
-      '#E85A28',
       '#FE9253',
+      '#E85A28',
+      '#F06583',
+      '#FFB347',
       '#C4A090',
     ],
   },
@@ -91,13 +95,14 @@ export const APP_THEMES: readonly AppTheme[] = [
     id: 'cherry',
     label: '벚꽃',
     primary: '#ef5b7a',
+    // Pink + red + soft magenta/purple
     chips: [
-      '#F8C4D0',
       '#F48BA3',
-      '#F06583',
       '#ef5b7a',
-      '#D44565',
+      '#E0455A',
       '#F65E83',
+      '#C75B8A',
+      '#B7A4E9',
       '#C49AA6',
     ],
   },
@@ -105,13 +110,14 @@ export const APP_THEMES: readonly AppTheme[] = [
     id: 'lemon',
     label: '레몬',
     primary: '#F5C21C',
+    // Yellow + orange + gold + amber
     chips: [
-      '#FBE9A0',
       '#F7D45A',
       '#F5C21C',
+      '#FE9253',
       '#E0A800',
-      '#D4B84A',
-      '#C9A227',
+      '#FFB347',
+      '#D4A017',
       '#B2A88A',
     ],
   },
@@ -119,13 +125,14 @@ export const APP_THEMES: readonly AppTheme[] = [
     id: 'lavender',
     label: '라벤더',
     primary: '#8B7CF6',
+    // Purple + lilac + blue-violet + soft pink-lilac
     chips: [
-      '#D9D2FC',
       '#B7A4E9',
-      '#9B8CF8',
       '#8B7CF6',
-      '#6F5FE0',
       '#A78BFA',
+      '#6F5FE0',
+      '#9B8CF8',
+      '#D4A5E8',
       '#A39BB8',
     ],
   },

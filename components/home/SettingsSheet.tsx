@@ -24,7 +24,7 @@ import {
 import { fonts } from '@/constants/fonts';
 import { durations, springs } from '@/constants/motion';
 import { radii } from '@/constants/tokens';
-import { APP_THEMES, type ThemeId } from '@/constants/themes';
+import { APP_THEMES } from '@/constants/themes';
 import { MAX_SUBJECTS } from '@/storage/app-data';
 import { WEEKDAY_START_OPTIONS } from '@/storage/calendar-prefs';
 import { useCalendarPrefs } from '@/theme/CalendarPrefsProvider';
@@ -133,18 +133,16 @@ export function SettingsSheet({
 
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.sectionLabel }]}>테마</Text>
-        <View style={styles.themeList}>
+        <View style={styles.swatchRow}>
           {APP_THEMES.map((theme) => (
-            <ThemeOptionRow
+            <ThemeSwatch
               key={theme.id}
-              themeId={theme.id}
               label={theme.label}
               primary={theme.primary}
               chips={theme.chips}
+              multicolor={theme.id === 'multicolor'}
               selected={theme.id === themeId}
-              surface={colors.surface}
-              ink={colors.black}
-              muted={colors.muted}
+              borderColor={colors.black}
               onPress={() => {
                 if (theme.id === themeId) return;
                 haptics.themePick();
@@ -316,25 +314,25 @@ function SegmentedPicker<T extends string | number>({
   );
 }
 
-function ThemeOptionRow({
-  themeId,
+const SWATCH_SIZE = 40;
+/** Always reserved so select/deselect doesn’t shift layout; ink when selected. */
+const SWATCH_BORDER = 3;
+
+function ThemeSwatch({
   label,
   primary,
   chips,
+  multicolor,
   selected,
-  surface,
-  ink,
-  muted,
+  borderColor,
   onPress,
 }: {
-  themeId: ThemeId;
   label: string;
   primary: string;
   chips: readonly string[];
+  multicolor: boolean;
   selected: boolean;
-  surface: string;
-  ink: string;
-  muted: string;
+  borderColor: string;
   onPress: () => void;
 }) {
   const scale = useSharedValue(1);
@@ -346,7 +344,7 @@ function ThemeOptionRow({
       return;
     }
     if (!selected) return;
-    scale.value = withSpring(1.02, springs.snappy, (finished) => {
+    scale.value = withSpring(1.12, springs.snappy, (finished) => {
       if (finished) scale.value = withSpring(1, springs.soft);
     });
   }, [selected, scale]);
@@ -355,7 +353,10 @@ function ThemeOptionRow({
     transform: [{ scale: scale.value }],
   }));
 
-  const previewChips = chips.slice(0, 5);
+  // Four pie slices for 알록달록; solid primary for family themes.
+  const pie = multicolor
+    ? [chips[0], chips[2], chips[4], chips[5]].filter(Boolean)
+    : null;
 
   return (
     <Pressable
@@ -365,28 +366,30 @@ function ThemeOptionRow({
       onPress={onPress}>
       <Animated.View
         style={[
-          styles.themeRow,
+          styles.swatch,
           {
-            backgroundColor: surface,
-            borderColor: selected ? primary : 'transparent',
-            borderWidth: 2,
+            backgroundColor: pie ? 'transparent' : primary,
+            borderColor: selected ? borderColor : 'transparent',
+            borderWidth: SWATCH_BORDER,
+            overflow: 'hidden',
           },
           animStyle,
         ]}>
-        <View style={[styles.themePrimaryDot, { backgroundColor: primary }]} />
-        <View style={styles.themeMeta}>
-          <Text style={[styles.themeLabel, { color: ink }]}>{label}</Text>
-          <View style={styles.themeChipPreview}>
-            {previewChips.map((hex) => (
-              <View
-                key={`${themeId}-${hex}`}
-                style={[styles.themeChipDot, { backgroundColor: hex }]}
-              />
-            ))}
-          </View>
-        </View>
-        {selected ? (
-          <Text style={[styles.themeSelectedMark, { color: muted }]}>✓</Text>
+        {pie && pie.length >= 4 ? (
+          <>
+            <View
+              style={[styles.pieQuad, styles.pieTL, { backgroundColor: pie[0] }]}
+            />
+            <View
+              style={[styles.pieQuad, styles.pieTR, { backgroundColor: pie[1] }]}
+            />
+            <View
+              style={[styles.pieQuad, styles.pieBL, { backgroundColor: pie[2] }]}
+            />
+            <View
+              style={[styles.pieQuad, styles.pieBR, { backgroundColor: pie[3] }]}
+            />
+          </>
         ) : null}
       </Animated.View>
     </Pressable>
@@ -465,41 +468,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
-  themeList: {
-    gap: 8,
-  },
-  themeRow: {
+  swatchRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: radii.chip,
   },
-  themePrimaryDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  swatch: {
+    width: SWATCH_SIZE,
+    height: SWATCH_SIZE,
+    borderRadius: SWATCH_SIZE / 2,
   },
-  themeMeta: {
-    flex: 1,
-    gap: 6,
+  pieQuad: {
+    position: 'absolute',
+    width: '50%',
+    height: '50%',
   },
-  themeLabel: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 15,
-  },
-  themeChipPreview: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  themeChipDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 3,
-  },
-  themeSelectedMark: {
-    fontFamily: fonts.nexonMedium,
-    fontSize: 16,
-  },
+  pieTL: { left: 0, top: 0 },
+  pieTR: { right: 0, top: 0 },
+  pieBL: { left: 0, bottom: 0 },
+  pieBR: { right: 0, bottom: 0 },
 });
