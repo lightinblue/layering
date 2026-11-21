@@ -138,7 +138,9 @@ export function SettingsSheet({
             <ThemeSwatch
               key={theme.id}
               label={theme.label}
-              primary={theme.primary}
+              fill={theme.swatch ?? theme.primary}
+              chips={theme.chips}
+              multicolor={theme.id === 'multicolor'}
               selected={theme.id === themeId}
               borderColor={colors.black}
               onPress={() => {
@@ -318,13 +320,17 @@ const SWATCH_BORDER = 3;
 
 function ThemeSwatch({
   label,
-  primary,
+  fill,
+  chips,
+  multicolor,
   selected,
   borderColor,
   onPress,
 }: {
   label: string;
-  primary: string;
+  fill: string;
+  chips: readonly string[];
+  multicolor: boolean;
   selected: boolean;
   borderColor: string;
   onPress: () => void;
@@ -347,6 +353,11 @@ function ThemeSwatch({
     transform: [{ scale: scale.value }],
   }));
 
+  // 알록달록: four-quadrant pie from chip hues; others: solid fill/swatch.
+  const pie = multicolor
+    ? [chips[0], chips[2], chips[4], chips[5]].filter(Boolean)
+    : null;
+
   return (
     <Pressable
       accessibilityRole="radio"
@@ -357,13 +368,30 @@ function ThemeSwatch({
         style={[
           styles.swatch,
           {
-            backgroundColor: primary,
+            backgroundColor: pie ? 'transparent' : fill,
             borderColor: selected ? borderColor : 'transparent',
             borderWidth: SWATCH_BORDER,
+            overflow: 'hidden',
           },
           animStyle,
-        ]}
-      />
+        ]}>
+        {pie && pie.length >= 4 ? (
+          <>
+            <View
+              style={[styles.pieQuad, styles.pieTL, { backgroundColor: pie[0] }]}
+            />
+            <View
+              style={[styles.pieQuad, styles.pieTR, { backgroundColor: pie[1] }]}
+            />
+            <View
+              style={[styles.pieQuad, styles.pieBL, { backgroundColor: pie[2] }]}
+            />
+            <View
+              style={[styles.pieQuad, styles.pieBR, { backgroundColor: pie[3] }]}
+            />
+          </>
+        ) : null}
+      </Animated.View>
     </Pressable>
   );
 }
@@ -450,4 +478,13 @@ const styles = StyleSheet.create({
     height: SWATCH_SIZE,
     borderRadius: SWATCH_SIZE / 2,
   },
+  pieQuad: {
+    position: 'absolute',
+    width: '50%',
+    height: '50%',
+  },
+  pieTL: { left: 0, top: 0 },
+  pieTR: { right: 0, top: 0 },
+  pieBL: { left: 0, bottom: 0 },
+  pieBR: { right: 0, bottom: 0 },
 });

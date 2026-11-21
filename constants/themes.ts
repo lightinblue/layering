@@ -30,6 +30,11 @@ export type AppTheme = {
   label: string;
   /** Accent / chrome primary. */
   primary: string;
+  /**
+   * Settings picker circle fill when solid (omit → use `primary`).
+   * 알록달록 ignores this and renders a multicolor pie.
+   */
+  swatch?: string;
   /** Subject chip swatches (pickable; length 7, last = neutral gray). */
   chips: readonly string[];
 };
@@ -62,6 +67,8 @@ export const APP_THEMES: readonly AppTheme[] = [
     id: 'sunset',
     label: '노을',
     primary: '#ff7a45',
+    /** Picker circle is yellow; chrome + chips stay orange/yellow family. */
+    swatch: '#F5C21C',
     // Yellow + orange family (merged 레몬+노을), higher contrast
     chips: [
       '#F5C21C',
@@ -107,11 +114,11 @@ export const APP_THEMES: readonly AppTheme[] = [
     id: 'lilac',
     label: '라일락',
     primary: '#ef5b7a',
-    // Pink + purple family (merged 벚꽃+라벤더)
+    // Pink + purple: first chips spread light → vivid → deep, then purple
     chips: [
+      '#FFC0D4',
       '#F65E83',
-      '#ef5b7a',
-      '#E0455A',
+      '#B71C5A',
       '#C75B8A',
       '#B7A4E9',
       '#8B7CF6',
