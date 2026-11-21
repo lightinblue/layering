@@ -187,9 +187,13 @@ function BandStudyList({
     setItems(rows);
   }, [rowKey, rows]);
 
-  if (items.length === 0) return null;
-
-  const commitReorder = (from: number, translationY: number) => {
+  // Must stay above the empty early return — BandStudyList stays mounted when
+  // a band goes 0↔1 items; a hook after `return null` crashes with
+  // "Rendered fewer hooks than expected".
+  const commitRef = useRef<(from: number, translationY: number) => void>(
+    () => {},
+  );
+  commitRef.current = (from, translationY) => {
     const list = itemsRef.current;
     if (from < 0 || from >= list.length) return;
     const delta = Math.round(translationY / ROW_STRIDE);
@@ -203,8 +207,8 @@ function BandStudyList({
     setItems(next);
     onReorder(next.map((row) => row.id));
   };
-  const commitRef = useRef(commitReorder);
-  commitRef.current = commitReorder;
+
+  if (items.length === 0) return null;
 
   const listHeight =
     items.length * SLOT_HEIGHT + Math.max(0, items.length - 1) * ROW_GAP;
