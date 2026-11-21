@@ -332,9 +332,9 @@ function BandStudyList({
     setItems(rows);
   }, [rowKey, rows]);
 
-  // Must stay above the empty early return — BandStudyList stays mounted when
-  // a band goes 0↔1 items; a hook after `return null` crashes with
-  // "Rendered fewer hooks than expected".
+  // Hook count must be identical for empty and non-empty bands. BandStudyList
+  // stays mounted when a band goes 0↔1; never early-return around hooks
+  // ("fewer hooks" / "more hooks than previous render").
   const commitRef = useRef<
     (from: number, translationY: number, absoluteY: number) => void
   >(() => {});
@@ -361,10 +361,10 @@ function BandStudyList({
     onReorder(next.map((row) => row.id));
   };
 
-  if (items.length === 0) return null;
-
   const listHeight =
-    items.length * SLOT_HEIGHT + Math.max(0, items.length - 1) * ROW_GAP;
+    items.length === 0
+      ? 0
+      : items.length * SLOT_HEIGHT + Math.max(0, items.length - 1) * ROW_GAP;
 
   return (
     <View style={[styles.bandList, { height: listHeight }]}>
