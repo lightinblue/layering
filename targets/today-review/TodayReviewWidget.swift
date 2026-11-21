@@ -75,12 +75,15 @@ struct TodayReviewWidget: Widget {
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: Self.kind, provider: TodayReviewProvider()) { entry in
       TodayReviewWidgetView(entry: entry)
-        .containerBackground(WidgetPalette.canvas, for: .widget)
+        .containerBackground(for: .widget) {
+          WidgetPalette.canvas
+        }
         .widgetURL(TodayReviewStore.homeURL)
     }
     .configurationDisplayName("오늘 할 복습")
     .description("오늘 남은 복습을 보여 줘요.")
-    .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+    // Extra Large = iPad home-screen size; same card list as Large.
+    .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
   }
 }
 
@@ -96,8 +99,10 @@ struct TodayReviewWidgetView: View {
       SmallSummaryView(snapshot: entry.snapshot)
     case .systemMedium:
       MediumSummaryView(snapshot: entry.snapshot)
+    case .systemExtraLarge:
+      LargeCardListView(snapshot: entry.snapshot, maxCards: 8)
     default:
-      LargeCardListView(snapshot: entry.snapshot)
+      LargeCardListView(snapshot: entry.snapshot, maxCards: 5)
     }
   }
 }
@@ -116,7 +121,7 @@ private struct WidgetSectionTitle: View {
         .accessibilityHidden(true)
       Text("오늘 할 복습")
         .font(.system(size: fontSize, weight: .semibold))
-        .foregroundStyle(WidgetPalette.accentText)
+        .foregroundColor(WidgetPalette.accentText)
         .lineLimit(1)
     }
   }
@@ -133,7 +138,7 @@ private struct SmallSummaryView: View {
         Spacer(minLength: 0)
         Text("오늘 할 복습이 없어요")
           .font(.system(size: 15, weight: .medium))
-          .foregroundStyle(WidgetPalette.body)
+          .foregroundColor(WidgetPalette.body)
           .fixedSize(horizontal: false, vertical: true)
         Spacer(minLength: 0)
       } else {
@@ -141,16 +146,16 @@ private struct SmallSummaryView: View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
           Text("\(snapshot.remainingCount)")
             .font(.system(size: 42, weight: .bold, design: .rounded))
-            .foregroundStyle(WidgetPalette.primary)
+            .foregroundColor(WidgetPalette.primary)
             .minimumScaleFactor(0.7)
             .lineLimit(1)
           Text("건")
             .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(WidgetPalette.body)
+            .foregroundColor(WidgetPalette.body)
         }
         Text(snapshot.remainingCount == 0 ? "모두 끝냈어요" : "남음")
           .font(.system(size: 13, weight: .medium))
-          .foregroundStyle(WidgetPalette.accentText)
+          .foregroundColor(WidgetPalette.accentText)
         Spacer(minLength: 0)
       }
     }
@@ -170,28 +175,28 @@ private struct MediumSummaryView: View {
         Spacer(minLength: 0)
         Text("오늘 할 복습이 없어요")
           .font(.system(size: 18, weight: .semibold))
-          .foregroundStyle(WidgetPalette.body)
+          .foregroundColor(WidgetPalette.body)
         Text("탭해서 홈으로 가요")
           .font(.system(size: 13, weight: .medium))
-          .foregroundStyle(WidgetPalette.muted)
+          .foregroundColor(WidgetPalette.muted)
         Spacer(minLength: 0)
       } else {
         Spacer(minLength: 0)
         HStack(alignment: .firstTextBaseline, spacing: 10) {
           Text("\(snapshot.remainingCount)건 남음")
             .font(.system(size: 28, weight: .bold, design: .rounded))
-            .foregroundStyle(WidgetPalette.primary)
+            .foregroundColor(WidgetPalette.primary)
             .minimumScaleFactor(0.8)
             .lineLimit(1)
           Spacer(minLength: 0)
           Text("전체 \(snapshot.totalCount)건")
             .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(WidgetPalette.accentText)
+            .foregroundColor(WidgetPalette.accentText)
         }
         if snapshot.remainingCount == 0 {
           Text("오늘 복습을 모두 끝냈어요")
             .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(WidgetPalette.body)
+            .foregroundColor(WidgetPalette.body)
         }
         Spacer(minLength: 0)
       }
@@ -201,11 +206,11 @@ private struct MediumSummaryView: View {
   }
 }
 
-// MARK: - Large card list
+// MARK: - Large / Extra Large card list
 
 private struct LargeCardListView: View {
   let snapshot: TodayReviewSnapshot
-  private let maxCards = 5
+  var maxCards: Int = 5
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
@@ -215,7 +220,7 @@ private struct LargeCardListView: View {
         if !snapshot.isEmpty {
           Text("\(snapshot.remainingCount)/\(snapshot.totalCount)")
             .font(.system(size: 13, weight: .semibold, design: .rounded))
-            .foregroundStyle(WidgetPalette.primary)
+            .foregroundColor(WidgetPalette.primary)
         }
       }
 
@@ -224,10 +229,10 @@ private struct LargeCardListView: View {
         VStack(alignment: .leading, spacing: 6) {
           Text("오늘 할 복습이 없어요")
             .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(WidgetPalette.body)
+            .foregroundColor(WidgetPalette.body)
           Text("탭해서 홈으로 가요")
             .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(WidgetPalette.muted)
+            .foregroundColor(WidgetPalette.muted)
         }
         Spacer(minLength: 0)
       } else {
@@ -257,8 +262,9 @@ private struct ReviewCardRow: View {
 
       Text(item.intervalLabel)
         .font(.system(size: 14, weight: .semibold))
-        .foregroundStyle(item.completed ? WidgetPalette.muted : WidgetPalette.accentText)
+        .foregroundColor(item.completed ? WidgetPalette.muted : WidgetPalette.accentText)
         .lineLimit(1)
+        .layoutPriority(1)
 
       Spacer(minLength: 4)
 
@@ -267,9 +273,11 @@ private struct ReviewCardRow: View {
           SubjectChip(subject: subject)
         }
       }
+      .layoutPriority(2)
     }
     .padding(.horizontal, 10)
     .padding(.vertical, 9)
+    .frame(maxWidth: .infinity, alignment: .leading)
     .background(
       RoundedRectangle(cornerRadius: 12, style: .continuous)
         // Home review card: surface → primarySoft when completed.
@@ -297,7 +305,7 @@ private struct CheckboxLook: View {
       if completed {
         Image(systemName: "checkmark")
           .font(.system(size: 12, weight: .bold))
-          .foregroundStyle(.white)
+          .foregroundColor(.white)
       }
     }
     .accessibilityHidden(true)
@@ -310,7 +318,7 @@ private struct SubjectChip: View {
   var body: some View {
     Text(subject.chipLabel)
       .font(.system(size: 11, weight: .bold))
-      .foregroundStyle(.white)
+      .foregroundColor(.white)
       .padding(.horizontal, 7)
       .padding(.vertical, 4)
       .background(
@@ -323,19 +331,27 @@ private struct SubjectChip: View {
 
 // MARK: - Palette / helpers
 
-/// Mirrors `constants/tokens.ts` colors (generated via expo-target.config.js).
+/// Hardcoded sRGB mirrors of `constants/tokens.ts`.
+/// Named asset catalog colors (`Color("primary")`) can fail to resolve in the
+/// widget extension / gallery preview — that left Small/Medium blank white and
+/// Large showing only hex-colored subject chips. Inline colors always paint.
 private enum WidgetPalette {
-  static let canvas = Color("canvas")
-  static let primary = Color("primary")
-  static let primarySoft = Color("primarySoft")
-  static let surface = Color("surface")
-  static let muted = Color("muted")
-  static let mutedLight = Color("mutedLight")
-  static let body = Color("body")
-  static let accentText = Color("accentText")
+  static let canvas = Color(hexLiteral: "#ffffff")
+  static let primary = Color(hexLiteral: "#1991ff")
+  static let primarySoft = Color(hexLiteral: "#dff0ff")
+  static let surface = Color(hexLiteral: "#f2f6fa")
+  static let muted = Color(hexLiteral: "#9fb1c1")
+  static let mutedLight = Color(hexLiteral: "#ced7e0")
+  static let body = Color(hexLiteral: "#526477")
+  static let accentText = Color(hexLiteral: "#708aa2")
 }
 
 private extension Color {
+  /// Non-failable token color; falls back to mid gray if malformed.
+  init(hexLiteral: String) {
+    self = Color(hex: hexLiteral) ?? Color(.sRGB, red: 0.5, green: 0.5, blue: 0.5, opacity: 1)
+  }
+
   init?(hex: String) {
     var raw = hex.trimmingCharacters(in: .whitespacesAndNewlines)
     if raw.hasPrefix("#") {
@@ -369,4 +385,10 @@ private extension Color {
 } timeline: {
   TodayReviewEntry(date: .now, snapshot: .placeholder)
   TodayReviewEntry(date: .now, snapshot: .empty)
+}
+
+#Preview(as: .systemExtraLarge) {
+  TodayReviewWidget()
+} timeline: {
+  TodayReviewEntry(date: .now, snapshot: .placeholder)
 }

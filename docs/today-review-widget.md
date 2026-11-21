@@ -11,7 +11,8 @@ WidgetKit extension (`targets/today-review`) reads the App Group snapshot writte
 | Widget kind | `TodayReviewWidget` (`ExtensionStorage.reloadWidget()` + ofKind) |
 | Deep link | `layering://` (today home) |
 | Chrome | Signature blue theme-dot before title; tokens match home (`primary` / `primarySoft` / `surface`) |
-| Sizes | Small / Medium summary · Large card list (chip + `N일 전` + checkbox; no title / 자세히) |
+| Colors | Widget Swift uses **inline sRGB hex** (same as subject chips), not `Color("assetName")` — named catalog colors can fail to resolve in the extension/gallery and left Small/Medium blank white / Large chips-only |
+| Sizes | Small / Medium summary · Large card list (chip + `N일 전` + checkbox; no title / 자세히) · **Extra Large** (iPad) same list, up to 8 rows |
 | Tap (v1) | Whole widget opens the app (`layering://`). Checkbox is **display-only** — no in-widget toggle. |
 
 Expo Go cannot show this widget — use a **dev client** or **TestFlight** binary.
