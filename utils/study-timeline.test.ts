@@ -109,6 +109,16 @@ describe('buildTimelineBands', () => {
       bands[1].slots.map((s) => (s.kind === 'study' ? s.row.id : '')),
     ).toEqual(['a', 'b', 'c']);
   });
+
+  it('allows more than emptySlots in one band (no hard per-band max)', () => {
+    const many = Array.from({ length: 8 }, (_, i) =>
+      row(`m${i}`, 'morning', i),
+    );
+    const bands = buildTimelineBands(many);
+    expect(bands[0].slots.filter((s) => s.kind === 'study')).toHaveLength(8);
+    expect(bands[0].showAdd).toBe(false); // soft: hide 오전 add when ≥4
+    expect(bands[2].showAdd).toBe(true); // 밤 always offers add until day cap
+  });
 });
 
 describe('layout helpers', () => {

@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   dropHighlight: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: radii.chip,
   },
   bandList: {
