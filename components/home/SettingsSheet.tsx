@@ -357,6 +357,7 @@ function ThemeSwatch({
   const pie = multicolor
     ? [chips[0], chips[2], chips[4], chips[5]].filter(Boolean)
     : null;
+  const half = SWATCH_SIZE / 2;
 
   return (
     <Pressable
@@ -364,33 +365,77 @@ function ThemeSwatch({
       accessibilityState={{ selected }}
       accessibilityLabel={`테마 ${label}`}
       onPress={onPress}>
-      <Animated.View
-        style={[
-          styles.swatch,
-          {
-            backgroundColor: pie ? 'transparent' : fill,
-            borderColor: selected ? borderColor : 'transparent',
-            borderWidth: SWATCH_BORDER,
-            overflow: 'hidden',
-          },
-          animStyle,
-        ]}>
-        {pie && pie.length >= 4 ? (
-          <>
-            <View
-              style={[styles.pieQuad, styles.pieTL, { backgroundColor: pie[0] }]}
-            />
-            <View
-              style={[styles.pieQuad, styles.pieTR, { backgroundColor: pie[1] }]}
-            />
-            <View
-              style={[styles.pieQuad, styles.pieBL, { backgroundColor: pie[2] }]}
-            />
-            <View
-              style={[styles.pieQuad, styles.pieBR, { backgroundColor: pie[3] }]}
-            />
-          </>
-        ) : null}
+      <Animated.View style={[styles.swatch, animStyle]}>
+        {/*
+          Clip fill on an inner circle — borderWidth + overflow:hidden on the
+          same RN view fails to clip to a true circle (looks like a photo tile).
+        */}
+        <View style={styles.swatchClip}>
+          {pie && pie.length >= 4 ? (
+            <>
+              <View
+                style={[
+                  styles.pieQuad,
+                  {
+                    left: 0,
+                    top: 0,
+                    width: half,
+                    height: half,
+                    backgroundColor: pie[0],
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.pieQuad,
+                  {
+                    left: half,
+                    top: 0,
+                    width: half,
+                    height: half,
+                    backgroundColor: pie[1],
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.pieQuad,
+                  {
+                    left: 0,
+                    top: half,
+                    width: half,
+                    height: half,
+                    backgroundColor: pie[2],
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.pieQuad,
+                  {
+                    left: half,
+                    top: half,
+                    width: half,
+                    height: half,
+                    backgroundColor: pie[3],
+                  },
+                ]}
+              />
+            </>
+          ) : (
+            <View style={[styles.swatchFill, { backgroundColor: fill }]} />
+          )}
+        </View>
+        <View
+          pointerEvents="none"
+          style={[
+            styles.swatchRing,
+            {
+              borderColor: selected ? borderColor : 'transparent',
+              borderWidth: SWATCH_BORDER,
+            },
+          ]}
+        />
       </Animated.View>
     </Pressable>
   );
@@ -476,15 +521,20 @@ const styles = StyleSheet.create({
   swatch: {
     width: SWATCH_SIZE,
     height: SWATCH_SIZE,
+  },
+  swatchClip: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: SWATCH_SIZE / 2,
+    overflow: 'hidden',
+  },
+  swatchFill: {
+    ...StyleSheet.absoluteFill,
+  },
+  swatchRing: {
+    ...StyleSheet.absoluteFill,
     borderRadius: SWATCH_SIZE / 2,
   },
   pieQuad: {
     position: 'absolute',
-    width: '50%',
-    height: '50%',
   },
-  pieTL: { left: 0, top: 0 },
-  pieTR: { right: 0, top: 0 },
-  pieBL: { left: 0, bottom: 0 },
-  pieBR: { right: 0, bottom: 0 },
 });
