@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   AppState,
   FlatList,
+  type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -1594,6 +1595,8 @@ function ReviewCard({
   const styles = useHomeStyles();
   const progress = useSharedValue(card.completed ? 1 : 0);
   const primed = useRef(false);
+  /** When subject chips wrap to a 2nd line, hide 「자세히」 chevron only. */
+  const [chipsWrapped, setChipsWrapped] = useState(false);
 
   useEffect(() => {
     if (!primed.current) {
@@ -1621,6 +1624,13 @@ function ReviewCard({
     [accent, accentSoft, theme.surface],
   );
 
+  const onChipsLayout = (e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    // Single row ≈ chip height; anything taller means wrap (gap + 2nd row).
+    const wrapped = h > sizes.reviewChip.height + 1;
+    setChipsWrapped((prev) => (prev === wrapped ? prev : wrapped));
+  };
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -1639,7 +1649,7 @@ function ReviewCard({
                 {intervalLabel(card.intervalDays)}
               </Text>
             </View>
-            <View style={styles.reviewChips}>
+            <View style={styles.reviewChips} onLayout={onChipsLayout}>
               {card.subjectNames.map((name) => {
                 const study = card.studies.find((s) => s.subjectName === name);
                 return (
@@ -1663,7 +1673,7 @@ function ReviewCard({
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailText}>자세히</Text>
-            <ArrowRightIcon />
+            {chipsWrapped ? null : <ArrowRightIcon />}
           </View>
         </View>
       </Animated.View>
