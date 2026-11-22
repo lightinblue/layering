@@ -12,6 +12,8 @@ export const STORAGE_KEYS = {
   dataMode: '@bokbok/data-mode/v1',
   /** Accent primary hex (`#RRGGBB`). */
   themePrimary: '@bokbok/theme-primary/v1',
+  /** Theme id (`ThemeId`); pairs with themePrimary in synced prefs. */
+  themeId: '@bokbok/theme-id/v1',
   /**
    * Calendar week start (`{ weekStartsOn }`) for home strip + month grid.
    * Local mirror; also synced via KVS `prefs` (see storage/synced-prefs.ts).
@@ -34,8 +36,8 @@ export const KVS_KEYS = {
   /** `rec/YYYY-MM` for studies whose studiedOn falls in that month. */
   monthPrefix: 'rec/',
   /**
-   * Device settings JSON (`SyncedPrefsPayload`): weekStartsOn, themePrimary.
-   * Subject chip colors stay on `subjects`.
+   * Device settings JSON (`SyncedPrefsPayload`): weekStartsOn, themePrimary, themeId.
+   * Subject chip colors stay on `subjects` (remapped when themeId changes).
    */
   prefs: 'prefs',
 } as const;

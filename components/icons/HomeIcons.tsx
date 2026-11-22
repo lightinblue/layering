@@ -41,6 +41,29 @@ export function CheckIcon({
   );
 }
 
+/** Soft checkmark (no box) for study-day todo — color via `color`. */
+export function SoftCheckIcon({
+  size = 18,
+  color,
+  strokeWidth = 2.2,
+}: {
+  size?: number;
+  color: string;
+  strokeWidth?: number;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 12.5L10 17.5L19 7"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 /** Chevron for 「자세히」 (mirror with scaleX: -1 for left). */
 export function ArrowRightIcon({
   size = sizes.arrow,

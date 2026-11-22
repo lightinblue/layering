@@ -8,6 +8,13 @@ import {
   isPrimaryOption,
   type PrimaryOption,
 } from '@/constants/tokens';
+import {
+  DEFAULT_THEME_ID,
+  coerceThemeId,
+  getTheme,
+  themeIdForPrimary,
+  type ThemeId,
+} from '@/constants/themes';
 
 /**
  * Device settings synced via NSUbiquitousKeyValueStore key `prefs`.
@@ -17,6 +24,8 @@ export type SyncedPrefsBody = {
   weekStartsOn: WeekdayStart;
   /** Accent primary hex when set. */
   themePrimary: PrimaryOption;
+  /** Named theme (primary + chip palette). */
+  themeId: ThemeId;
 };
 
 export type SyncedPrefsPayload = {
@@ -28,11 +37,17 @@ export type SyncedPrefsPayload = {
 export const DEFAULT_SYNCED_PREFS: SyncedPrefsBody = {
   weekStartsOn: DEFAULT_CALENDAR_PREFS.weekStartsOn,
   themePrimary: DEFAULT_PRIMARY,
+  themeId: DEFAULT_THEME_ID,
 };
 
 function parseIso(iso: string): number {
   const t = Date.parse(iso);
   return Number.isFinite(t) ? t : 0;
+}
+
+function primaryForTheme(themeId: ThemeId): PrimaryOption {
+  const hex = getTheme(themeId).primary;
+  return isPrimaryOption(hex) ? hex : DEFAULT_PRIMARY;
 }
 
 export function normalizeSyncedPrefsBody(raw: unknown): SyncedPrefsBody {
@@ -44,10 +59,15 @@ export function normalizeSyncedPrefsBody(raw: unknown): SyncedPrefsBody {
   });
   const themeRaw =
     typeof obj.themePrimary === 'string' ? obj.themePrimary : undefined;
+  const primaryFallback =
+    themeRaw && isPrimaryOption(themeRaw) ? themeRaw : DEFAULT_PRIMARY;
+  const themeIdRaw = typeof obj.themeId === 'string' ? obj.themeId : undefined;
+  const themeId: ThemeId =
+    coerceThemeId(themeIdRaw) ?? themeIdForPrimary(primaryFallback);
   return {
     weekStartsOn: cal.weekStartsOn,
-    themePrimary:
-      themeRaw && isPrimaryOption(themeRaw) ? themeRaw : DEFAULT_PRIMARY,
+    themeId,
+    themePrimary: primaryForTheme(themeId),
   };
 }
 

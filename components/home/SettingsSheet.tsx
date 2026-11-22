@@ -23,7 +23,8 @@ import {
 } from '@/components/home/AddStudyForm';
 import { fonts } from '@/constants/fonts';
 import { durations, springs } from '@/constants/motion';
-import { PRIMARY_OPTIONS, radii, type PrimaryOption } from '@/constants/tokens';
+import { radii } from '@/constants/tokens';
+import { APP_THEMES } from '@/constants/themes';
 import { MAX_SUBJECTS } from '@/storage/app-data';
 import { WEEKDAY_START_OPTIONS } from '@/storage/calendar-prefs';
 import { useCalendarPrefs } from '@/theme/CalendarPrefsProvider';
@@ -43,7 +44,7 @@ export type SettingsSheetProps = {
 };
 
 /**
- * Settings body: subjects, calendar week start + accent color.
+ * Settings body: subjects, calendar week start + theme.
  * Appearance always follows the device system setting (no in-app toggle).
  * Screenshot helpers render only when `__DEV__` and handlers are passed.
  */
@@ -55,7 +56,7 @@ export function SettingsSheet({
   onScreenshotSeed,
   onScreenshotReset,
 }: SettingsSheetProps) {
-  const { colors, primary, setPrimary } = useTheme();
+  const { colors, themeId, setTheme } = useTheme();
   const { weekStartsOn, setWeekStartsOn } = useCalendarPrefs();
   const [busy, setBusy] = useState<'seed' | 'reset' | null>(null);
   const showScreenshotTools =
@@ -131,17 +132,21 @@ export function SettingsSheet({
       </View>
 
       <View style={styles.field}>
-        <Text style={[styles.label, { color: colors.sectionLabel }]}>색상</Text>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>테마</Text>
         <View style={styles.swatchRow}>
-          {PRIMARY_OPTIONS.map((hex) => (
-            <ColorSwatch
-              key={hex}
-              hex={hex}
-              selected={hex === primary}
+          {APP_THEMES.map((theme) => (
+            <ThemeSwatch
+              key={theme.id}
+              label={theme.label}
+              fill={theme.swatch ?? theme.primary}
+              chips={theme.chips}
+              multicolor={theme.id === 'multicolor'}
+              selected={theme.id === themeId}
               borderColor={colors.black}
               onPress={() => {
+                if (theme.id === themeId) return;
                 haptics.themePick();
-                setPrimary(hex as PrimaryOption);
+                setTheme(theme.id);
               }}
             />
           ))}
@@ -309,13 +314,23 @@ function SegmentedPicker<T extends string | number>({
   );
 }
 
-function ColorSwatch({
-  hex,
+const SWATCH_SIZE = 40;
+/** Always reserved so select/deselect doesn’t shift layout; ink when selected. */
+const SWATCH_BORDER = 3;
+
+function ThemeSwatch({
+  label,
+  fill,
+  chips,
+  multicolor,
   selected,
   borderColor,
   onPress,
 }: {
-  hex: string;
+  label: string;
+  fill: string;
+  chips: readonly string[];
+  multicolor: boolean;
   selected: boolean;
   borderColor: string;
   onPress: () => void;
@@ -338,23 +353,90 @@ function ColorSwatch({
     transform: [{ scale: scale.value }],
   }));
 
+  // 알록달록: four-quadrant pie from chip hues; others: solid fill/swatch.
+  const pie = multicolor
+    ? [chips[0], chips[2], chips[4], chips[5]].filter(Boolean)
+    : null;
+  const half = SWATCH_SIZE / 2;
+
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole="radio"
       accessibilityState={{ selected }}
-      accessibilityLabel={`앱 색상 ${hex}`}
+      accessibilityLabel={`테마 ${label}`}
       onPress={onPress}>
-      <Animated.View
-        style={[
-          styles.swatch,
-          { backgroundColor: hex },
-          selected && {
-            borderColor,
-            borderWidth: 2,
-          },
-          animStyle,
-        ]}
-      />
+      <Animated.View style={[styles.swatch, animStyle]}>
+        {/*
+          Clip fill on an inner circle — borderWidth + overflow:hidden on the
+          same RN view fails to clip to a true circle (looks like a photo tile).
+        */}
+        <View style={styles.swatchClip}>
+          {pie && pie.length >= 4 ? (
+            <>
+              <View
+                style={[
+                  styles.pieQuad,
+                  {
+                    left: 0,
+                    top: 0,
+                    width: half,
+                    height: half,
+                    backgroundColor: pie[0],
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.pieQuad,
+                  {
+                    left: half,
+                    top: 0,
+                    width: half,
+                    height: half,
+                    backgroundColor: pie[1],
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.pieQuad,
+                  {
+                    left: 0,
+                    top: half,
+                    width: half,
+                    height: half,
+                    backgroundColor: pie[2],
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.pieQuad,
+                  {
+                    left: half,
+                    top: half,
+                    width: half,
+                    height: half,
+                    backgroundColor: pie[3],
+                  },
+                ]}
+              />
+            </>
+          ) : (
+            <View style={[styles.swatchFill, { backgroundColor: fill }]} />
+          )}
+        </View>
+        <View
+          pointerEvents="none"
+          style={[
+            styles.swatchRing,
+            {
+              borderColor: selected ? borderColor : 'transparent',
+              borderWidth: SWATCH_BORDER,
+            },
+          ]}
+        />
+      </Animated.View>
     </Pressable>
   );
 }
@@ -437,10 +519,22 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   swatch: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    width: SWATCH_SIZE,
+    height: SWATCH_SIZE,
+  },
+  swatchClip: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: SWATCH_SIZE / 2,
+    overflow: 'hidden',
+  },
+  swatchFill: {
+    ...StyleSheet.absoluteFill,
+  },
+  swatchRing: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: SWATCH_SIZE / 2,
+  },
+  pieQuad: {
+    position: 'absolute',
   },
 });

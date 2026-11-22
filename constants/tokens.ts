@@ -56,14 +56,15 @@ export const SUBJECT_COLORS: Record<string, string> = {
 };
 
 /**
- * Palette for new subject chips (Figma subject swatches).
- * Order: pink → orange → yellow → green → blue → purple → gray.
+ * Fallback subject swatches (prefer theme `chipPalette`).
+ * Rainbow/spectrum order: pink → … → purple → gray.
  */
 export const SUBJECT_COLOR_OPTIONS: readonly string[] = [
   colors.chipPink,
   colors.chipOrange,
   colors.chipYellow,
   colors.chipGreen,
+  '#5BB8C9',
   colors.chipBlue,
   colors.chipPurple,
   colors.chipGray,
@@ -149,13 +150,14 @@ export function subjectBorderColor(
   return darkenHex(subjectColor(name, colorByName));
 }
 
-/** Solid accent options for Settings → 색상 (first = default blue). */
+/** Solid accent options (theme primaries; Settings picks themes, not raw swatches). */
 export const PRIMARY_OPTIONS = [
   '#1991ff',
   '#45c775',
   '#ff7a45',
   '#ef5b7a',
   colors.chipYellow,
+  '#8B7CF6',
 ] as const;
 
 export type PrimaryOption = (typeof PRIMARY_OPTIONS)[number];

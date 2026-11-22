@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -35,14 +35,17 @@ import {
 } from '@/constants/study-timeline';
 import {
   appendStudyWithReviews,
+  applyDayStudyLayout,
+  deferStudyToTomorrow,
   deleteStudyWithReviews,
   loadAppData,
-  reorderStudiesOnDay,
   saveAppData,
   subjectColorMap,
+  toggleStudyDayDone,
   updateStudyWithReviews,
   withSubjectColor,
 } from '@/storage/app-data';
+import { subscribeICloudMerged } from '@/storage/icloud-sync';
 import { syncTodayReviewWidgetSnapshot } from '@/storage/today-review-widget';
 import {
   useColorScheme,
@@ -52,7 +55,12 @@ import type { AppData } from '@/types/domain';
 import { dayMeta, todayKey as deviceTodayKey } from '@/utils/date';
 import { activeRecords, activeSubjects } from '@/utils/icloud-merge';
 import { haptics } from '@/utils/haptics';
-import { buildTimelineBands } from '@/utils/study-timeline';
+import {
+  buildTimelineBands,
+  layoutAfterBandReorder,
+  layoutAfterCrossBandMove,
+  layoutWithStudyAppendedToBand,
+} from '@/utils/study-timeline';
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -82,8 +90,14 @@ function studiesForDay(data: AppData, dateKey: string): HomeStudyRow[] {
       ...(r.subjectColor ? { subjectColor: r.subjectColor } : {}),
       ...(r.dayBand ? { dayBand: r.dayBand } : {}),
       ...(typeof r.dayOrder === 'number' ? { dayOrder: r.dayOrder } : {}),
+      ...(r.dayDone ? { dayDone: true } : {}),
       createdAt: r.createdAt,
     }));
+}
+
+function countActiveOnDay(data: AppData, dateKey: string): number {
+  return activeRecords(data.records).filter((r) => r.studiedOn === dateKey)
+    .length;
 }
 
 /**
@@ -106,6 +120,8 @@ export default function DayTimelineScreen() {
   const [editOpen, setEditOpen] = useState(false);
   const [editKey, setEditKey] = useState(0);
   const [editingStudy, setEditingStudy] = useState<HomeStudyRow | null>(null);
+  /** Avoid stale closures on rapid inline adds (iPad double-commit). */
+  const appDataRef = useRef<AppData | null>(null);
 
   const meta = useMemo(() => dayMeta(parseLoose(dateKey)), [dateKey]);
   const isToday = dateKey === deviceTodayKey();
@@ -115,12 +131,22 @@ export default function DayTimelineScreen() {
     void (async () => {
       const data = await loadAppData();
       if (cancelled) return;
+      appDataRef.current = data;
       setAppData(data);
       setHydrated(true);
     })();
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // Keep Day in sync with KVS merges so persist cannot clobber remote/home writes.
+  useEffect(() => {
+    return subscribeICloudMerged((merged) => {
+      appDataRef.current = merged;
+      setAppData(merged);
+      void syncTodayReviewWidgetSnapshot(merged);
+    });
   }, []);
 
   const studies = useMemo(
@@ -139,6 +165,7 @@ export default function DayTimelineScreen() {
   const allowAdd = !atCap;
 
   const persist = useCallback(async (next: AppData) => {
+    appDataRef.current = next;
     setAppData(next);
     await saveAppData(next);
     await syncTodayReviewWidgetSnapshot(next);
@@ -157,73 +184,100 @@ export default function DayTimelineScreen() {
 
   const onAddStudy = useCallback(
     (input: { bandId: TimelineBandId; subject: string; title: string }) => {
-      if (!appData) return;
+      const data = appDataRef.current;
+      if (!data) return;
       const content = input.title.trim();
       if (!content || !input.subject) {
         haptics.reject();
         return;
       }
-      if (studies.length >= TIMELINE_MAX_STUDIES_PER_DAY) {
+      const currentStudies = studiesForDay(data, dateKey);
+      if (currentStudies.length >= TIMELINE_MAX_STUDIES_PER_DAY) {
         haptics.reject();
         return;
       }
-      const next = appendStudyWithReviews(appData, {
+      const next = appendStudyWithReviews(data, {
         subjectName: input.subject,
         content,
         studiedOn: dateKey,
         dayBand: input.bandId,
       });
-      void persist(next);
+      // New record is always appended to `records`.
+      const created = next.records[next.records.length - 1];
+      if (!created || created.deleted) {
+        void persist(next);
+        return;
+      }
+      // Force visual append at bottom of the target band (dayOrder alone can
+      // interleave oddly after cross-band remaps / stale max).
+      const bands = buildTimelineBands(studiesForDay(next, dateKey));
+      const layout = layoutWithStudyAppendedToBand({
+        bands,
+        studyId: created.id,
+        bandId: input.bandId,
+      });
+      void persist(applyDayStudyLayout(next, dateKey, layout));
     },
-    [appData, dateKey, persist, studies.length],
+    [dateKey, persist],
   );
 
   const onReorderBand = useCallback(
     (bandId: TimelineBandId, orderedBandIds: string[]) => {
-      if (!appData) return;
+      const data = appDataRef.current;
+      if (!data) return;
       if (orderedBandIds.length === 0) return;
 
-      const bands = buildTimelineBands(studies);
-      const band = bands.find((b) => b.id === bandId);
-      if (!band) return;
+      const bands = buildTimelineBands(studiesForDay(data, dateKey));
+      const layout = layoutAfterBandReorder({
+        bands,
+        bandId,
+        orderedBandIds,
+      });
+      if (!layout) return;
 
-      const bandPrevIds = band.slots
-        .filter((s) => s.kind === 'study')
-        .map((s) => s.row.id);
-      // Require a permutation of the same band ids — never drop rows.
-      if (
-        orderedBandIds.length !== bandPrevIds.length ||
-        !orderedBandIds.every((id) => bandPrevIds.includes(id)) ||
-        !bandPrevIds.every((id) => orderedBandIds.includes(id))
-      ) {
-        return;
-      }
-
-      const orderedIds = bands.flatMap((b) =>
-        b.id === bandId
-          ? orderedBandIds
-          : b.slots
-              .filter((s) => s.kind === 'study')
-              .map((s) => s.row.id),
-      );
-
-      const next = reorderStudiesOnDay(appData, dateKey, orderedIds);
-      if (next === appData) return;
+      const next = applyDayStudyLayout(data, dateKey, layout);
+      if (next === data) return;
       haptics.select();
       void persist(next);
     },
-    [appData, dateKey, persist, studies],
+    [dateKey, persist],
+  );
+
+  const onMoveStudyToBand = useCallback(
+    (input: {
+      studyId: string;
+      toBandId: TimelineBandId;
+      toIndex: number;
+    }): boolean => {
+      const data = appDataRef.current;
+      if (!data) return false;
+      const bands = buildTimelineBands(studiesForDay(data, dateKey));
+      const layout = layoutAfterCrossBandMove({
+        bands,
+        studyId: input.studyId,
+        toBandId: input.toBandId,
+        toIndex: input.toIndex,
+      });
+      if (!layout) return false;
+      const next = applyDayStudyLayout(data, dateKey, layout);
+      if (next === data) return false;
+      haptics.select();
+      void persist(next);
+      return true;
+    },
+    [dateKey, persist],
   );
 
   const onSaveEdit = useCallback(
     (payload: AddStudyPayload) => {
-      if (!appData || !editingStudy) return;
+      const data = appDataRef.current;
+      if (!data || !editingStudy) return;
       const content = payload.title.trim();
       if (!content) {
         haptics.reject();
         return;
       }
-      const next = updateStudyWithReviews(appData, editingStudy.id, {
+      const next = updateStudyWithReviews(data, editingStudy.id, {
         subjectName: payload.subject,
         content,
         studiedOn: dateKey,
@@ -232,15 +286,49 @@ export default function DayTimelineScreen() {
       haptics.save();
       setEditOpen(false);
     },
-    [appData, dateKey, editingStudy, persist],
+    [dateKey, editingStudy, persist],
   );
 
   const onDelete = useCallback(() => {
-    if (!editingStudy || !appData) return;
-    void persist(deleteStudyWithReviews(appData, editingStudy.id));
+    const data = appDataRef.current;
+    if (!editingStudy || !data) return;
+    void persist(deleteStudyWithReviews(data, editingStudy.id));
     haptics.delete();
     setEditOpen(false);
-  }, [editingStudy, appData, persist]);
+  }, [editingStudy, persist]);
+
+  const onToggleDayDone = useCallback(
+    (studyId: string) => {
+      const data = appDataRef.current;
+      if (!data) return;
+      const existing = data.records.find((r) => r.id === studyId && !r.deleted);
+      if (!existing) return;
+      const next = toggleStudyDayDone(data, studyId);
+      if (next === data) return;
+      if (existing.dayDone) haptics.checkOff();
+      else haptics.checkOn();
+      void persist(next);
+    },
+    [persist],
+  );
+
+  const onDeferTomorrow = useCallback(
+    (studyId: string) => {
+      const data = appDataRef.current;
+      if (!data) return;
+      const before = countActiveOnDay(data, dateKey);
+      const next = deferStudyToTomorrow(data, studyId);
+      const after = countActiveOnDay(next, dateKey);
+      if (after >= before) {
+        // Cap or missing — soft reject.
+        haptics.reject();
+        return;
+      }
+      haptics.save();
+      void persist(next);
+    },
+    [dateKey, persist],
+  );
 
   if (!hydrated) {
     return (
@@ -300,7 +388,10 @@ export default function DayTimelineScreen() {
             allowAdd={allowAdd}
             onAddStudy={onAddStudy}
             onEditStudy={openEdit}
+            onToggleDayDone={onToggleDayDone}
+            onDeferTomorrow={onDeferTomorrow}
             onReorderBand={onReorderBand}
+            onMoveStudyToBand={onMoveStudyToBand}
           />
         </Animated.View>
       </ScrollView>

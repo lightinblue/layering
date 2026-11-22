@@ -37,7 +37,6 @@ import { DUMMY_SUBJECTS } from '@/constants/home-mock';
 import { fonts } from '@/constants/fonts';
 import { EASE_OUT_MS, durations } from '@/constants/motion';
 import {
-  SUBJECT_COLOR_OPTIONS,
   SUBJECT_COLORS,
   radii,
   subjectBorderColor,
@@ -56,7 +55,7 @@ import {
   MAX_SUBJECTS,
 } from '@/storage/app-data';
 import { SoftPlusIcon } from '@/components/icons/HomeIcons';
-import { useThemeColors } from '@/theme/ThemeProvider';
+import { useChipPalette, useThemeColors } from '@/theme/ThemeProvider';
 import { haptics } from '@/utils/haptics';
 
 export type AddStudyPayload = {
@@ -379,6 +378,7 @@ export function AddStudyForm({
   subjectsOnly = false,
 }: AddStudyFormProps) {
   const colors = useThemeColors();
+  const chipPalette = useChipPalette();
   const isEdit = mode === 'edit';
   // Create: default to first chip. Edit: keep the study’s subject.
   const [subjectPick, setSubjectPick] = useState<string | null>(
@@ -389,7 +389,9 @@ export function AddStudyForm({
   const [adding, setAdding] = useState(false);
   const addingRef = useRef(false);
   const [draftName, setDraftName] = useState('');
-  const [draftColor, setDraftColor] = useState<string>(SUBJECT_COLOR_OPTIONS[0]);
+  const [draftColor, setDraftColor] = useState<string>(
+    () => chipPalette[0] ?? '#F65E83',
+  );
   const draftInputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [chipHint, setChipHint] = useState<string | null>(null);
   const [deleteArmed, setDeleteArmed] = useState<string | null>(null);
@@ -789,10 +791,10 @@ export function AddStudyForm({
     setChipHint(null);
     setDeleteArmed(null);
     setDraftName('');
-    setDraftColor(SUBJECT_COLOR_OPTIONS[0]);
+    setDraftColor(chipPalette[0] ?? '#F65E83');
     addingRef.current = true;
     setAdding(true);
-  }, [onAddSubject, atLimit]);
+  }, [onAddSubject, atLimit, chipPalette]);
 
   const cancelAdd = useCallback(() => {
     // Dismiss keyboard first so sheet drop and height collapse don't fight.
@@ -1033,11 +1035,11 @@ export function AddStudyForm({
             </View>
 
             <View style={styles.swatchRow}>
-              {SUBJECT_COLOR_OPTIONS.map((hex) => (
+              {chipPalette.map((hex) => (
                 <DraftColorSwatch
                   key={hex}
                   hex={hex}
-                  selected={draftColor === hex}
+                  selected={draftColor.toLowerCase() === hex.toLowerCase()}
                   borderColor={colors.black}
                   onPress={() => {
                     haptics.themePick();

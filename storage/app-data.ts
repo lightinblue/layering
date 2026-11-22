@@ -5,6 +5,7 @@ import {
   colors,
   subjectColor,
 } from '@/constants/tokens';
+import { remapColorToPalette } from '@/constants/themes';
 import type { ReviewIntervalDay } from '@/constants/review';
 import type {
   AppData,
@@ -24,6 +25,7 @@ import {
   activeSubjects,
   recoverFromShowcaseContamination,
 } from '@/utils/icloud-merge';
+import { addDaysToDate, parseKey, toKey } from '@/utils/date';
 import { buildReviewDueDates } from '@/utils/review-schedule';
 
 export const EMPTY_APP_DATA: AppData = {
@@ -112,6 +114,40 @@ export const DEFAULT_SUBJECTS: SubjectChip[] = [
 export function withSubjectColor(chip: SubjectChip): SubjectChip {
   const color = chip.color?.trim() || subjectColor(chip.name);
   return color === chip.color ? chip : { ...chip, color };
+}
+
+/**
+ * Remap subject chip + record snapshot colors onto a new theme palette.
+ * Keeps subjects/records; only swaps hex fills. No-op when nothing changes.
+ */
+export function remapAppDataColors(
+  data: AppData,
+  fromPalette: readonly string[],
+  toPalette: readonly string[],
+  now = new Date(),
+): AppData {
+  if (toPalette.length === 0) return data;
+  const at = now.toISOString();
+  let changed = false;
+
+  const subjects = data.subjects.map((s) => {
+    if (s.deleted || !s.color?.trim()) return s;
+    const next = remapColorToPalette(s.color, fromPalette, toPalette);
+    if (next.toLowerCase() === s.color.trim().toLowerCase()) return s;
+    changed = true;
+    return { ...s, color: next, updatedAt: at };
+  });
+
+  const records = data.records.map((r) => {
+    if (r.deleted || !r.subjectColor?.trim()) return r;
+    const next = remapColorToPalette(r.subjectColor, fromPalette, toPalette);
+    if (next.toLowerCase() === r.subjectColor.trim().toLowerCase()) return r;
+    changed = true;
+    return { ...r, subjectColor: next, updatedAt: at };
+  });
+
+  if (!changed) return data;
+  return withSchedules({ ...data, subjects, records });
 }
 
 export function subjectColorMap(
@@ -412,7 +448,9 @@ export function appendStudyWithReviews(
     content: fields.content,
     ...(fields.memo ? { memo: fields.memo } : {}),
     studiedOn: input.studiedOn,
-    ...(input.dayBand ? { dayBand: input.dayBand } : {}),
+    // Always persist band membership — missing dayBand used to rebucket into
+    // earlier bands when capacity opened (delete looked like a band jump).
+    dayBand: input.dayBand ?? 'evening',
     dayOrder: maxOrder + 1,
     cycle,
     checks: emptyChecks(cycle, at),
@@ -426,14 +464,19 @@ export function appendStudyWithReviews(
   });
 }
 
+export type DayStudyLayoutItem = {
+  id: string;
+  dayBand: 'morning' | 'afternoon' | 'evening';
+};
+
 /**
- * Persist a new display order for studies on one day (ascending dayOrder).
- * `orderedIds` should list every active study id for that day in visual order.
+ * Persist full-day visual order + band membership.
+ * `layout` must list every active study id for that day exactly once.
  */
-export function reorderStudiesOnDay(
+export function applyDayStudyLayout(
   data: AppData,
   studiedOn: string,
-  orderedIds: readonly string[],
+  layout: readonly DayStudyLayoutItem[],
   now = new Date(),
 ): AppData {
   const at = nowIso(now);
@@ -442,22 +485,66 @@ export function reorderStudiesOnDay(
       .filter((r) => r.studiedOn === studiedOn)
       .map((r) => r.id),
   );
-  if (orderedIds.length === 0 || orderedIds.some((id) => !activeIds.has(id))) {
+  if (layout.length === 0 || layout.length !== activeIds.size) {
     return data;
   }
-  if (orderedIds.length !== activeIds.size) {
+  if (layout.some((item) => !activeIds.has(item.id))) {
     return data;
   }
-  const orderById = new Map(orderedIds.map((id, index) => [id, index]));
+  const seen = new Set<string>();
+  for (const item of layout) {
+    if (seen.has(item.id)) return data;
+    seen.add(item.id);
+  }
+
+  const metaById = new Map(
+    layout.map((item, index) => [item.id, { dayBand: item.dayBand, dayOrder: index }]),
+  );
   return withSchedules({
     subjects: data.subjects,
     records: data.records.map((r) => {
-      const nextOrder = orderById.get(r.id);
-      if (nextOrder === undefined) return r;
-      if (r.dayOrder === nextOrder) return r;
-      return { ...r, dayOrder: nextOrder, updatedAt: at };
+      const meta = metaById.get(r.id);
+      if (!meta) return r;
+      if (r.dayOrder === meta.dayOrder && r.dayBand === meta.dayBand) return r;
+      return {
+        ...r,
+        dayBand: meta.dayBand,
+        dayOrder: meta.dayOrder,
+        updatedAt: at,
+      };
     }),
   });
+}
+
+/**
+ * Persist a new display order for studies on one day (ascending dayOrder).
+ * `orderedIds` should list every active study id for that day in visual order.
+ * Preserves each record's existing `dayBand`.
+ */
+export function reorderStudiesOnDay(
+  data: AppData,
+  studiedOn: string,
+  orderedIds: readonly string[],
+  now = new Date(),
+): AppData {
+  const active = activeRecords(data.records).filter(
+    (r) => r.studiedOn === studiedOn,
+  );
+  const bandById = new Map(
+    active.map((r) => [
+      r.id,
+      (r.dayBand === 'morning' ||
+      r.dayBand === 'afternoon' ||
+      r.dayBand === 'evening'
+        ? r.dayBand
+        : 'evening') as DayStudyLayoutItem['dayBand'],
+    ]),
+  );
+  const layout: DayStudyLayoutItem[] = orderedIds.map((id) => ({
+    id,
+    dayBand: bandById.get(id) ?? 'evening',
+  }));
+  return applyDayStudyLayout(data, studiedOn, layout, now);
 }
 
 /** Toggle a single study's check for an interval (source of truth). */
@@ -588,6 +675,11 @@ export function updateStudyWithReviews(
     ...(subjectColorSnap ? { subjectColor: subjectColorSnap } : {}),
     content: fields.content,
     studiedOn: input.studiedOn,
+    ...(existing.dayBand ? { dayBand: existing.dayBand } : {}),
+    ...(typeof existing.dayOrder === 'number'
+      ? { dayOrder: existing.dayOrder }
+      : {}),
+    ...(existing.dayDone ? { dayDone: true } : {}),
     cycle,
     checks,
     createdAt: existing.createdAt,
@@ -598,6 +690,96 @@ export function updateStudyWithReviews(
   return withSchedules({
     ...data,
     records: data.records.map((r) => (r.id === studyId ? nextRecord : r)),
+  });
+}
+
+/** Toggle study-day timeline todo check (`dayDone`). */
+export function toggleStudyDayDone(
+  data: AppData,
+  studyId: string,
+  now = new Date(),
+): AppData {
+  const existing = data.records.find((r) => r.id === studyId && !r.deleted);
+  if (!existing) return data;
+  const at = nowIso(now);
+  const nextDone = !existing.dayDone;
+  return {
+    ...data,
+    records: data.records.map((r) =>
+      r.id === studyId
+        ? {
+            ...r,
+            dayDone: nextDone,
+            updatedAt: at,
+          }
+        : r,
+    ),
+  };
+}
+
+/**
+ * Move a study to the next calendar day, same time band, appended in-band.
+ * Clears `dayDone`. Regenerates review schedules from the new studiedOn.
+ */
+export function deferStudyToTomorrow(
+  data: AppData,
+  studyId: string,
+  now = new Date(),
+): AppData {
+  const existing = data.records.find((r) => r.id === studyId && !r.deleted);
+  if (!existing) return data;
+
+  const tomorrowKey = toKey(addDaysToDate(parseKey(existing.studiedOn), 1));
+  if (countStudiesOn(data, tomorrowKey) >= MAX_STUDIES_PER_DAY) {
+    return data;
+  }
+
+  const band =
+    existing.dayBand === 'morning' ||
+    existing.dayBand === 'afternoon' ||
+    existing.dayBand === 'evening'
+      ? existing.dayBand
+      : 'evening';
+
+  const sameBandTomorrow = activeRecords(data.records).filter(
+    (r) =>
+      r.id !== studyId &&
+      r.studiedOn === tomorrowKey &&
+      (r.dayBand === 'morning' ||
+      r.dayBand === 'afternoon' ||
+      r.dayBand === 'evening'
+        ? r.dayBand
+        : 'evening') === band,
+  );
+  const maxOrder = sameBandTomorrow.reduce(
+    (max, r) => Math.max(max, typeof r.dayOrder === 'number' ? r.dayOrder : -1),
+    -1,
+  );
+  // Also respect global dayOrder on that day so sort stays stable.
+  const sameDayTomorrow = activeRecords(data.records).filter(
+    (r) => r.studiedOn === tomorrowKey && r.id !== studyId,
+  );
+  const maxDayOrder = sameDayTomorrow.reduce(
+    (max, r) => Math.max(max, typeof r.dayOrder === 'number' ? r.dayOrder : -1),
+    -1,
+  );
+  const dayOrder = Math.max(maxOrder, maxDayOrder) + 1;
+  const at = nowIso(now);
+
+  return withSchedules({
+    ...data,
+    records: data.records.map((r) =>
+      r.id === studyId
+        ? {
+            ...r,
+            studiedOn: tomorrowKey,
+            dayBand: band,
+            dayOrder,
+            dayDone: false,
+            updatedAt: at,
+          }
+        : r,
+    ),
   });
 }
 

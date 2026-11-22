@@ -3,13 +3,14 @@
  * Easy to delete this module + day route to revert.
  */
 
-/** Hard cap on filled study records per studiedOn date (4+6+4). */
+/** Hard cap on filled study records per studiedOn date (only day-wide max). */
 export const TIMELINE_MAX_STUDIES_PER_DAY = 14;
 
 /**
- * Per-band limits:
- * - emptySlots = hard fill cap (4 / 6 / 4)
- * - visualPad = display height padding (~3 / 4 / 3) for empty add control
+ * Per-band display hints (not a hard storage max after stable dayBand):
+ * - emptySlots = soft gate for the 오전/오후 **add button** (hide when full);
+ *   밤 always keeps add until the day cap. Cross-band drag may exceed these.
+ * - visualPad = empty-add control height (~3 / 4 / 3)
  */
 export const TIMELINE_BANDS = [
   {
