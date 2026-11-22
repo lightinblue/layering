@@ -42,14 +42,16 @@ Profiles: `eas.json`. First build after adding the target may ask EAS to registe
 
 ## Local Xcode
 
-Needs full **Xcode.app** (not only Command Line Tools):
+Needs full **Xcode.app** (not only Command Line Tools). `ios/` is gitignored — generate it locally:
 
 ```bash
-npx expo prebuild -p ios
-xed ios
+npm run prebuild:ios          # or: npm run prebuild:ios:clean
+npm run open:ios              # opens ios/*.xcworkspace
 ```
 
-Run the app scheme on a Simulator or device, then add the widget from the gallery. Re-prebuild after changing `targets/today-review/expo-target.config.js` or app entitlements.
+Run the **`layering`** scheme (not `todayreview`) on a Simulator or device, then add the widget from the gallery. Re-prebuild after changing `targets/today-review/expo-target.config.js` or app entitlements.
+
+For **Archive → TestFlight** without EAS, see the Project store guide `docs/xcode-testflight.md` (scheme `layering`, Team `R39JVZ3ZNL`, both app + widget targets, App Group `group.com.lightinblue.layering.poogae`).
 
 ## Apple Developer checklist
 

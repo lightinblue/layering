@@ -44,7 +44,10 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prebuild:ios": "expo prebuild -p ios",
+    "prebuild:ios:clean": "expo prebuild -p ios --clean",
+    "open:ios": "xed ios"
   },
   "private": true
 }
