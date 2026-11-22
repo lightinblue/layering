@@ -56,8 +56,9 @@ npx expo start -c --go --tunnel
 | `npm start` / `npx expo start` | Expo 개발 서버 |
 | `npx expo start --tunnel` | LAN 이슈 시 터널 |
 | `npm run ios` | iOS 시뮬레이터 (Expo Go / Metro) |
-| `npm run prebuild:ios` | 로컬 `ios/` 생성 (`ios/`는 gitignore) |
-| `npm run prebuild:ios:clean` | `ios/` 클린 재생성 |
+| `npm run prebuild:ios` | 로컬 `ios/` 생성 (`ios/`는 gitignore) + target 검증 |
+| `npm run prebuild:ios:clean` | `ios/` 클린 재생성 + target 검증 |
+| `npm run verify:ios-targets` | `layering` + `todayreview`만 있는지 확인 (HelloWorld 거부) |
 | `npm run open:ios` | Xcode에서 `ios/*.xcworkspace` 열기 |
 | `npm run lint` | ESLint (`expo lint`) |
 | `npm run typecheck` | TypeScript 검사 |

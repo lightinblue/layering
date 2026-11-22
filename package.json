@@ -45,8 +45,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prebuild:ios": "expo prebuild -p ios",
-    "prebuild:ios:clean": "expo prebuild -p ios --clean",
+    "prebuild:ios": "expo prebuild -p ios && node scripts/verify-ios-targets.js",
+    "prebuild:ios:clean": "expo prebuild -p ios --clean && node scripts/verify-ios-targets.js",
+    "verify:ios-targets": "node scripts/verify-ios-targets.js",
     "open:ios": "xed ios"
   },
   "private": true
