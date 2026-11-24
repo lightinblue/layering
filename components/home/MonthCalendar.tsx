@@ -289,6 +289,7 @@ function NativeMonthPager({
   const listRef = useRef<FlatList<MonthPage>>(null);
   const settledIndexRef = useRef(MONTH_RADIUS);
   const draggingRef = useRef(false);
+  const programmaticRef = useRef(false);
   const [titlePage, setTitlePage] = useState(() => ({ year, monthIndex }));
 
   const indexFor = useCallback((y: number, m: number) => {
@@ -308,6 +309,7 @@ function NativeMonthPager({
     setTitlePage({ year, monthIndex });
     if (settledIndexRef.current === nextIndex) return;
     settledIndexRef.current = nextIndex;
+    programmaticRef.current = true;
     listRef.current?.scrollToIndex({ index: nextIndex, animated: true });
   }, [year, monthIndex, indexFor, pages.length]);
 
@@ -326,17 +328,11 @@ function NativeMonthPager({
     onMonthChange(next.year, next.monthIndex);
   };
 
-  const onMomentumScrollEnd = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const wasDragging = draggingRef.current;
-      draggingRef.current = false;
+  const settleUserPage = useCallback(
+    (offsetX: number) => {
       if (frameWidth <= 0) return;
-      const next = Math.round(e.nativeEvent.contentOffset.x / frameWidth);
+      const next = Math.round(offsetX / frameWidth);
       const clamped = Math.max(0, Math.min(pages.length - 1, next));
-      if (!wasDragging) {
-        settledIndexRef.current = indexFor(year, monthIndex);
-        return;
-      }
       settledIndexRef.current = clamped;
       const page = pages[clamped];
       if (!page) return;
@@ -346,7 +342,32 @@ function NativeMonthPager({
         onMonthChange(page.year, page.monthIndex);
       }
     },
-    [frameWidth, indexFor, monthIndex, onMonthChange, pages, year],
+    [frameWidth, monthIndex, onMonthChange, pages, year],
+  );
+
+  const onScrollEndDrag = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      draggingRef.current = false;
+      const vx = e.nativeEvent.velocity?.x;
+      if (vx == null || Math.abs(vx) < 0.05) {
+        settleUserPage(e.nativeEvent.contentOffset.x);
+      }
+    },
+    [settleUserPage],
+  );
+
+  const onMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      draggingRef.current = false;
+      if (frameWidth <= 0) return;
+      if (programmaticRef.current) {
+        programmaticRef.current = false;
+        settledIndexRef.current = indexFor(year, monthIndex);
+        return;
+      }
+      settleUserPage(e.nativeEvent.contentOffset.x);
+    },
+    [frameWidth, indexFor, monthIndex, settleUserPage, year],
   );
 
   const getItemLayout = useCallback(
@@ -437,6 +458,7 @@ function NativeMonthPager({
         onScrollBeginDrag={() => {
           draggingRef.current = true;
         }}
+        onScrollEndDrag={onScrollEndDrag}
         onMomentumScrollEnd={onMomentumScrollEnd}
         onScrollToIndexFailed={({ index }) => {
           requestAnimationFrame(() => {

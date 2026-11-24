@@ -1106,10 +1106,13 @@ function WeekStripPager({
   // -1 forces first scrollToIndex — RN-web often ignores initialScrollIndex (stays at 0 ≈ Aug).
   const settledIndexRef = useRef(-1);
   const draggingRef = useRef(false);
+  /** True while we drive scrollToOffset/Index — distinguishes from user drag. */
+  const programmaticRef = useRef(false);
 
   const scrollStripToWeek = useCallback(
     (index: number, animated: boolean) => {
       if (width <= 0) return;
+      programmaticRef.current = true;
       if (Platform.OS === 'web') {
         listRef.current?.scrollToOffset({
           offset: index * width,
@@ -1141,15 +1144,41 @@ function WeekStripPager({
     });
   }, [weekIndex, width, selectedKey, scrollStripToWeek]);
 
+  const settleUserOffset = useCallback(
+    (offsetX: number) => {
+      if (width <= 0) return;
+      const next = Math.round(offsetX / width);
+      const clamped = Math.max(0, Math.min(weeks.length - 1, next));
+      settledIndexRef.current = clamped;
+      if (clamped !== weekIndex) {
+        onWeekChange(clamped, weekdayIndex);
+      }
+    },
+    [onWeekChange, weekIndex, weekdayIndex, weeks.length, width],
+  );
+
+  const onScrollEndDrag = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      // Zero-velocity releases often skip onMomentumScrollEnd on RN-web, which
+      // left draggingRef stuck true and blocked strip sync. Clear here always.
+      draggingRef.current = false;
+      const vx = e.nativeEvent.velocity?.x;
+      // Settle now when momentum is unlikely; otherwise momentum end settles.
+      if (vx == null || Math.abs(vx) < 0.05) {
+        settleUserOffset(e.nativeEvent.contentOffset.x);
+      }
+    },
+    [settleUserOffset],
+  );
+
   const onMomentumScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const wasDragging = draggingRef.current;
       draggingRef.current = false;
       if (width <= 0) return;
       const next = Math.round(e.nativeEvent.contentOffset.x / width);
       const clamped = Math.max(0, Math.min(weeks.length - 1, next));
-      // Ignore programmatic / mount scroll-end — snap visual back to weekIndex.
-      if (!wasDragging) {
+      if (programmaticRef.current) {
+        programmaticRef.current = false;
         settledIndexRef.current = weekIndex;
         if (clamped !== weekIndex) {
           requestAnimationFrame(() => {
@@ -1158,12 +1187,9 @@ function WeekStripPager({
         }
         return;
       }
-      settledIndexRef.current = clamped;
-      if (clamped !== weekIndex) {
-        onWeekChange(clamped, weekdayIndex);
-      }
+      settleUserOffset(e.nativeEvent.contentOffset.x);
     },
-    [onWeekChange, scrollStripToWeek, weekIndex, weekdayIndex, weeks.length, width],
+    [scrollStripToWeek, settleUserOffset, weekIndex, weeks.length, width],
   );
 
   const getItemLayout = useCallback(
@@ -1211,6 +1237,7 @@ function WeekStripPager({
       onScrollBeginDrag={() => {
         draggingRef.current = true;
       }}
+      onScrollEndDrag={onScrollEndDrag}
       onMomentumScrollEnd={onMomentumScrollEnd}
       onScrollToIndexFailed={({ index }) => {
         requestAnimationFrame(() => {
@@ -1406,6 +1433,7 @@ function DayContentPager({
   // -1 forces first scrollToIndex — RN-web often ignores initialScrollIndex (stays at 0 ≈ Aug).
   const settledIndexRef = useRef(-1);
   const draggingRef = useRef(false);
+  const programmaticRef = useRef(false);
   /**
    * Cross-axis size so each page fills to the content bottom (empty review still swipes).
    * Web: skip measured height — 0→N updates re-render every page and flicker empty state.
@@ -1413,6 +1441,22 @@ function DayContentPager({
   const [pageHeight, setPageHeight] = useState(0);
   const measurePageHeight = Platform.OS !== 'web';
   const windowStartKey = days[0]?.dateKey ?? '';
+
+  const scrollDayToIndex = useCallback(
+    (index: number, animated: boolean) => {
+      if (width <= 0) return;
+      programmaticRef.current = true;
+      if (Platform.OS === 'web') {
+        listRef.current?.scrollToOffset({
+          offset: index * width,
+          animated: false,
+        });
+      } else {
+        listRef.current?.scrollToIndex({ index, animated });
+      }
+    },
+    [width],
+  );
 
   useEffect(() => {
     // Week window rebased (new dateKeys) — force scroll sync even if index matches.
@@ -1434,51 +1478,54 @@ function DayContentPager({
       delta <= JUMP_ANIMATE_MAX_DELTA;
     settledIndexRef.current = dayIndex;
     requestAnimationFrame(() => {
-      if (Platform.OS === 'web') {
-        // scrollToOffset is more reliable than scrollToIndex on RN-web.
-        listRef.current?.scrollToOffset({
-          offset: dayIndex * width,
-          animated: false,
-        });
-      } else {
-        listRef.current?.scrollToIndex({ index: dayIndex, animated: animate });
-      }
+      scrollDayToIndex(dayIndex, animate);
     });
-  }, [dayIndex, width]);
+  }, [dayIndex, width, scrollDayToIndex]);
 
-  const onMomentumScrollEnd = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const wasDragging = draggingRef.current;
-      draggingRef.current = false;
+  const settleUserOffset = useCallback(
+    (offsetX: number) => {
       if (width <= 0) return;
-      const next = Math.round(e.nativeEvent.contentOffset.x / width);
+      const next = Math.round(offsetX / width);
       const clamped = Math.max(0, Math.min(days.length - 1, next));
-      // Ignore programmatic / mount scroll-end — snap visual back to dayIndex.
-      if (!wasDragging) {
-        settledIndexRef.current = dayIndex;
-        if (clamped !== dayIndex) {
-          requestAnimationFrame(() => {
-            if (Platform.OS === 'web') {
-              listRef.current?.scrollToOffset({
-                offset: dayIndex * width,
-                animated: false,
-              });
-            } else {
-              listRef.current?.scrollToIndex({
-                index: dayIndex,
-                animated: false,
-              });
-            }
-          });
-        }
-        return;
-      }
       settledIndexRef.current = clamped;
       if (clamped !== dayIndex) {
         onDayChange(clamped);
       }
     },
     [dayIndex, days.length, onDayChange, width],
+  );
+
+  const onScrollEndDrag = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      // Clear even when momentum never fires (web zero-velocity swipe).
+      draggingRef.current = false;
+      const vx = e.nativeEvent.velocity?.x;
+      if (vx == null || Math.abs(vx) < 0.05) {
+        settleUserOffset(e.nativeEvent.contentOffset.x);
+      }
+    },
+    [settleUserOffset],
+  );
+
+  const onMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      draggingRef.current = false;
+      if (width <= 0) return;
+      const next = Math.round(e.nativeEvent.contentOffset.x / width);
+      const clamped = Math.max(0, Math.min(days.length - 1, next));
+      if (programmaticRef.current) {
+        programmaticRef.current = false;
+        settledIndexRef.current = dayIndex;
+        if (clamped !== dayIndex) {
+          requestAnimationFrame(() => {
+            scrollDayToIndex(dayIndex, false);
+          });
+        }
+        return;
+      }
+      settleUserOffset(e.nativeEvent.contentOffset.x);
+    },
+    [dayIndex, days.length, scrollDayToIndex, settleUserOffset, width],
   );
 
   const getItemLayout = useCallback(
@@ -1563,6 +1610,7 @@ function DayContentPager({
       onScrollBeginDrag={() => {
         draggingRef.current = true;
       }}
+      onScrollEndDrag={onScrollEndDrag}
       onMomentumScrollEnd={onMomentumScrollEnd}
       onLayout={
         measurePageHeight
