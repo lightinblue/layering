@@ -2,7 +2,9 @@ import { ScrollViewStyleReset } from 'expo-router/html';
 import type { ReactNode } from 'react';
 
 /**
- * Web-only root HTML (static rendering / `expo export --platform web`).
+ * Web-only root HTML for `web.output: "static"` exports.
+ * Dev / SPA (`web.output: "single"`, used by `npm run web`) uses Expo's
+ * template instead — keep `single` so the entry `<script>` is injected.
  * Runs in Node — no DOM APIs here.
  */
 export default function Root({ children }: { children: ReactNode }) {
