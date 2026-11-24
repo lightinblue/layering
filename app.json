@@ -33,8 +33,14 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "output": "static",
+      "favicon": "./assets/images/favicon.png",
+      "name": "포개",
+      "shortName": "포개",
+      "description": "망각곡선 기반 복습 스케줄러",
+      "themeColor": "#1991ff",
+      "backgroundColor": "#ffffff",
+      "lang": "ko"
     },
     "plugins": [
       "expo-router",

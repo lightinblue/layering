@@ -41,7 +41,12 @@ SplashScreen.preventAutoHideAsync().catch(() => {
   // Already hidden or unavailable — avoid an unhandled rejection on launch.
 });
 // Soft handoff when native (Expo Go = app icon) and JS overlay sizes differ slightly.
-SplashScreen.setOptions({ duration: 200, fade: true });
+// Web has no native splash module options — ignore failures there.
+try {
+  SplashScreen.setOptions({ duration: 200, fade: true });
+} catch {
+  // expo-splash-screen web stub
+}
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
