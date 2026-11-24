@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   StyleSheet,
   View,
 } from 'react-native';
@@ -80,7 +81,22 @@ export default function CalendarScreen() {
 
   const onSelectDay = useCallback(
     (dateKey: string) => {
-      // Open the day study detail (same surface as home summary).
+      // Web: jump Home week strip to that day (no /day study sheet).
+      if (Platform.OS === 'web') {
+        if (typeof router.dismissTo === 'function') {
+          router.dismissTo({
+            pathname: '/',
+            params: { day: dateKey },
+          });
+          return;
+        }
+        router.navigate({
+          pathname: '/',
+          params: { day: dateKey },
+        });
+        return;
+      }
+      // Native: open the day study detail (same surface as home summary).
       if (typeof router.dismissTo === 'function') {
         router.dismissTo({
           pathname: '/day',

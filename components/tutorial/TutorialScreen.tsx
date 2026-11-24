@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useRef, useState } from 'react';
 import {
   FlatList,
+  Platform,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -46,6 +47,8 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<TutorialPage>>(null);
   const [index, setIndex] = useState(0);
+  /** Web FlatList pages don't stretch — measure body so we can vertically center. */
+  const [bodyHeight, setBodyHeight] = useState(0);
   const isLast = index >= TUTORIAL_PAGES.length - 1;
   const contentWidth = Math.min(332, width - 48);
   const visualWidth = tutorialVisualWidth(contentWidth);
@@ -87,7 +90,14 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
 
   const renderPage = useCallback(
     ({ item, index: pageIndex }: { item: TutorialPage; index: number }) => (
-      <View style={[styles.pageSlide, { width }]}>
+      <View
+        style={[
+          styles.pageSlide,
+          { width },
+          Platform.OS === 'web' && bodyHeight > 0
+            ? { minHeight: bodyHeight, justifyContent: 'center' as const }
+            : null,
+        ]}>
         <View style={[styles.page, { width: contentWidth }]}>
           <View style={styles.titleBlock}>
             <Text style={[styles.eyebrow, { color: colors.primary }]}>
@@ -127,6 +137,7 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
       </View>
     ),
     [
+      bodyHeight,
       colors.black,
       colors.body,
       colors.primary,
@@ -171,7 +182,16 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
         </Pressable>
       </View>
 
-      <View style={styles.body}>
+      <View
+        style={styles.body}
+        onLayout={
+          Platform.OS === 'web'
+            ? (e) => {
+                const next = Math.round(e.nativeEvent.layout.height);
+                if (next > 0 && next !== bodyHeight) setBodyHeight(next);
+              }
+            : undefined
+        }>
         <FlatList
           ref={listRef}
           data={TUTORIAL_PAGES as TutorialPage[]}
@@ -188,6 +208,9 @@ export function TutorialScreen({ onFinished }: TutorialScreenProps) {
           })}
           renderItem={renderPage}
           style={styles.pager}
+          {...(Platform.OS === 'web' && bodyHeight > 0
+            ? { extraData: bodyHeight }
+            : {})}
         />
       </View>
 
