@@ -7,7 +7,7 @@ import {
 } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
@@ -41,7 +41,12 @@ SplashScreen.preventAutoHideAsync().catch(() => {
   // Already hidden or unavailable — avoid an unhandled rejection on launch.
 });
 // Soft handoff when native (Expo Go = app icon) and JS overlay sizes differ slightly.
-SplashScreen.setOptions({ duration: 200, fade: true });
+// Web has no native splash module options — ignore failures there.
+try {
+  SplashScreen.setOptions({ duration: 200, fade: true });
+} catch {
+  // expo-splash-screen web stub
+}
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -90,7 +95,12 @@ export default function RootLayout() {
     void saveTutorialSeen();
   }, []);
 
+  // Web: never leave #root empty forever — fonts / AsyncStorage can lag.
+  // Native keeps null so the native splash owns the first frame.
   if (!loaded || tutorialSeen === null) {
+    if (Platform.OS === 'web') {
+      return <View style={styles.webBoot} accessibilityLabel="포개 로딩" />;
+    }
     return null;
   }
 
@@ -126,6 +136,10 @@ function RootChrome({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  webBoot: {
+    flex: 1,
+    backgroundColor: '#ffffff',
   },
 });
 

@@ -1,0 +1,50 @@
+# Build Expo web export and publish to the `gh-pages` branch (GitHub Pages).
+# Apex custom domain: pogae-planner.site (CNAME in dist-web).
+#
+# Repo Settings → Pages → Source must be: Deploy from a branch → gh-pages / (root).
+# (The github-pages environment only allows main + gh-pages, so Actions
+#  deploy-pages cannot run from the web feature branch.)
+name: Deploy web to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - cursor/mobile-web-app-a833
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-gh-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Export web
+        run: npm run web:export
+
+      - name: Publish dist-web → gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist-web
+          force_orphan: true
+          enable_jekyll: false
+          cname: pogae-planner.site
+          commit_message: 'deploy(web): GitHub Pages ${{ github.sha }}'

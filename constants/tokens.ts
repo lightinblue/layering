@@ -1,6 +1,14 @@
 /** Design tokens from Figma Home (zgjHZrcERnHvzlG6cfxE0Y). */
 
+import { Platform } from 'react-native';
+
 import { lightPalette } from '@/constants/palette';
+
+/**
+ * TextInput font size. iOS Safari zooms the page when focused inputs are
+ * under 16px — keep web at 16 for a11y (no maximum-scale viewport hack).
+ */
+export const textInputFontSize = Platform.OS === 'web' ? 16 : 15;
 
 /** @deprecated Prefer `useThemeColors()` — static light fallback for module-level styles. */
 export const colors = { ...lightPalette } as const;

@@ -41,6 +41,7 @@ import {
   radii,
   subjectBorderColor,
   subjectColor,
+  textInputFontSize,
 } from '@/constants/tokens';
 
 if (
@@ -393,7 +394,21 @@ export function AddStudyForm({
     () => chipPalette[0] ?? '#F65E83',
   );
   const draftInputRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const titleInputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [chipHint, setChipHint] = useState<string | null>(null);
+
+  // Auto-focus 학습 내용 on create (web needs a short retry; native autoFocus ok).
+  useEffect(() => {
+    if (subjectsOnly || isEdit) return;
+    const focus = () => titleInputRef.current?.focus();
+    const raf = requestAnimationFrame(focus);
+    const retry =
+      Platform.OS === 'web' ? window.setTimeout(focus, 80) : null;
+    return () => {
+      cancelAnimationFrame(raf);
+      if (retry != null) window.clearTimeout(retry);
+    };
+  }, [subjectsOnly, isEdit]);
   const [deleteArmed, setDeleteArmed] = useState<string | null>(null);
   const deleteArmedRef = useRef<string | null>(null);
   const [draggingName, setDraggingName] = useState<string | null>(null);
@@ -1072,12 +1087,14 @@ export function AddStudyForm({
           학습 내용
         </Text>
         <TextInput
+          ref={titleInputRef}
           value={title}
           onChangeText={setTitle}
           placeholder="1-3단원 / p. 22-36"
           placeholderTextColor={colors.mutedLight}
           // New typing capped at 40; legacy longer values stay visible until save clamp.
           maxLength={titleMaxLength}
+          autoFocus={!isEdit}
           style={[
             styles.input,
             { backgroundColor: colors.surface, color: colors.body },
@@ -1136,9 +1153,12 @@ const styles = StyleSheet.create({
     maxHeight: 520,
   },
   content: {
-    paddingHorizontal: 24,
+    paddingHorizontal: Platform.OS === 'web' ? 16 : 24,
     paddingBottom: 8,
     gap: 20,
+    width: '100%',
+    minWidth: 0,
+    alignSelf: 'stretch',
   },
   title: {
     fontFamily: fonts.nexonMedium,
@@ -1227,23 +1247,34 @@ const styles = StyleSheet.create({
   },
   addBlock: {
     gap: 10,
+    width: '100%',
+    minWidth: 0,
+    alignSelf: 'stretch',
   },
   addRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    width: '100%',
+    minWidth: 0,
   },
   addInput: {
     flex: 1,
+    // RN-web: flex items default minWidth:auto and won't shrink → clips 추가.
+    minWidth: 0,
     minHeight: 44,
     paddingVertical: 10,
+    ...(Platform.OS === 'web'
+      ? { paddingHorizontal: 12, maxWidth: '100%' as unknown as number }
+      : {}),
   },
   addConfirm: {
     height: 44,
-    paddingHorizontal: 14,
+    paddingHorizontal: Platform.OS === 'web' ? 12 : 14,
     borderRadius: radii.chip,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   addConfirmText: {
     fontFamily: fonts.nexonMedium,
@@ -1252,10 +1283,11 @@ const styles = StyleSheet.create({
   },
   addCancel: {
     height: 44,
-    paddingHorizontal: 12,
+    paddingHorizontal: Platform.OS === 'web' ? 10 : 12,
     borderRadius: radii.chip,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   addCancelText: {
     fontFamily: fonts.nexonMedium,
@@ -1283,16 +1315,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontFamily: fonts.nexonMedium,
-    fontSize: 15,
+    fontSize: textInputFontSize,
     minHeight: 49,
   },
   actionRow: {
     marginTop: 4,
     flexDirection: 'row',
     gap: 10,
+    width: '100%',
+    minWidth: 0,
   },
   actionBtn: {
     flex: 1,
+    minWidth: 0,
     marginTop: 0,
   },
   saveBtn: {

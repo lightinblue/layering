@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   StyleSheet,
   View,
 } from 'react-native';
@@ -17,6 +18,7 @@ import {
   type DayProgress,
 } from '@/utils/day-progress';
 import { parseYearMonth } from '@/utils/month-grid';
+import { queueHomeDay } from '@/utils/pending-home-day';
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -80,7 +82,18 @@ export default function CalendarScreen() {
 
   const onSelectDay = useCallback(
     (dateKey: string) => {
-      // Open the day study detail (same surface as home summary).
+      // Web: jump Home to that day (no /day study sheet).
+      // Queue + back — navigate/dismissTo with ?day= is flaky on Safari SPA modals.
+      if (Platform.OS === 'web') {
+        queueHomeDay(dateKey);
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.navigate('/');
+        }
+        return;
+      }
+      // Native: open the day study detail (same surface as home summary).
       if (typeof router.dismissTo === 'function') {
         router.dismissTo({
           pathname: '/day',
@@ -98,23 +111,27 @@ export default function CalendarScreen() {
 
   return (
     <SheetPanel onClose={onClose}>
-      {!hydrated ? (
-        <View style={styles.loading}>
-          <ActivityIndicator color={theme.primary} />
-        </View>
-      ) : (
-        <View style={styles.content}>
-          <MonthCalendar
-            year={year}
-            monthIndex={monthIndex}
-            todayKey={effectiveToday}
-            focusKey={focusParam}
-            progressForDay={progressForDay}
-            onSelectDay={onSelectDay}
-            onMonthChange={onMonthChange}
-          />
-        </View>
-      )}
+      {/*
+        Always mount MonthCalendar — swapping Loading → calendar remounted the
+        month FlatList on web and snapped to a wrong grid while the title stayed
+        on the focus month. Progress dots fill in once appData hydrates.
+      */}
+      <View style={styles.content}>
+        {!hydrated ? (
+          <View style={styles.loadingInline} pointerEvents="none">
+            <ActivityIndicator color={theme.primary} />
+          </View>
+        ) : null}
+        <MonthCalendar
+          year={year}
+          monthIndex={monthIndex}
+          todayKey={effectiveToday}
+          focusKey={focusParam}
+          progressForDay={progressForDay}
+          onSelectDay={onSelectDay}
+          onMonthChange={onMonthChange}
+        />
+      </View>
     </SheetPanel>
   );
 }
@@ -125,9 +142,10 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     paddingHorizontal: 4,
   },
-  loading: {
-    minHeight: 280,
-    alignItems: 'center',
-    justifyContent: 'center',
+  loadingInline: {
+    position: 'absolute',
+    top: 8,
+    right: 12,
+    zIndex: 1,
   },
 });
