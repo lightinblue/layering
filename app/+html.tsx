@@ -26,9 +26,24 @@ export default function Root({ children }: { children: ReactNode }) {
         <meta name="application-name" content="포개" />
         <meta
           name="description"
-          content="포개 — 망각곡선 기반 복습 스케줄러 (모바일 웹)"
+          content="오늘의 공부를 여섯 겹으로 포개요. 망각곡선에 맞춰 1·3·7·15·30·60일 복습."
         />
         <title>포개</title>
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://pogae-planner.site/" />
+        <meta property="og:title" content="포개" />
+        <meta
+          property="og:description"
+          content="오늘의 공부를 여섯 겹으로 포개요. 망각곡선에 맞춰 1·3·7·15·30·60일 복습."
+        />
+        <meta property="og:image" content="https://pogae-planner.site/favicon.ico" />
+        <meta property="og:locale" content="ko_KR" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="포개" />
+        <meta
+          name="twitter:description"
+          content="오늘의 공부를 여섯 겹으로 포개요. 망각곡선에 맞춰 1·3·7·15·30·60일 복습."
+        />
         {/* Same asset as native AppIcon / assets/images/icon.png */}
         <link rel="icon" type="image/png" href="/favicon.png" />
         <link rel="apple-touch-icon" href="/favicon.png" />

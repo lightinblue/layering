@@ -37,7 +37,7 @@
       "favicon": "./assets/images/favicon.png",
       "name": "포개",
       "shortName": "포개",
-      "description": "망각곡선 기반 복습 스케줄러",
+      "description": "오늘의 공부를 여섯 겹으로 포개요. 망각곡선에 맞춰 1·3·7·15·30·60일 복습.",
       "themeColor": "#1991ff",
       "backgroundColor": "#ffffff",
       "lang": "ko"
