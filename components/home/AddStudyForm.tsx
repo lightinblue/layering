@@ -394,7 +394,21 @@ export function AddStudyForm({
     () => chipPalette[0] ?? '#F65E83',
   );
   const draftInputRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const titleInputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [chipHint, setChipHint] = useState<string | null>(null);
+
+  // Auto-focus 학습 내용 on create (web needs a short retry; native autoFocus ok).
+  useEffect(() => {
+    if (subjectsOnly || isEdit) return;
+    const focus = () => titleInputRef.current?.focus();
+    const raf = requestAnimationFrame(focus);
+    const retry =
+      Platform.OS === 'web' ? window.setTimeout(focus, 80) : null;
+    return () => {
+      cancelAnimationFrame(raf);
+      if (retry != null) window.clearTimeout(retry);
+    };
+  }, [subjectsOnly, isEdit]);
   const [deleteArmed, setDeleteArmed] = useState<string | null>(null);
   const deleteArmedRef = useRef<string | null>(null);
   const [draggingName, setDraggingName] = useState<string | null>(null);
@@ -1073,12 +1087,14 @@ export function AddStudyForm({
           학습 내용
         </Text>
         <TextInput
+          ref={titleInputRef}
           value={title}
           onChangeText={setTitle}
           placeholder="1-3단원 / p. 22-36"
           placeholderTextColor={colors.mutedLight}
           // New typing capped at 40; legacy longer values stay visible until save clamp.
           maxLength={titleMaxLength}
+          autoFocus={!isEdit}
           style={[
             styles.input,
             { backgroundColor: colors.surface, color: colors.body },

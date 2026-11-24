@@ -831,22 +831,13 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     [base],
   );
 
-  const selectDayFromCalendar = useCallback(
-    (dateKey: string) => {
-      const contained = flattenWeeks(base.weeks).some(
-        (d) => d.dateKey === dateKey,
-      );
-      if (contained) {
-        setSelectedKey(dateKey);
-        setWeekIndex(weekIndexForDate(base, dateKey));
-        return;
-      }
-      setWeekAnchorKey(dateKey);
-      setSelectedKey(dateKey);
-      setWeekIndex(WEEKS_BEFORE);
-    },
-    [base],
-  );
+  const selectDayFromCalendar = useCallback((dateKey: string) => {
+    // Always rebuild weeks centered on the jump target so far-past / far-future
+    // calendar picks stay inside the strip + content pager (not empty body).
+    setWeekAnchorKey(dateKey);
+    setSelectedKey(dateKey);
+    setWeekIndex(WEEKS_BEFORE);
+  }, []);
 
   const onReviewStudyPress = useCallback((studiedOn: string) => {
     const dateKey = studiedOn.trim();
@@ -966,6 +957,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
           </View>
 
           <DayContentPager
+            key={`${weekAnchorKey ?? 'home'}:${base.weeks[0]?.[0]?.dateKey ?? ''}:${selected.dateKey}`}
             days={allDays}
             dayIndex={dayIndex}
             width={frameWidth}

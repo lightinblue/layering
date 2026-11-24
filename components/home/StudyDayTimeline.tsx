@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentRef,
   type ElementRef,
 } from 'react';
 import {
@@ -737,6 +738,22 @@ function InlineBandAddRow({
   const names = subjects.map((s) => s.name);
   /** Skip blur-dismiss when save/submit is in flight (blur fires first). */
   const committingRef = useRef(false);
+  const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
+
+  // RN-web often ignores autoFocus — focus after mount (and once more on web).
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+    const webRetry =
+      Platform.OS === 'web'
+        ? window.setTimeout(() => inputRef.current?.focus(), 50)
+        : null;
+    return () => {
+      cancelAnimationFrame(id);
+      if (webRetry != null) window.clearTimeout(webRetry);
+    };
+  }, []);
 
   const submit = () => {
     const match = matchSubjectPrefix(raw, names);
@@ -768,6 +785,7 @@ function InlineBandAddRow({
       style={styles.inlineWrap}>
       <View style={styles.inlineInputRow}>
         <TextInput
+          ref={inputRef}
           value={raw}
           onChangeText={(text) => {
             setRaw(text);
