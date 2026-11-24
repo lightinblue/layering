@@ -18,6 +18,7 @@ import {
   type DayProgress,
 } from '@/utils/day-progress';
 import { parseYearMonth } from '@/utils/month-grid';
+import { queueHomeDay } from '@/utils/pending-home-day';
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -81,14 +82,15 @@ export default function CalendarScreen() {
 
   const onSelectDay = useCallback(
     (dateKey: string) => {
-      // Web: jump Home week strip to that day (no /day study sheet).
+      // Web: jump Home to that day (no /day study sheet).
+      // Queue + back — navigate/dismissTo with ?day= is flaky on Safari SPA modals.
       if (Platform.OS === 'web') {
-        // Prefer navigate+params so Home’s dayParam effect always sees the key.
-        // dismissTo alone sometimes dropped params on Safari / SPA.
-        router.navigate({
-          pathname: '/',
-          params: { day: dateKey },
-        });
+        queueHomeDay(dateKey);
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.navigate('/');
+        }
         return;
       }
       // Native: open the day study detail (same surface as home summary).

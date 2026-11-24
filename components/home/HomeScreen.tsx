@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   AppState,
   FlatList,
+  type GestureResponderEvent,
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -120,6 +121,7 @@ import {
   WEEKS_BEFORE,
 } from '@/utils/home-from-app-data';
 import { haptics } from '@/utils/haptics';
+import { consumeHomeDay } from '@/utils/pending-home-day';
 
 const REVIEW_COLS = 3;
 
@@ -856,6 +858,18 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     },
     [base],
   );
+  const selectDayFromCalendarRef = useRef(selectDayFromCalendar);
+  selectDayFromCalendarRef.current = selectDayFromCalendar;
+
+  // Web calendar sheet queues a day then router.back() — apply on focus.
+  // (Safari / Expo Router often drop navigate({ params: { day } }) on modals.)
+  useFocusEffect(
+    useCallback(() => {
+      const pending = consumeHomeDay();
+      if (!pending || !isDateKey(pending)) return;
+      selectDayFromCalendarRef.current(pending);
+    }, []),
+  );
 
   const onReviewStudyPress = useCallback((studiedOn: string) => {
     const dateKey = studiedOn.trim();
@@ -1082,6 +1096,82 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   );
 }
 
+/**
+ * Web: horizontal swipe without FlatList. RN-web paging FlatLists ignore
+ * initialScrollIndex (strip stuck on Aug/Sep while header shows today) and
+ * often never fire momentum-end after programmatic scrollToOffset, so the next
+ * user swipe is treated as programmatic and snaps back (date never changes).
+ *
+ * Uses bubbling touch handlers (not RNGH Pan) so child Pressables still tap —
+ * Pan previously raced checks on web study rows. Mouse handlers help desktop.
+ */
+function useWebHorizontalSwipe(
+  onSwipeLeft: () => void,
+  onSwipeRight: () => void,
+) {
+  const startX = useRef<number | null>(null);
+  const startY = useRef<number | null>(null);
+
+  const begin = useCallback((x: number, y: number) => {
+    startX.current = x;
+    startY.current = y;
+  }, []);
+
+  const finish = useCallback(
+    (x: number, y: number) => {
+      if (startX.current == null || startY.current == null) return;
+      const dx = x - startX.current;
+      const dy = y - startY.current;
+      startX.current = null;
+      startY.current = null;
+      if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+      if (dx < 0) onSwipeLeft();
+      else onSwipeRight();
+    },
+    [onSwipeLeft, onSwipeRight],
+  );
+
+  const cancel = useCallback(() => {
+    startX.current = null;
+    startY.current = null;
+  }, []);
+
+  const onTouchStart = useCallback(
+    (e: GestureResponderEvent) => {
+      const touch = e.nativeEvent.touches[0];
+      if (!touch) return;
+      begin(touch.pageX, touch.pageY);
+    },
+    [begin],
+  );
+
+  const onTouchEnd = useCallback(
+    (e: GestureResponderEvent) => {
+      const touch = e.nativeEvent.changedTouches[0];
+      if (!touch) {
+        cancel();
+        return;
+      }
+      finish(touch.pageX, touch.pageY);
+    },
+    [cancel, finish],
+  );
+
+  return {
+    onTouchStart,
+    onTouchEnd,
+    onTouchCancel: cancel,
+    // react-native-web forwards these to DOM for desktop drag testing.
+    onMouseDown: (e: { nativeEvent: { pageX: number; pageY: number } }) => {
+      begin(e.nativeEvent.pageX, e.nativeEvent.pageY);
+    },
+    onMouseUp: (e: { nativeEvent: { pageX: number; pageY: number } }) => {
+      finish(e.nativeEvent.pageX, e.nativeEvent.pageY);
+    },
+    onMouseLeave: cancel,
+  };
+}
+
 function WeekStripPager({
   weeks,
   weekIndex,
@@ -1102,25 +1192,86 @@ function WeekStripPager({
   onWeekChange: (weekIndex: number, weekdayIndex: number) => void;
 }) {
   const styles = useHomeStyles();
+  const cellWidth = width / 7;
+
+  const goPrevWeek = useCallback(() => {
+    if (weekIndex <= 0) return;
+    onWeekChange(weekIndex - 1, weekdayIndex);
+  }, [onWeekChange, weekIndex, weekdayIndex]);
+
+  const goNextWeek = useCallback(() => {
+    if (weekIndex >= weeks.length - 1) return;
+    onWeekChange(weekIndex + 1, weekdayIndex);
+  }, [onWeekChange, weekIndex, weekdayIndex, weeks.length]);
+
+  const webSwipe = useWebHorizontalSwipe(goNextWeek, goPrevWeek);
+
+  // Web: render the selected week only — scroll position cannot desync.
+  if (Platform.OS === 'web') {
+    const days = weeks[weekIndex] ?? weeks[0];
+    if (!days) return null;
+    return (
+      <View style={[styles.weekPager, { width }]} {...webSwipe}>
+        <WeekStripPage
+          days={days}
+          width={width}
+          cellWidth={cellWidth}
+          selectedKey={selectedKey}
+          accentColor={accentColor}
+          onSelectDay={onSelectDay}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <NativeWeekStripPager
+      weeks={weeks}
+      weekIndex={weekIndex}
+      selectedKey={selectedKey}
+      weekdayIndex={weekdayIndex}
+      width={width}
+      cellWidth={cellWidth}
+      accentColor={accentColor}
+      onSelectDay={onSelectDay}
+      onWeekChange={onWeekChange}
+    />
+  );
+}
+
+function NativeWeekStripPager({
+  weeks,
+  weekIndex,
+  selectedKey,
+  weekdayIndex,
+  width,
+  cellWidth,
+  accentColor,
+  onSelectDay,
+  onWeekChange,
+}: {
+  weeks: HomeWeekDay[][];
+  weekIndex: number;
+  selectedKey: string;
+  weekdayIndex: number;
+  width: number;
+  cellWidth: number;
+  accentColor: string;
+  onSelectDay: (dateKey: string) => void;
+  onWeekChange: (weekIndex: number, weekdayIndex: number) => void;
+}) {
+  const styles = useHomeStyles();
   const listRef = useRef<FlatList<HomeWeekDay[]>>(null);
-  // -1 forces first scrollToIndex — RN-web often ignores initialScrollIndex (stays at 0 ≈ Aug).
+  // -1 forces first scrollToIndex — RN-web often ignores initialScrollIndex.
   const settledIndexRef = useRef(-1);
   const draggingRef = useRef(false);
-  /** True while we drive scrollToOffset/Index — distinguishes from user drag. */
   const programmaticRef = useRef(false);
 
   const scrollStripToWeek = useCallback(
     (index: number, animated: boolean) => {
       if (width <= 0) return;
       programmaticRef.current = true;
-      if (Platform.OS === 'web') {
-        listRef.current?.scrollToOffset({
-          offset: index * width,
-          animated: false,
-        });
-      } else {
-        listRef.current?.scrollToIndex({ index, animated });
-      }
+      listRef.current?.scrollToIndex({ index, animated });
     },
     [width],
   );
@@ -1128,21 +1279,16 @@ function WeekStripPager({
   useEffect(() => {
     if (width <= 0) return;
     if (draggingRef.current) return;
-    // Web: always re-assert offset — RN-web often leaves the strip on a far week
-    // while weekIndex/selectedKey stay on today (header 24 vs strip 6–12).
-    if (Platform.OS !== 'web' && settledIndexRef.current === weekIndex) return;
+    if (settledIndexRef.current === weekIndex) return;
     const prev = settledIndexRef.current;
     const delta = prev < 0 ? Number.POSITIVE_INFINITY : Math.abs(weekIndex - prev);
     const animate =
-      Platform.OS !== 'web' &&
-      prev >= 0 &&
-      delta > 0 &&
-      delta <= JUMP_ANIMATE_MAX_DELTA;
+      prev >= 0 && delta > 0 && delta <= JUMP_ANIMATE_MAX_DELTA;
     settledIndexRef.current = weekIndex;
     requestAnimationFrame(() => {
       scrollStripToWeek(weekIndex, animate);
     });
-  }, [weekIndex, width, selectedKey, scrollStripToWeek]);
+  }, [weekIndex, width, scrollStripToWeek]);
 
   const settleUserOffset = useCallback(
     (offsetX: number) => {
@@ -1159,11 +1305,8 @@ function WeekStripPager({
 
   const onScrollEndDrag = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      // Zero-velocity releases often skip onMomentumScrollEnd on RN-web, which
-      // left draggingRef stuck true and blocked strip sync. Clear here always.
       draggingRef.current = false;
       const vx = e.nativeEvent.velocity?.x;
-      // Settle now when momentum is unlikely; otherwise momentum end settles.
       if (vx == null || Math.abs(vx) < 0.05) {
         settleUserOffset(e.nativeEvent.contentOffset.x);
       }
@@ -1201,8 +1344,6 @@ function WeekStripPager({
     [width],
   );
 
-  const cellWidth = width / 7;
-
   const renderWeek = useCallback(
     ({ item: days }: { item: HomeWeekDay[] }) => (
       <WeekStripPage
@@ -1231,24 +1372,15 @@ function WeekStripPager({
       renderItem={renderWeek}
       getItemLayout={getItemLayout}
       initialScrollIndex={weekIndex}
-      {...(Platform.OS === 'web' && width > 0
-        ? { contentOffset: { x: weekIndex * width, y: 0 } }
-        : {})}
       onScrollBeginDrag={() => {
         draggingRef.current = true;
+        programmaticRef.current = false;
       }}
       onScrollEndDrag={onScrollEndDrag}
       onMomentumScrollEnd={onMomentumScrollEnd}
       onScrollToIndexFailed={({ index }) => {
         requestAnimationFrame(() => {
-          if (Platform.OS === 'web' && width > 0) {
-            listRef.current?.scrollToOffset({
-              offset: index * width,
-              animated: false,
-            });
-          } else {
-            listRef.current?.scrollToIndex({ index, animated: false });
-          }
+          listRef.current?.scrollToIndex({ index, animated: false });
         });
       }}
       style={[styles.weekPager, { width }]}
@@ -1396,6 +1528,69 @@ function WeekDayCell({
   );
 }
 
+function DayPageBody({
+  day,
+  width,
+  contentWidth,
+  reviewCardWidth,
+  todayKey,
+  selectedDateKey,
+  accent,
+  accentSoft,
+  colorByName,
+  pageHeight,
+  fillWebHeight,
+  onOpenDay,
+  onToggle,
+  onDetail,
+}: {
+  day: HomeWeekDay;
+  width: number;
+  contentWidth: number;
+  reviewCardWidth: number;
+  todayKey: string;
+  selectedDateKey: string;
+  accent: string;
+  accentSoft: string;
+  colorByName: Record<string, string>;
+  pageHeight: number;
+  fillWebHeight: boolean;
+  onOpenDay: (dateKey: string) => void;
+  onToggle: (dateKey: string, card: HomeReviewCard) => void;
+  onDetail: (card: HomeReviewCard) => void;
+}) {
+  const styles = useHomeStyles();
+  const dayIsToday = day.dateKey === todayKey;
+  return (
+    <View
+      style={[
+        styles.dayPage,
+        { width },
+        pageHeight > 0 ? { height: pageHeight } : null,
+        fillWebHeight ? styles.dayPageWeb : null,
+      ]}>
+      <View style={[styles.sections, { maxWidth: contentWidth }]}>
+        <StudyDaySummary
+          studies={day.studies}
+          isToday={dayIsToday}
+          colorByName={colorByName}
+          onOpenDay={() => onOpenDay(selectedDateKey)}
+        />
+        <ReviewSection
+          reviews={day.reviews}
+          cardWidth={reviewCardWidth}
+          isToday={dayIsToday}
+          accent={accent}
+          accentSoft={accentSoft}
+          colorByName={colorByName}
+          onToggle={(card) => onToggle(day.dateKey, card)}
+          onDetail={onDetail}
+        />
+      </View>
+    </View>
+  );
+}
+
 function DayContentPager({
   days,
   dayIndex,
@@ -1429,37 +1624,115 @@ function DayContentPager({
   onDetail: (card: HomeReviewCard) => void;
 }) {
   const styles = useHomeStyles();
+
+  const goPrevDay = useCallback(() => {
+    if (dayIndex <= 0) return;
+    onDayChange(dayIndex - 1);
+  }, [dayIndex, onDayChange]);
+
+  const goNextDay = useCallback(() => {
+    if (dayIndex >= days.length - 1) return;
+    onDayChange(dayIndex + 1);
+  }, [dayIndex, days.length, onDayChange]);
+
+  const webSwipe = useWebHorizontalSwipe(goNextDay, goPrevDay);
+
+  // Web: one day from selectedKey — no FlatList scroll offset to drift.
+  if (Platform.OS === 'web') {
+    const day = days[dayIndex] ?? days[0];
+    if (!day) return null;
+    return (
+      <View style={[styles.dayPager, { width }]} {...webSwipe}>
+        <DayPageBody
+          day={day}
+          width={width}
+          contentWidth={contentWidth}
+          reviewCardWidth={reviewCardWidth}
+          todayKey={todayKey}
+          selectedDateKey={selectedDateKey}
+          accent={accent}
+          accentSoft={accentSoft}
+          colorByName={colorByName}
+          pageHeight={0}
+          fillWebHeight
+          onOpenDay={onOpenDay}
+          onToggle={onToggle}
+          onDetail={onDetail}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <NativeDayContentPager
+      days={days}
+      dayIndex={dayIndex}
+      width={width}
+      contentWidth={contentWidth}
+      reviewCardWidth={reviewCardWidth}
+      todayKey={todayKey}
+      selectedDateKey={selectedDateKey}
+      accent={accent}
+      accentSoft={accentSoft}
+      colorByName={colorByName}
+      onDayChange={onDayChange}
+      onOpenDay={onOpenDay}
+      onToggle={onToggle}
+      onDetail={onDetail}
+    />
+  );
+}
+
+function NativeDayContentPager({
+  days,
+  dayIndex,
+  width,
+  contentWidth,
+  reviewCardWidth,
+  todayKey,
+  selectedDateKey,
+  accent,
+  accentSoft,
+  colorByName,
+  onDayChange,
+  onOpenDay,
+  onToggle,
+  onDetail,
+}: {
+  days: HomeWeekDay[];
+  dayIndex: number;
+  width: number;
+  contentWidth: number;
+  reviewCardWidth: number;
+  todayKey: string;
+  selectedDateKey: string;
+  accent: string;
+  accentSoft: string;
+  colorByName: Record<string, string>;
+  onDayChange: (dayIndex: number) => void;
+  onOpenDay: (dateKey: string) => void;
+  onToggle: (dateKey: string, card: HomeReviewCard) => void;
+  onDetail: (card: HomeReviewCard) => void;
+}) {
+  const styles = useHomeStyles();
   const listRef = useRef<FlatList<HomeWeekDay>>(null);
-  // -1 forces first scrollToIndex — RN-web often ignores initialScrollIndex (stays at 0 ≈ Aug).
   const settledIndexRef = useRef(-1);
   const draggingRef = useRef(false);
   const programmaticRef = useRef(false);
-  /**
-   * Cross-axis size so each page fills to the content bottom (empty review still swipes).
-   * Web: skip measured height — 0→N updates re-render every page and flicker empty state.
-   */
+  /** Cross-axis size so each page fills to the content bottom. */
   const [pageHeight, setPageHeight] = useState(0);
-  const measurePageHeight = Platform.OS !== 'web';
   const windowStartKey = days[0]?.dateKey ?? '';
 
   const scrollDayToIndex = useCallback(
     (index: number, animated: boolean) => {
       if (width <= 0) return;
       programmaticRef.current = true;
-      if (Platform.OS === 'web') {
-        listRef.current?.scrollToOffset({
-          offset: index * width,
-          animated: false,
-        });
-      } else {
-        listRef.current?.scrollToIndex({ index, animated });
-      }
+      listRef.current?.scrollToIndex({ index, animated });
     },
     [width],
   );
 
   useEffect(() => {
-    // Week window rebased (new dateKeys) — force scroll sync even if index matches.
     settledIndexRef.current = -1;
   }, [windowStartKey]);
 
@@ -1469,13 +1742,8 @@ function DayContentPager({
     if (settledIndexRef.current === dayIndex) return;
     const prev = settledIndexRef.current;
     const delta = prev < 0 ? Number.POSITIVE_INFINITY : Math.abs(dayIndex - prev);
-    // Near jumps (incl. FAB 「오늘」) animate — 슈루룩; far jumps snap.
-    // Web: never animate pager jumps — animated scrollToIndex fights layout and flickers.
     const animate =
-      Platform.OS !== 'web' &&
-      prev >= 0 &&
-      delta > 0 &&
-      delta <= JUMP_ANIMATE_MAX_DELTA;
+      prev >= 0 && delta > 0 && delta <= JUMP_ANIMATE_MAX_DELTA;
     settledIndexRef.current = dayIndex;
     requestAnimationFrame(() => {
       scrollDayToIndex(dayIndex, animate);
@@ -1497,7 +1765,6 @@ function DayContentPager({
 
   const onScrollEndDrag = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      // Clear even when momentum never fires (web zero-velocity swipe).
       draggingRef.current = false;
       const vx = e.nativeEvent.velocity?.x;
       if (vx == null || Math.abs(vx) < 0.05) {
@@ -1538,53 +1805,35 @@ function DayContentPager({
   );
 
   const renderDay = useCallback(
-    ({ item: day }: { item: HomeWeekDay }) => {
-      const dayIsToday = day.dateKey === todayKey;
-      return (
-        <View
-          style={[
-            styles.dayPage,
-            { width },
-            measurePageHeight && pageHeight > 0
-              ? { height: pageHeight }
-              : Platform.OS === 'web'
-                ? styles.dayPageWeb
-                : null,
-          ]}>
-          <View style={[styles.sections, { maxWidth: contentWidth }]}>
-            <StudyDaySummary
-              studies={day.studies}
-              isToday={dayIsToday}
-              colorByName={colorByName}
-              onOpenDay={() => onOpenDay(selectedDateKey)}
-            />
-            <ReviewSection
-              reviews={day.reviews}
-              cardWidth={reviewCardWidth}
-              isToday={dayIsToday}
-              accent={accent}
-              accentSoft={accentSoft}
-              colorByName={colorByName}
-              onToggle={(card) => onToggle(day.dateKey, card)}
-              onDetail={onDetail}
-            />
-          </View>
-        </View>
-      );
-    },
+    ({ item: day }: { item: HomeWeekDay }) => (
+      <DayPageBody
+        day={day}
+        width={width}
+        contentWidth={contentWidth}
+        reviewCardWidth={reviewCardWidth}
+        todayKey={todayKey}
+        selectedDateKey={selectedDateKey}
+        accent={accent}
+        accentSoft={accentSoft}
+        colorByName={colorByName}
+        pageHeight={pageHeight}
+        fillWebHeight={false}
+        onOpenDay={onOpenDay}
+        onToggle={onToggle}
+        onDetail={onDetail}
+      />
+    ),
     [
       accent,
       accentSoft,
       colorByName,
       contentWidth,
-      measurePageHeight,
       onOpenDay,
       onDetail,
       onToggle,
       pageHeight,
       reviewCardWidth,
       selectedDateKey,
-      styles,
       todayKey,
       width,
     ],
@@ -1604,40 +1853,23 @@ function DayContentPager({
       renderItem={renderDay}
       getItemLayout={getItemLayout}
       initialScrollIndex={dayIndex}
-      {...(Platform.OS === 'web' && width > 0
-        ? { contentOffset: { x: dayIndex * width, y: 0 } }
-        : {})}
       onScrollBeginDrag={() => {
         draggingRef.current = true;
+        programmaticRef.current = false;
       }}
       onScrollEndDrag={onScrollEndDrag}
       onMomentumScrollEnd={onMomentumScrollEnd}
-      onLayout={
-        measurePageHeight
-          ? (e) => {
-              const next = Math.round(e.nativeEvent.layout.height);
-              if (next > 0 && next !== pageHeight) setPageHeight(next);
-            }
-          : undefined
-      }
+      onLayout={(e) => {
+        const next = Math.round(e.nativeEvent.layout.height);
+        if (next > 0 && next !== pageHeight) setPageHeight(next);
+      }}
       onScrollToIndexFailed={({ index }) => {
         requestAnimationFrame(() => {
-          if (Platform.OS === 'web' && width > 0) {
-            listRef.current?.scrollToOffset({
-              offset: index * width,
-              animated: false,
-            });
-          } else {
-            listRef.current?.scrollToIndex({ index, animated: false });
-          }
+          listRef.current?.scrollToIndex({ index, animated: false });
         });
       }}
       style={[styles.dayPager, { width }]}
-      extraData={
-        measurePageHeight
-          ? `${pageHeight}:${days.length}:${selectedDateKey}`
-          : `${days.length}:${selectedDateKey}`
-      }
+      extraData={`${pageHeight}:${days.length}:${selectedDateKey}`}
     />
   );
 }

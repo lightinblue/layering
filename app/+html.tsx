@@ -26,7 +26,7 @@ export default function Root({ children }: { children: ReactNode }) {
         <meta name="application-name" content="포개" />
         <meta
           name="description"
-          content="오늘의 공부를 여섯 겹으로 포개요. 망각곡선에 맞춰 1·3·7·15·30·60일 복습."
+          content="오늘의 공부를 여섯 겹으로 포개요."
         />
         <title>포개</title>
         <meta property="og:type" content="website" />
@@ -34,7 +34,7 @@ export default function Root({ children }: { children: ReactNode }) {
         <meta property="og:title" content="포개" />
         <meta
           property="og:description"
-          content="오늘의 공부를 여섯 겹으로 포개요. 망각곡선에 맞춰 1·3·7·15·30·60일 복습."
+          content="오늘의 공부를 여섯 겹으로 포개요."
         />
         <meta property="og:image" content="https://pogae-planner.site/og.png" />
         <meta property="og:image:width" content="1200" />
@@ -44,7 +44,7 @@ export default function Root({ children }: { children: ReactNode }) {
         <meta name="twitter:title" content="포개" />
         <meta
           name="twitter:description"
-          content="오늘의 공부를 여섯 겹으로 포개요. 망각곡선에 맞춰 1·3·7·15·30·60일 복습."
+          content="오늘의 공부를 여섯 겹으로 포개요."
         />
         <meta name="twitter:image" content="https://pogae-planner.site/og.png" />
         {/* Same asset as native AppIcon / assets/images/icon.png */}

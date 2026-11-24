@@ -14,8 +14,7 @@ const DIST = path.join(ROOT, 'dist-web');
 const DOMAIN = 'pogae-planner.site';
 const SITE_URL = `https://${DOMAIN}/`;
 const OG_TITLE = '포개';
-const OG_DESCRIPTION =
-  '오늘의 공부를 여섯 겹으로 포개요. 망각곡선에 맞춰 1·3·7·15·30·60일 복습.';
+const OG_DESCRIPTION = '오늘의 공부를 여섯 겹으로 포개요.';
 const OG_IMAGE = `${SITE_URL}og.png`;
 
 function mustExist(file) {
