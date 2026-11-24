@@ -15,6 +15,7 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -831,13 +832,24 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     [base],
   );
 
-  const selectDayFromCalendar = useCallback((dateKey: string) => {
-    // Always rebuild weeks centered on the jump target so far-past / far-future
-    // calendar picks stay inside the strip + content pager (not empty body).
-    setWeekAnchorKey(dateKey);
-    setSelectedKey(dateKey);
-    setWeekIndex(WEEKS_BEFORE);
-  }, []);
+  const selectDayFromCalendar = useCallback(
+    (dateKey: string) => {
+      const contained = flattenWeeks(base.weeks).some(
+        (d) => d.dateKey === dateKey,
+      );
+      if (contained) {
+        // In-window: scroll only — remounting the pager caused empty-state flicker.
+        setSelectedKey(dateKey);
+        setWeekIndex(weekIndexForDate(base, dateKey));
+        return;
+      }
+      // Far jump: recenter the week window so the day exists in strip + pager.
+      setWeekAnchorKey(dateKey);
+      setSelectedKey(dateKey);
+      setWeekIndex(WEEKS_BEFORE);
+    },
+    [base],
+  );
 
   const onReviewStudyPress = useCallback((studiedOn: string) => {
     const dateKey = studiedOn.trim();
@@ -856,8 +868,20 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 
   const goToday = useCallback(() => {
     haptics.todayJump();
-    selectDayFromCalendar(todayKey);
-  }, [selectDayFromCalendar, todayKey]);
+    // Restore default today-centered window (clears a far calendar weekAnchor).
+    setWeekAnchorKey(null);
+    setSelectedKey(todayKey);
+    setWeekIndex(WEEKS_BEFORE);
+  }, [todayKey]);
+
+  // If selection falls outside the current week window, recenter (avoids
+  // falling back to allDays[0] ≈ Aug/Sep while the user thinks they're on today).
+  useEffect(() => {
+    if (!hydrated) return;
+    if (allDays.some((d) => d.dateKey === selectedKey)) return;
+    setWeekAnchorKey(selectedKey === todayKey ? null : selectedKey);
+    setWeekIndex(WEEKS_BEFORE);
+  }, [hydrated, allDays, selectedKey, todayKey]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -944,7 +968,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
             </View>
 
             <WeekStripPager
-              key={`${base.todayKey}:${weekAnchorKey ?? 'home'}:${base.weeks[0]?.[0]?.dateKey ?? ''}`}
+              key={`strip:${base.weeks[0]?.[0]?.dateKey ?? 'x'}`}
               weeks={base.weeks}
               weekIndex={weekIndex}
               selectedKey={selected.dateKey}
@@ -957,7 +981,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
           </View>
 
           <DayContentPager
-            key={`${weekAnchorKey ?? 'home'}:${base.weeks[0]?.[0]?.dateKey ?? ''}:${selected.dateKey}`}
+            key={`pager:${base.weeks[0]?.[0]?.dateKey ?? 'x'}`}
             days={allDays}
             dayIndex={dayIndex}
             width={frameWidth}
@@ -1073,7 +1097,11 @@ function WeekStripPager({
     if (settledIndexRef.current === weekIndex) return;
     const prev = settledIndexRef.current;
     const delta = prev < 0 ? Number.POSITIVE_INFINITY : Math.abs(weekIndex - prev);
-    const animate = prev >= 0 && delta > 0 && delta <= JUMP_ANIMATE_MAX_DELTA;
+    const animate =
+      Platform.OS !== 'web' &&
+      prev >= 0 &&
+      delta > 0 &&
+      delta <= JUMP_ANIMATE_MAX_DELTA;
     settledIndexRef.current = weekIndex;
     requestAnimationFrame(() => {
       listRef.current?.scrollToIndex({ index: weekIndex, animated: animate });
@@ -1327,8 +1355,18 @@ function DayContentPager({
   // -1 forces first scrollToIndex — RN-web often ignores initialScrollIndex (stays at 0 ≈ Aug).
   const settledIndexRef = useRef(-1);
   const draggingRef = useRef(false);
-  /** Cross-axis size so each page fills to the content bottom (empty review still swipes). */
+  /**
+   * Cross-axis size so each page fills to the content bottom (empty review still swipes).
+   * Web: skip measured height — 0→N updates re-render every page and flicker empty state.
+   */
   const [pageHeight, setPageHeight] = useState(0);
+  const measurePageHeight = Platform.OS !== 'web';
+  const windowStartKey = days[0]?.dateKey ?? '';
+
+  useEffect(() => {
+    // Week window rebased (new dateKeys) — force scroll sync even if index matches.
+    settledIndexRef.current = -1;
+  }, [windowStartKey]);
 
   useEffect(() => {
     if (width <= 0) return;
@@ -1337,7 +1375,12 @@ function DayContentPager({
     const prev = settledIndexRef.current;
     const delta = prev < 0 ? Number.POSITIVE_INFINITY : Math.abs(dayIndex - prev);
     // Near jumps (incl. FAB 「오늘」) animate — 슈루룩; far jumps snap.
-    const animate = prev >= 0 && delta > 0 && delta <= JUMP_ANIMATE_MAX_DELTA;
+    // Web: never animate pager jumps — animated scrollToIndex fights layout and flickers.
+    const animate =
+      Platform.OS !== 'web' &&
+      prev >= 0 &&
+      delta > 0 &&
+      delta <= JUMP_ANIMATE_MAX_DELTA;
     settledIndexRef.current = dayIndex;
     requestAnimationFrame(() => {
       listRef.current?.scrollToIndex({ index: dayIndex, animated: animate });
@@ -1381,7 +1424,11 @@ function DayContentPager({
           style={[
             styles.dayPage,
             { width },
-            pageHeight > 0 ? { height: pageHeight } : null,
+            measurePageHeight && pageHeight > 0
+              ? { height: pageHeight }
+              : Platform.OS === 'web'
+                ? styles.dayPageWeb
+                : null,
           ]}>
           <View style={[styles.sections, { maxWidth: contentWidth }]}>
             <StudyDaySummary
@@ -1409,6 +1456,7 @@ function DayContentPager({
       accentSoft,
       colorByName,
       contentWidth,
+      measurePageHeight,
       onOpenDay,
       onDetail,
       onToggle,
@@ -1438,17 +1486,23 @@ function DayContentPager({
         draggingRef.current = true;
       }}
       onMomentumScrollEnd={onMomentumScrollEnd}
-      onLayout={(e) => {
-        const next = Math.round(e.nativeEvent.layout.height);
-        if (next > 0 && next !== pageHeight) setPageHeight(next);
-      }}
+      onLayout={
+        measurePageHeight
+          ? (e) => {
+              const next = Math.round(e.nativeEvent.layout.height);
+              if (next > 0 && next !== pageHeight) setPageHeight(next);
+            }
+          : undefined
+      }
       onScrollToIndexFailed={({ index }) => {
         requestAnimationFrame(() => {
           listRef.current?.scrollToIndex({ index, animated: false });
         });
       }}
       style={[styles.dayPager, { width }]}
-      extraData={`${pageHeight}:${days.length}`}
+      extraData={
+        measurePageHeight ? `${pageHeight}:${days.length}` : `${days.length}`
+      }
     />
   );
 }
@@ -1822,6 +1876,11 @@ function createHomeStyles(c: ThemeColors) {
   },
   dayPage: {
     alignItems: 'center',
+  },
+  /** Web: fill pager cross-axis without measuring height (avoids 0→N flicker). */
+  dayPageWeb: {
+    height: '100%',
+    alignSelf: 'stretch',
   },
   weekCell: {
     // Width set per layout (frameWidth / 7) so narrow phones don’t overflow.

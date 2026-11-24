@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -100,14 +100,19 @@ export function StudyDaySummary({
         <ArrowRightIcon size={12} color={colors.muted} />
       </View>
 
-      <Animated.View layout={LAYOUT} style={styles.card}>
+      <Animated.View
+        // Web: layout animations + pager remounts made the empty gray card jitter.
+        layout={Platform.OS === 'web' ? undefined : LAYOUT}
+        style={styles.card}>
         <View style={[styles.press, { backgroundColor: colors.surface }]}>
           {studies.length === 0 ? (
             <Text style={[styles.empty, { color: colors.muted }]}>
               기록이 없어요
             </Text>
           ) : (
-            <Animated.View entering={ENTER} style={styles.previewCol}>
+            <Animated.View
+              entering={Platform.OS === 'web' ? undefined : ENTER}
+              style={styles.previewCol}>
               {groups.map((group) => (
                 <View key={group.subjectName} style={styles.previewRow}>
                   <View
