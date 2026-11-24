@@ -1,5 +1,14 @@
-import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, type ReactNode } from 'react';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
 import type { HomeReviewStudy } from '@/constants/home-types';
 import { fonts } from '@/constants/fonts';
@@ -106,25 +115,13 @@ export function ReviewDetailContent({
             group.items.find((s) => s.studiedOn?.trim())?.studiedOn?.trim() ??
             '';
           const canJumpGroup = Boolean(onStudyPress && groupDate);
+          const cardStyle: StyleProp<ViewStyle> = [
+            styles.card,
+            { backgroundColor: colors.surface },
+          ];
 
-          return (
-            <Pressable
-              key={group.subjectName}
-              disabled={!canJumpGroup}
-              accessibilityRole={canJumpGroup ? 'button' : undefined}
-              accessibilityLabel={
-                canJumpGroup
-                  ? `${group.subjectName} 학습일로 이동`
-                  : undefined
-              }
-              onPress={() => {
-                if (groupDate) onStudyPress?.(groupDate);
-              }}
-              style={({ pressed }) => [
-                styles.card,
-                { backgroundColor: colors.surface },
-                pressed && canJumpGroup && styles.pressed,
-              ]}>
+          const cardInner: ReactNode = (
+            <>
               <Pressable
                 disabled={!canJumpGroup}
                 accessibilityRole={canJumpGroup ? 'button' : undefined}
@@ -195,6 +192,38 @@ export function ReviewDetailContent({
                   );
                 })}
               </View>
+            </>
+          );
+
+          // RN-web maps Pressable → <button>; nesting chip/row Pressables
+          // inside a card Pressable throws hydration / nested-button errors.
+          // Web: View shell; native: keep whole-card Pressable.
+          if (Platform.OS === 'web') {
+            return (
+              <View key={group.subjectName} style={cardStyle}>
+                {cardInner}
+              </View>
+            );
+          }
+
+          return (
+            <Pressable
+              key={group.subjectName}
+              disabled={!canJumpGroup}
+              accessibilityRole={canJumpGroup ? 'button' : undefined}
+              accessibilityLabel={
+                canJumpGroup
+                  ? `${group.subjectName} 학습일로 이동`
+                  : undefined
+              }
+              onPress={() => {
+                if (groupDate) onStudyPress?.(groupDate);
+              }}
+              style={({ pressed }) => [
+                cardStyle,
+                pressed && canJumpGroup && styles.pressed,
+              ]}>
+              {cardInner}
             </Pressable>
           );
         })
