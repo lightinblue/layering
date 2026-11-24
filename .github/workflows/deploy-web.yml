@@ -1,4 +1,9 @@
-# Build Expo web export and deploy to GitHub Pages (apex: pogae-planner.site).
+# Build Expo web export and publish to the `gh-pages` branch (GitHub Pages).
+# Apex custom domain: pogae-planner.site (CNAME in dist-web).
+#
+# Repo Settings → Pages → Source must be: Deploy from a branch → gh-pages / (root).
+# (The github-pages environment only allows main + gh-pages, so Actions
+#  deploy-pages cannot run from the web feature branch.)
 name: Deploy web to GitHub Pages
 
 on:
@@ -9,16 +14,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: pages-gh-pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,18 +39,12 @@ jobs:
       - name: Export web
         run: npm run web:export
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Publish dist-web → gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: dist-web
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist-web
+          force_orphan: true
+          enable_jekyll: false
+          cname: pogae-planner.site
+          commit_message: 'deploy(web): GitHub Pages ${{ github.sha }}'
