@@ -8,6 +8,7 @@ import {
 } from 'react';
 import {
   Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -486,7 +487,8 @@ function DraggableStudyRow({
   };
 
   const pan = useMemo(() => {
-    if (!canReorder) {
+    // Web: Pan + Pressable race → flaky check/edit taps. Reorder stays native.
+    if (!canReorder || Platform.OS === 'web') {
       return Gesture.Pan().enabled(false);
     }
     return Gesture.Pan()
@@ -554,6 +556,14 @@ function DraggableStudyRow({
     if (!onDeferTomorrow) return;
     haptics.select();
     bounce(deferScale);
+    // RN-web Alert.alert is a no-op stub — use window.confirm on web.
+    if (Platform.OS === 'web') {
+      const ok =
+        typeof window !== 'undefined' &&
+        window.confirm('내일로 미룰까요?\n같은 시간대로 옮겨져요.');
+      if (ok) onDeferTomorrow(item.id);
+      return;
+    }
     Alert.alert('내일로 미룰까요?', '같은 시간대로 옮겨져요.', [
       { text: '취소', style: 'cancel' },
       {
@@ -563,96 +573,104 @@ function DraggableStudyRow({
     ]);
   };
 
-  return (
-    <GestureDetector gesture={pan}>
-      <Animated.View
+  const studyMain = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${item.subjectName} ${item.content} 수정`}
+      accessibilityHint={
+        canReorder && Platform.OS !== 'web'
+          ? '길게 눌러 순서를 바꾸거나 다른 시간대로 옮길 수 있어요'
+          : undefined
+      }
+      onPress={() => {
+        haptics.select();
+        onEditStudy(item);
+      }}
+      style={styles.studyMain}>
+      <View
         style={[
-          styles.absoluteRow,
-          { top, height: SLOT_HEIGHT },
-          animatedStyle,
+          styles.chip,
+          {
+            backgroundColor: subjectColor(
+              item.subjectName,
+              item.subjectColor ?? colorByName,
+            ),
+          },
         ]}>
-        <View style={styles.studyRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${item.subjectName} ${item.content} 수정`}
-            accessibilityHint={
-              canReorder
-                ? '길게 눌러 순서를 바꾸거나 다른 시간대로 옮길 수 있어요'
-                : undefined
-            }
-            onPress={() => {
-              haptics.select();
-              onEditStudy(item);
-            }}
-            style={styles.studyMain}>
-            <View
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: subjectColor(
-                    item.subjectName,
-                    item.subjectColor ?? colorByName,
-                  ),
-                },
-              ]}>
-              <Text
-                style={[styles.chipText, { color: colors.onAccent }]}
-                numberOfLines={1}>
-                {item.subjectName}
-              </Text>
-            </View>
-            <View style={[styles.body, { backgroundColor: colors.surface }]}>
-              <Text
-                style={[
-                  styles.bodyText,
-                  {
-                    color: done ? colors.muted : colors.body,
-                  },
-                ]}
-                numberOfLines={1}>
-                {item.content}
-              </Text>
-            </View>
-          </Pressable>
-          {showActions ? (
-            <View style={styles.rowActions}>
-              {onDeferTomorrow ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="내일로 미루기"
-                  hitSlop={10}
-                  onPress={confirmDefer}
-                  style={styles.actionHit}>
-                  <Animated.View style={deferAnimStyle}>
-                    <ArrowRightIcon size={16} color={colors.mutedLight} />
-                  </Animated.View>
-                </Pressable>
-              ) : null}
-              {onToggleDayDone ? (
-                <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: done }}
-                  accessibilityLabel={done ? '완료 해제' : '완료'}
-                  hitSlop={10}
-                  onPress={() => {
-                    bounce(checkScale);
-                    onToggleDayDone(item.id);
-                  }}
-                  style={styles.actionHit}>
-                  <Animated.View style={checkAnimStyle}>
-                    <SoftCheckIcon
-                      size={18}
-                      color={done ? colors.primary : colors.mutedLight}
-                      strokeWidth={done ? 2.6 : 2}
-                    />
-                  </Animated.View>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null}
-        </View>
-      </Animated.View>
-    </GestureDetector>
+        <Text
+          style={[styles.chipText, { color: colors.onAccent }]}
+          numberOfLines={1}>
+          {item.subjectName}
+        </Text>
+      </View>
+      <View style={[styles.body, { backgroundColor: colors.surface }]}>
+        <Text
+          style={[
+            styles.bodyText,
+            {
+              color: done ? colors.muted : colors.body,
+            },
+          ]}
+          numberOfLines={1}>
+          {item.content}
+        </Text>
+      </View>
+    </Pressable>
+  );
+
+  const rowActions = showActions ? (
+    <View style={styles.rowActions}>
+      {onDeferTomorrow ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="내일로 미루기"
+          hitSlop={10}
+          onPress={confirmDefer}
+          style={styles.actionHit}>
+          <Animated.View style={deferAnimStyle}>
+            <ArrowRightIcon size={16} color={colors.mutedLight} />
+          </Animated.View>
+        </Pressable>
+      ) : null}
+      {onToggleDayDone ? (
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: done }}
+          accessibilityLabel={done ? '완료 해제' : '완료'}
+          hitSlop={10}
+          onPress={() => {
+            bounce(checkScale);
+            onToggleDayDone(item.id);
+          }}
+          style={styles.actionHit}>
+          <Animated.View style={checkAnimStyle}>
+            <SoftCheckIcon
+              size={18}
+              color={done ? colors.primary : colors.mutedLight}
+              strokeWidth={done ? 2.6 : 2}
+            />
+          </Animated.View>
+        </Pressable>
+      ) : null}
+    </View>
+  ) : null;
+
+  // Actions sit outside GestureDetector so Pan cannot swallow check/defer taps
+  // (flaky on RN-web when Pressable is nested under a long-press Pan).
+  return (
+    <Animated.View
+      style={[
+        styles.absoluteRow,
+        { top, height: SLOT_HEIGHT },
+        animatedStyle,
+      ]}>
+      <View style={styles.studyRow}>
+        <GestureDetector gesture={pan}>
+          <Animated.View style={styles.studyMainWrap}>{studyMain}</Animated.View>
+        </GestureDetector>
+        {rowActions}
+      </View>
+    </Animated.View>
   );
 }
 
@@ -927,6 +945,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    height: SLOT_HEIGHT,
+  },
+  /** Flex host for GestureDetector → studyMain (actions are siblings). */
+  studyMainWrap: {
+    flex: 1,
+    minWidth: 0,
     height: SLOT_HEIGHT,
   },
   studyMain: {
