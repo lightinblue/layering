@@ -889,6 +889,15 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
     setWeekIndex(WEEKS_BEFORE);
   }, [hydrated, allDays, selectedKey, todayKey]);
 
+  // Keep weekIndex aligned with selectedKey (header). Prevents strip showing
+  // Dec 6–12 while the day number stays on the 24th.
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!allDays.some((d) => d.dateKey === selectedKey)) return;
+    const next = weekIndexForDate(base, selectedKey);
+    if (next !== weekIndex) setWeekIndex(next);
+  }, [hydrated, allDays, selectedKey, base, weekIndex]);
+
   useEffect(() => {
     if (!hydrated) return;
     if (!dayParam || !isDateKey(dayParam)) {
@@ -1098,10 +1107,27 @@ function WeekStripPager({
   const settledIndexRef = useRef(-1);
   const draggingRef = useRef(false);
 
+  const scrollStripToWeek = useCallback(
+    (index: number, animated: boolean) => {
+      if (width <= 0) return;
+      if (Platform.OS === 'web') {
+        listRef.current?.scrollToOffset({
+          offset: index * width,
+          animated: false,
+        });
+      } else {
+        listRef.current?.scrollToIndex({ index, animated });
+      }
+    },
+    [width],
+  );
+
   useEffect(() => {
     if (width <= 0) return;
     if (draggingRef.current) return;
-    if (settledIndexRef.current === weekIndex) return;
+    // Web: always re-assert offset — RN-web often leaves the strip on a far week
+    // while weekIndex/selectedKey stay on today (header 24 vs strip 6–12).
+    if (Platform.OS !== 'web' && settledIndexRef.current === weekIndex) return;
     const prev = settledIndexRef.current;
     const delta = prev < 0 ? Number.POSITIVE_INFINITY : Math.abs(weekIndex - prev);
     const animate =
@@ -1111,16 +1137,9 @@ function WeekStripPager({
       delta <= JUMP_ANIMATE_MAX_DELTA;
     settledIndexRef.current = weekIndex;
     requestAnimationFrame(() => {
-      if (Platform.OS === 'web') {
-        listRef.current?.scrollToOffset({
-          offset: weekIndex * width,
-          animated: false,
-        });
-      } else {
-        listRef.current?.scrollToIndex({ index: weekIndex, animated: animate });
-      }
+      scrollStripToWeek(weekIndex, animate);
     });
-  }, [weekIndex, width]);
+  }, [weekIndex, width, selectedKey, scrollStripToWeek]);
 
   const onMomentumScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -1129,9 +1148,14 @@ function WeekStripPager({
       if (width <= 0) return;
       const next = Math.round(e.nativeEvent.contentOffset.x / width);
       const clamped = Math.max(0, Math.min(weeks.length - 1, next));
-      // Ignore programmatic / mount scroll-end at offset 0 — it was clobbering today → Aug.
+      // Ignore programmatic / mount scroll-end — snap visual back to weekIndex.
       if (!wasDragging) {
         settledIndexRef.current = weekIndex;
+        if (clamped !== weekIndex) {
+          requestAnimationFrame(() => {
+            scrollStripToWeek(weekIndex, false);
+          });
+        }
         return;
       }
       settledIndexRef.current = clamped;
@@ -1139,7 +1163,7 @@ function WeekStripPager({
         onWeekChange(clamped, weekdayIndex);
       }
     },
-    [onWeekChange, weekIndex, weekdayIndex, weeks.length, width],
+    [onWeekChange, scrollStripToWeek, weekIndex, weekdayIndex, weeks.length, width],
   );
 
   const getItemLayout = useCallback(
@@ -1429,9 +1453,24 @@ function DayContentPager({
       if (width <= 0) return;
       const next = Math.round(e.nativeEvent.contentOffset.x / width);
       const clamped = Math.max(0, Math.min(days.length - 1, next));
-      // Ignore programmatic / mount scroll-end at offset 0 — it was clobbering today → Aug.
+      // Ignore programmatic / mount scroll-end — snap visual back to dayIndex.
       if (!wasDragging) {
         settledIndexRef.current = dayIndex;
+        if (clamped !== dayIndex) {
+          requestAnimationFrame(() => {
+            if (Platform.OS === 'web') {
+              listRef.current?.scrollToOffset({
+                offset: dayIndex * width,
+                animated: false,
+              });
+            } else {
+              listRef.current?.scrollToIndex({
+                index: dayIndex,
+                animated: false,
+              });
+            }
+          });
+        }
         return;
       }
       settledIndexRef.current = clamped;

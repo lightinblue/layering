@@ -83,13 +83,8 @@ export default function CalendarScreen() {
     (dateKey: string) => {
       // Web: jump Home week strip to that day (no /day study sheet).
       if (Platform.OS === 'web') {
-        if (typeof router.dismissTo === 'function') {
-          router.dismissTo({
-            pathname: '/',
-            params: { day: dateKey },
-          });
-          return;
-        }
+        // Prefer navigate+params so Home’s dayParam effect always sees the key.
+        // dismissTo alone sometimes dropped params on Safari / SPA.
         router.navigate({
           pathname: '/',
           params: { day: dateKey },
@@ -114,23 +109,27 @@ export default function CalendarScreen() {
 
   return (
     <SheetPanel onClose={onClose}>
-      {!hydrated ? (
-        <View style={styles.loading}>
-          <ActivityIndicator color={theme.primary} />
-        </View>
-      ) : (
-        <View style={styles.content}>
-          <MonthCalendar
-            year={year}
-            monthIndex={monthIndex}
-            todayKey={effectiveToday}
-            focusKey={focusParam}
-            progressForDay={progressForDay}
-            onSelectDay={onSelectDay}
-            onMonthChange={onMonthChange}
-          />
-        </View>
-      )}
+      {/*
+        Always mount MonthCalendar — swapping Loading → calendar remounted the
+        month FlatList on web and snapped to a wrong grid while the title stayed
+        on the focus month. Progress dots fill in once appData hydrates.
+      */}
+      <View style={styles.content}>
+        {!hydrated ? (
+          <View style={styles.loadingInline} pointerEvents="none">
+            <ActivityIndicator color={theme.primary} />
+          </View>
+        ) : null}
+        <MonthCalendar
+          year={year}
+          monthIndex={monthIndex}
+          todayKey={effectiveToday}
+          focusKey={focusParam}
+          progressForDay={progressForDay}
+          onSelectDay={onSelectDay}
+          onMonthChange={onMonthChange}
+        />
+      </View>
     </SheetPanel>
   );
 }
@@ -141,9 +140,10 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     paddingHorizontal: 4,
   },
-  loading: {
-    minHeight: 280,
-    alignItems: 'center',
-    justifyContent: 'center',
+  loadingInline: {
+    position: 'absolute',
+    top: 8,
+    right: 12,
+    zIndex: 1,
   },
 });

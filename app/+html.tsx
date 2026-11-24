@@ -29,6 +29,9 @@ export default function Root({ children }: { children: ReactNode }) {
           content="포개 — 망각곡선 기반 복습 스케줄러 (모바일 웹)"
         />
         <title>포개</title>
+        {/* Same asset as native AppIcon / assets/images/icon.png */}
+        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="apple-touch-icon" href="/favicon.png" />
 
         {/*
           Disable body scrolling on web so ScrollView matches native.
