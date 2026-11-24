@@ -110,9 +110,11 @@ export default function DayTimelineScreen() {
   const colors = useThemeColors();
   const colorScheme = useColorScheme();
   const params = useLocalSearchParams<{ date?: string }>();
+  const paramDate = firstParam(params.date);
+  // Always call todayKey() — never pass the function as a value. Param must be YMD.
   const dateKey =
-    firstParam(params.date) && /^\d{4}-\d{2}-\d{2}$/.test(firstParam(params.date)!)
-      ? firstParam(params.date)!
+    paramDate && /^\d{4}-\d{2}-\d{2}$/.test(paramDate)
+      ? paramDate
       : deviceTodayKey();
 
   const [appData, setAppData] = useState<AppData | null>(null);

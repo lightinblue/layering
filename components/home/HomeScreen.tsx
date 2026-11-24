@@ -714,7 +714,13 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   const goOpenDay = useCallback(
     (dateKey: string) => {
       haptics.select();
-      router.push({ pathname: '/day', params: { date: dateKey } });
+      // Prefer the explicitly selected home day (header) — pager cell dateKeys can
+      // desync on RN-web FlatList and open a far strip day (e.g. Sept).
+      const key =
+        dateKey && /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
+          ? dateKey
+          : deviceTodayKey();
+      router.push({ pathname: '/day', params: { date: key } });
     },
     [router],
   );
@@ -988,6 +994,7 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
             contentWidth={contentWidth}
             reviewCardWidth={reviewCardWidth}
             todayKey={todayKey}
+            selectedDateKey={selected.dateKey}
             accent={theme.primary}
             accentSoft={theme.primarySoft}
             colorByName={colorByName}
@@ -1104,7 +1111,14 @@ function WeekStripPager({
       delta <= JUMP_ANIMATE_MAX_DELTA;
     settledIndexRef.current = weekIndex;
     requestAnimationFrame(() => {
-      listRef.current?.scrollToIndex({ index: weekIndex, animated: animate });
+      if (Platform.OS === 'web') {
+        listRef.current?.scrollToOffset({
+          offset: weekIndex * width,
+          animated: false,
+        });
+      } else {
+        listRef.current?.scrollToIndex({ index: weekIndex, animated: animate });
+      }
     });
   }, [weekIndex, width]);
 
@@ -1167,13 +1181,23 @@ function WeekStripPager({
       renderItem={renderWeek}
       getItemLayout={getItemLayout}
       initialScrollIndex={weekIndex}
+      {...(Platform.OS === 'web' && width > 0
+        ? { contentOffset: { x: weekIndex * width, y: 0 } }
+        : {})}
       onScrollBeginDrag={() => {
         draggingRef.current = true;
       }}
       onMomentumScrollEnd={onMomentumScrollEnd}
       onScrollToIndexFailed={({ index }) => {
         requestAnimationFrame(() => {
-          listRef.current?.scrollToIndex({ index, animated: false });
+          if (Platform.OS === 'web' && width > 0) {
+            listRef.current?.scrollToOffset({
+              offset: index * width,
+              animated: false,
+            });
+          } else {
+            listRef.current?.scrollToIndex({ index, animated: false });
+          }
         });
       }}
       style={[styles.weekPager, { width }]}
@@ -1328,6 +1352,7 @@ function DayContentPager({
   contentWidth,
   reviewCardWidth,
   todayKey,
+  selectedDateKey,
   accent,
   accentSoft,
   colorByName,
@@ -1342,6 +1367,8 @@ function DayContentPager({
   contentWidth: number;
   reviewCardWidth: number;
   todayKey: string;
+  /** Header-selected day — use for /day open so FlatList cell desync can’t open Sept. */
+  selectedDateKey: string;
   accent: string;
   accentSoft: string;
   colorByName: Record<string, string>;
@@ -1383,7 +1410,15 @@ function DayContentPager({
       delta <= JUMP_ANIMATE_MAX_DELTA;
     settledIndexRef.current = dayIndex;
     requestAnimationFrame(() => {
-      listRef.current?.scrollToIndex({ index: dayIndex, animated: animate });
+      if (Platform.OS === 'web') {
+        // scrollToOffset is more reliable than scrollToIndex on RN-web.
+        listRef.current?.scrollToOffset({
+          offset: dayIndex * width,
+          animated: false,
+        });
+      } else {
+        listRef.current?.scrollToIndex({ index: dayIndex, animated: animate });
+      }
     });
   }, [dayIndex, width]);
 
@@ -1435,7 +1470,7 @@ function DayContentPager({
               studies={day.studies}
               isToday={dayIsToday}
               colorByName={colorByName}
-              onOpenDay={() => onOpenDay(day.dateKey)}
+              onOpenDay={() => onOpenDay(selectedDateKey)}
             />
             <ReviewSection
               reviews={day.reviews}
@@ -1462,6 +1497,7 @@ function DayContentPager({
       onToggle,
       pageHeight,
       reviewCardWidth,
+      selectedDateKey,
       styles,
       todayKey,
       width,
@@ -1482,6 +1518,9 @@ function DayContentPager({
       renderItem={renderDay}
       getItemLayout={getItemLayout}
       initialScrollIndex={dayIndex}
+      {...(Platform.OS === 'web' && width > 0
+        ? { contentOffset: { x: dayIndex * width, y: 0 } }
+        : {})}
       onScrollBeginDrag={() => {
         draggingRef.current = true;
       }}
@@ -1496,12 +1535,21 @@ function DayContentPager({
       }
       onScrollToIndexFailed={({ index }) => {
         requestAnimationFrame(() => {
-          listRef.current?.scrollToIndex({ index, animated: false });
+          if (Platform.OS === 'web' && width > 0) {
+            listRef.current?.scrollToOffset({
+              offset: index * width,
+              animated: false,
+            });
+          } else {
+            listRef.current?.scrollToIndex({ index, animated: false });
+          }
         });
       }}
       style={[styles.dayPager, { width }]}
       extraData={
-        measurePageHeight ? `${pageHeight}:${days.length}` : `${days.length}`
+        measurePageHeight
+          ? `${pageHeight}:${days.length}:${selectedDateKey}`
+          : `${days.length}:${selectedDateKey}`
       }
     />
   );
