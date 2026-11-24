@@ -46,7 +46,7 @@ import {
   type TimelineBandId,
 } from '@/constants/study-timeline';
 import { MAX_STUDY_TITLE_LENGTH } from '@/storage/app-data';
-import { radii, subjectColor } from '@/constants/tokens';
+import { radii, subjectColor, textInputFontSize } from '@/constants/tokens';
 import { useThemeColors } from '@/theme/ThemeProvider';
 import { buildTimelineBands } from '@/utils/study-timeline';
 import { haptics } from '@/utils/haptics';
@@ -920,7 +920,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.chip,
     paddingHorizontal: 12,
     fontFamily: fonts.nexonMedium,
-    fontSize: 14,
+    fontSize: textInputFontSize,
   },
   savePill: {
     height: SLOT_HEIGHT,

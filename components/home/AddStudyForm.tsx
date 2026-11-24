@@ -41,6 +41,7 @@ import {
   radii,
   subjectBorderColor,
   subjectColor,
+  textInputFontSize,
 } from '@/constants/tokens';
 
 if (
@@ -1283,7 +1284,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontFamily: fonts.nexonMedium,
-    fontSize: 15,
+    fontSize: textInputFontSize,
     minHeight: 49,
   },
   actionRow: {

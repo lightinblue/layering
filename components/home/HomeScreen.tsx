@@ -508,7 +508,8 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
   /** Bumps on foreground so local “today” recomputes after midnight / TZ. */
   const [clockNonce, setClockNonce] = useState(0);
 
-  const [selectedKey, setSelectedKey] = useState(deviceTodayKey);
+  // Explicit lazy init — avoid passing the todayKey function as state value.
+  const [selectedKey, setSelectedKey] = useState(() => deviceTodayKey());
   const [weekIndex, setWeekIndex] = useState(WEEKS_BEFORE);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState<{
@@ -1070,25 +1071,35 @@ function WeekStripPager({
 }) {
   const styles = useHomeStyles();
   const listRef = useRef<FlatList<HomeWeekDay[]>>(null);
-  const settledIndexRef = useRef(weekIndex);
+  // -1 forces first scrollToIndex — RN-web often ignores initialScrollIndex (stays at 0 ≈ Aug).
+  const settledIndexRef = useRef(-1);
   const draggingRef = useRef(false);
 
   useEffect(() => {
     if (width <= 0) return;
     if (draggingRef.current) return;
     if (settledIndexRef.current === weekIndex) return;
-    const delta = Math.abs(weekIndex - settledIndexRef.current);
-    const animate = delta > 0 && delta <= JUMP_ANIMATE_MAX_DELTA;
+    const prev = settledIndexRef.current;
+    const delta = prev < 0 ? Number.POSITIVE_INFINITY : Math.abs(weekIndex - prev);
+    const animate = prev >= 0 && delta > 0 && delta <= JUMP_ANIMATE_MAX_DELTA;
     settledIndexRef.current = weekIndex;
-    listRef.current?.scrollToIndex({ index: weekIndex, animated: animate });
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({ index: weekIndex, animated: animate });
+    });
   }, [weekIndex, width]);
 
   const onMomentumScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const wasDragging = draggingRef.current;
       draggingRef.current = false;
       if (width <= 0) return;
       const next = Math.round(e.nativeEvent.contentOffset.x / width);
       const clamped = Math.max(0, Math.min(weeks.length - 1, next));
+      // Ignore programmatic / mount scroll-end at offset 0 — it was clobbering today → Aug.
+      if (!wasDragging) {
+        settledIndexRef.current = weekIndex;
+        return;
+      }
       settledIndexRef.current = clamped;
       if (clamped !== weekIndex) {
         onWeekChange(clamped, weekdayIndex);
@@ -1321,7 +1332,8 @@ function DayContentPager({
 }) {
   const styles = useHomeStyles();
   const listRef = useRef<FlatList<HomeWeekDay>>(null);
-  const settledIndexRef = useRef(dayIndex);
+  // -1 forces first scrollToIndex — RN-web often ignores initialScrollIndex (stays at 0 ≈ Aug).
+  const settledIndexRef = useRef(-1);
   const draggingRef = useRef(false);
   /** Cross-axis size so each page fills to the content bottom (empty review still swipes). */
   const [pageHeight, setPageHeight] = useState(0);
@@ -1330,19 +1342,28 @@ function DayContentPager({
     if (width <= 0) return;
     if (draggingRef.current) return;
     if (settledIndexRef.current === dayIndex) return;
-    const delta = Math.abs(dayIndex - settledIndexRef.current);
+    const prev = settledIndexRef.current;
+    const delta = prev < 0 ? Number.POSITIVE_INFINITY : Math.abs(dayIndex - prev);
     // Near jumps (incl. FAB 「오늘」) animate — 슈루룩; far jumps snap.
-    const animate = delta > 0 && delta <= JUMP_ANIMATE_MAX_DELTA;
+    const animate = prev >= 0 && delta > 0 && delta <= JUMP_ANIMATE_MAX_DELTA;
     settledIndexRef.current = dayIndex;
-    listRef.current?.scrollToIndex({ index: dayIndex, animated: animate });
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({ index: dayIndex, animated: animate });
+    });
   }, [dayIndex, width]);
 
   const onMomentumScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const wasDragging = draggingRef.current;
       draggingRef.current = false;
       if (width <= 0) return;
       const next = Math.round(e.nativeEvent.contentOffset.x / width);
       const clamped = Math.max(0, Math.min(days.length - 1, next));
+      // Ignore programmatic / mount scroll-end at offset 0 — it was clobbering today → Aug.
+      if (!wasDragging) {
+        settledIndexRef.current = dayIndex;
+        return;
+      }
       settledIndexRef.current = clamped;
       if (clamped !== dayIndex) {
         onDayChange(clamped);
