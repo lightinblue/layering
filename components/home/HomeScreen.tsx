@@ -3,6 +3,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -12,7 +13,6 @@ import {
   ActivityIndicator,
   AppState,
   FlatList,
-  type GestureResponderEvent,
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -25,6 +25,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -145,6 +146,12 @@ function isDateKey(value: string): boolean {
 
 /** Soft ease-out (300–450ms); interruptible via cancelAnimation. */
 const DATE_SHIFT = {
+  duration: durations.dateShift,
+  easing: Easing.out(Easing.cubic),
+} as const;
+
+/** Web day/week page-flip — same ease-out “슈루룩” as the date header. */
+const PAGE_FLIP = {
   duration: durations.dateShift,
   easing: Easing.out(Easing.cubic),
 } as const;
@@ -1097,79 +1104,161 @@ export default function HomeScreen({ data: dataProp }: HomeScreenProps) {
 }
 
 /**
- * Web: horizontal swipe without FlatList. RN-web paging FlatLists ignore
- * initialScrollIndex (strip stuck on Aug/Sep while header shows today) and
- * often never fire momentum-end after programmatic scrollToOffset, so the next
- * user swipe is treated as programmatic and snaps back (date never changes).
- *
- * Uses bubbling touch handlers (not RNGH Pan) so child Pressables still tap —
- * Pan previously raced checks on web study rows. Mouse handlers help desktop.
+ * Web-only sideways pager: 3 slots (prev|current|next) + Reanimated translateX.
+ * Avoids RN-web FlatList scroll sync bugs while restoring the page-flip “whoosh”.
+ * Pan uses activeOffsetX so child Pressables still receive taps.
  */
-function useWebHorizontalSwipe(
-  onSwipeLeft: () => void,
-  onSwipeRight: () => void,
-) {
-  const startX = useRef<number | null>(null);
-  const startY = useRef<number | null>(null);
+function WebSlidePager({
+  width,
+  index,
+  pageCount,
+  onIndexChange,
+  renderPage,
+  style,
+  fillHeight = false,
+}: {
+  width: number;
+  index: number;
+  pageCount: number;
+  onIndexChange: (next: number) => void;
+  renderPage: (pageIndex: number) => ReactNode;
+  style?: StyleProp<ViewStyle>;
+  /** Day pager fills remaining frame; week strip sizes to content. */
+  fillHeight?: boolean;
+}) {
+  const translateX = useSharedValue(-Math.max(width, 1));
+  const dragOrigin = useSharedValue(-Math.max(width, 1));
+  const indexSv = useSharedValue(index);
+  const pageCountSv = useSharedValue(pageCount);
+  const widthSv = useSharedValue(Math.max(width, 1));
+  const prevIndexRef = useRef(index);
+  /** After a gesture commit, snap translate without a second animation. */
+  const pendingSnapRef = useRef(false);
 
-  const begin = useCallback((x: number, y: number) => {
-    startX.current = x;
-    startY.current = y;
-  }, []);
+  useEffect(() => {
+    indexSv.value = index;
+    pageCountSv.value = pageCount;
+    widthSv.value = Math.max(width, 1);
+  }, [index, indexSv, pageCount, pageCountSv, width, widthSv]);
 
-  const finish = useCallback(
-    (x: number, y: number) => {
-      if (startX.current == null || startY.current == null) return;
-      const dx = x - startX.current;
-      const dy = y - startY.current;
-      startX.current = null;
-      startY.current = null;
-      if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-      if (dx < 0) onSwipeLeft();
-      else onSwipeRight();
+  const commitIndex = useCallback(
+    (next: number) => {
+      pendingSnapRef.current = true;
+      onIndexChange(next);
     },
-    [onSwipeLeft, onSwipeRight],
+    [onIndexChange],
   );
 
-  const cancel = useCallback(() => {
-    startX.current = null;
-    startY.current = null;
-  }, []);
+  useLayoutEffect(() => {
+    if (width <= 0) return;
+    const w = width;
+    if (pendingSnapRef.current) {
+      cancelAnimation(translateX);
+      translateX.value = -w;
+      pendingSnapRef.current = false;
+      prevIndexRef.current = index;
+      return;
+    }
+    const prev = prevIndexRef.current;
+    if (prev === index) {
+      translateX.value = -w;
+      return;
+    }
+    const delta = Math.abs(index - prev);
+    // Only ±1 slides cleanly with a 3-slot track; larger jumps snap.
+    if (delta !== 1) {
+      cancelAnimation(translateX);
+      translateX.value = -w;
+      prevIndexRef.current = index;
+      return;
+    }
+    // Adjacent external jump (e.g. week-strip day tap): slide old→new.
+    const forward = index > prev;
+    cancelAnimation(translateX);
+    translateX.value = forward ? 0 : -2 * w;
+    translateX.value = withTiming(-w, PAGE_FLIP);
+    prevIndexRef.current = index;
+  }, [index, translateX, width]);
 
-  const onTouchStart = useCallback(
-    (e: GestureResponderEvent) => {
-      const touch = e.nativeEvent.touches[0];
-      if (!touch) return;
-      begin(touch.pageX, touch.pageY);
-    },
-    [begin],
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-24, 24])
+        .failOffsetY([-20, 20])
+        .onBegin(() => {
+          'worklet';
+          dragOrigin.value = translateX.value;
+        })
+        .onUpdate((e) => {
+          'worklet';
+          const w = widthSv.value;
+          const i = indexSv.value;
+          const max = pageCountSv.value - 1;
+          let next = dragOrigin.value + e.translationX;
+          // Soft rubber-band at ends.
+          if (i <= 0 && next > -w) {
+            next = -w + (next + w) * 0.35;
+          } else if (i >= max && next < -w) {
+            next = -w + (next + w) * 0.35;
+          }
+          translateX.value = next;
+        })
+        .onEnd((e) => {
+          'worklet';
+          const w = widthSv.value;
+          const i = indexSv.value;
+          const max = pageCountSv.value - 1;
+          const dx = e.translationX;
+          const vx = e.velocityX;
+          const threshold = Math.min(64, w * 0.2);
+          const goNext = i < max && (dx < -threshold || vx < -450);
+          const goPrev = i > 0 && (dx > threshold || vx > 450);
+          if (goNext) {
+            translateX.value = withTiming(-2 * w, PAGE_FLIP, (finished) => {
+              if (finished) runOnJS(commitIndex)(i + 1);
+            });
+          } else if (goPrev) {
+            translateX.value = withTiming(0, PAGE_FLIP, (finished) => {
+              if (finished) runOnJS(commitIndex)(i - 1);
+            });
+          } else {
+            translateX.value = withTiming(-w, PAGE_FLIP);
+          }
+        }),
+    [commitIndex, dragOrigin, indexSv, pageCountSv, translateX, widthSv],
   );
 
-  const onTouchEnd = useCallback(
-    (e: GestureResponderEvent) => {
-      const touch = e.nativeEvent.changedTouches[0];
-      if (!touch) {
-        cancel();
-        return;
-      }
-      finish(touch.pageX, touch.pageY);
-    },
-    [cancel, finish],
-  );
+  const trackStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
-  return {
-    onTouchStart,
-    onTouchEnd,
-    onTouchCancel: cancel,
-    // react-native-web forwards these to DOM for desktop drag testing.
-    onMouseDown: (e: { nativeEvent: { pageX: number; pageY: number } }) => {
-      begin(e.nativeEvent.pageX, e.nativeEvent.pageY);
-    },
-    onMouseUp: (e: { nativeEvent: { pageX: number; pageY: number } }) => {
-      finish(e.nativeEvent.pageX, e.nativeEvent.pageY);
-    },
-    onMouseLeave: cancel,
-  };
+  if (width <= 0 || pageCount <= 0) return null;
+
+  const prev = index > 0 ? index - 1 : null;
+  const next = index < pageCount - 1 ? index + 1 : null;
+  const slotStyle = fillHeight
+    ? ({ width, height: '100%' } as const)
+    : ({ width } as const);
+
+  return (
+    <GestureDetector gesture={pan}>
+      <View style={[style, { width, overflow: 'hidden' }]}>
+        <Animated.View
+          style={[
+            {
+              flexDirection: 'row',
+              width: width * 3,
+              ...(fillHeight ? { height: '100%' as const } : null),
+            },
+            trackStyle,
+          ]}>
+          <View style={slotStyle}>{prev != null ? renderPage(prev) : null}</View>
+          <View style={slotStyle}>{renderPage(index)}</View>
+          <View style={slotStyle}>{next != null ? renderPage(next) : null}</View>
+        </Animated.View>
+      </View>
+    </GestureDetector>
+  );
 }
 
 function WeekStripPager({
@@ -1194,24 +1283,18 @@ function WeekStripPager({
   const styles = useHomeStyles();
   const cellWidth = width / 7;
 
-  const goPrevWeek = useCallback(() => {
-    if (weekIndex <= 0) return;
-    onWeekChange(weekIndex - 1, weekdayIndex);
-  }, [onWeekChange, weekIndex, weekdayIndex]);
+  const onWebWeekIndex = useCallback(
+    (next: number) => {
+      onWeekChange(next, weekdayIndex);
+    },
+    [onWeekChange, weekdayIndex],
+  );
 
-  const goNextWeek = useCallback(() => {
-    if (weekIndex >= weeks.length - 1) return;
-    onWeekChange(weekIndex + 1, weekdayIndex);
-  }, [onWeekChange, weekIndex, weekdayIndex, weeks.length]);
-
-  const webSwipe = useWebHorizontalSwipe(goNextWeek, goPrevWeek);
-
-  // Web: render the selected week only — scroll position cannot desync.
-  if (Platform.OS === 'web') {
-    const days = weeks[weekIndex] ?? weeks[0];
-    if (!days) return null;
-    return (
-      <View style={[styles.weekPager, { width }]} {...webSwipe}>
+  const renderWeekPage = useCallback(
+    (pageIndex: number) => {
+      const days = weeks[pageIndex];
+      if (!days) return null;
+      return (
         <WeekStripPage
           days={days}
           width={width}
@@ -1220,7 +1303,22 @@ function WeekStripPager({
           accentColor={accentColor}
           onSelectDay={onSelectDay}
         />
-      </View>
+      );
+    },
+    [accentColor, cellWidth, onSelectDay, selectedKey, weeks, width],
+  );
+
+  // Web: state-driven 3-slot slide — no FlatList scroll offset to drift.
+  if (Platform.OS === 'web') {
+    return (
+      <WebSlidePager
+        width={width}
+        index={weekIndex}
+        pageCount={weeks.length}
+        onIndexChange={onWebWeekIndex}
+        renderPage={renderWeekPage}
+        style={styles.weekPager}
+      />
     );
   }
 
@@ -1625,24 +1723,11 @@ function DayContentPager({
 }) {
   const styles = useHomeStyles();
 
-  const goPrevDay = useCallback(() => {
-    if (dayIndex <= 0) return;
-    onDayChange(dayIndex - 1);
-  }, [dayIndex, onDayChange]);
-
-  const goNextDay = useCallback(() => {
-    if (dayIndex >= days.length - 1) return;
-    onDayChange(dayIndex + 1);
-  }, [dayIndex, days.length, onDayChange]);
-
-  const webSwipe = useWebHorizontalSwipe(goNextDay, goPrevDay);
-
-  // Web: one day from selectedKey — no FlatList scroll offset to drift.
-  if (Platform.OS === 'web') {
-    const day = days[dayIndex] ?? days[0];
-    if (!day) return null;
-    return (
-      <View style={[styles.dayPager, { width }]} {...webSwipe}>
+  const renderDayPage = useCallback(
+    (pageIndex: number) => {
+      const day = days[pageIndex];
+      if (!day) return null;
+      return (
         <DayPageBody
           day={day}
           width={width}
@@ -1659,7 +1744,36 @@ function DayContentPager({
           onToggle={onToggle}
           onDetail={onDetail}
         />
-      </View>
+      );
+    },
+    [
+      accent,
+      accentSoft,
+      colorByName,
+      contentWidth,
+      days,
+      onDetail,
+      onOpenDay,
+      onToggle,
+      reviewCardWidth,
+      selectedDateKey,
+      todayKey,
+      width,
+    ],
+  );
+
+  // Web: state-driven 3-slot slide — no FlatList scroll offset to drift.
+  if (Platform.OS === 'web') {
+    return (
+      <WebSlidePager
+        width={width}
+        index={dayIndex}
+        pageCount={days.length}
+        onIndexChange={onDayChange}
+        renderPage={renderDayPage}
+        style={styles.dayPager}
+        fillHeight
+      />
     );
   }
 
