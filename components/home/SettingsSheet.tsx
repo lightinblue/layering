@@ -446,6 +446,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 8,
     gap: 22,
+    width: '100%',
+    minWidth: 0,
+    alignSelf: 'stretch',
   },
   title: {
     fontFamily: fonts.nexonMedium,

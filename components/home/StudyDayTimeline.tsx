@@ -930,6 +930,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    width: '100%',
+    minWidth: 0,
   },
   inlineInput: {
     flex: 1,
@@ -942,10 +944,11 @@ const styles = StyleSheet.create({
   },
   savePill: {
     height: SLOT_HEIGHT,
-    paddingHorizontal: 14,
+    paddingHorizontal: Platform.OS === 'web' ? 12 : 14,
     borderRadius: radii.chip,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   savePillText: {
     fontFamily: fonts.nexonMedium,
